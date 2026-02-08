@@ -119,26 +119,56 @@ body {
 
 /* Hero Section */
 .hero {
-  background:
-    linear-gradient(135deg, rgba(37, 99, 235, 0.5) 0%, rgba(29, 78, 216, 0.6) 100%),
-    url('https://upload.wikimedia.org/wikipedia/commons/thumb/a/a4/Flag_of_the_United_States.svg/2560px-Flag_of_the_United_States.svg.png');
-  background-size: cover, cover;
-  background-position: center, center;
-  background-repeat: no-repeat, no-repeat;
   color: var(--white);
   padding: 220px 20px 100px;
   text-align: center;
   position: relative;
   overflow: hidden;
-  animation: flagWave 8s ease-in-out infinite;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -10%;
+  left: -10%;
+  width: 120%;
+  height: 120%;
+  background:
+    linear-gradient(135deg, rgba(10, 30, 100, 0.15) 0%, rgba(15, 25, 80, 0.2) 100%),
+    url('https://upload.wikimedia.org/wikipedia/commons/thumb/a/a4/Flag_of_the_United_States.svg/2560px-Flag_of_the_United_States.svg.png');
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+  animation: flagWave 6s ease-in-out infinite;
+  z-index: 0;
+}
+
+.hero > * {
+  position: relative;
+  z-index: 1;
 }
 
 @keyframes flagWave {
-  0%, 100% {
-    background-position: center, center;
+  0% {
+    transform: scale(1.06) translate(0%, 0%) skewX(0deg);
+  }
+  15% {
+    transform: scale(1.08) translate(1.2%, -0.6%) skewX(-1.8deg);
+  }
+  30% {
+    transform: scale(1.06) translate(-0.6%, 0.6%) skewX(1.2deg);
   }
   50% {
-    background-position: center, 48% 52%;
+    transform: scale(1.1) translate(0.6%, -0.6%) skewX(-1.2deg);
+  }
+  65% {
+    transform: scale(1.06) translate(-1.2%, 0.4%) skewX(1.8deg);
+  }
+  80% {
+    transform: scale(1.08) translate(0.6%, 0.6%) skewX(-0.6deg);
+  }
+  100% {
+    transform: scale(1.06) translate(0%, 0%) skewX(0deg);
   }
 }
 
@@ -186,13 +216,15 @@ body {
 }
 
 .hero .tagline {
-  font-size: 1.5rem;
+  font-size: 2.2rem;
   font-style: italic;
-  font-weight: 300;
+  font-weight: 600;
   margin-bottom: 15px;
+  color: #e0f7fa;
+  letter-spacing: 2px;
   text-shadow:
-    1px 1px 0 rgba(0, 0, 0, 0.2),
-    2px 2px 6px rgba(0, 0, 0, 0.3);
+    2px 2px 0 rgba(0, 0, 0, 0.5),
+    4px 4px 8px rgba(0, 0, 0, 0.4);
 }
 
 .hero-buttons {
@@ -204,16 +236,33 @@ body {
 
 /* Page Header */
 .page-header {
+  color: var(--white);
+  padding: 200px 20px 60px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.page-header::before {
+  content: '';
+  position: absolute;
+  top: -10%;
+  left: -10%;
+  width: 120%;
+  height: 120%;
   background:
-    linear-gradient(135deg, rgba(37, 99, 235, 0.5) 0%, rgba(29, 78, 216, 0.6) 100%),
+    linear-gradient(135deg, rgba(10, 30, 100, 0.15) 0%, rgba(15, 25, 80, 0.2) 100%),
     url('https://upload.wikimedia.org/wikipedia/commons/thumb/a/a4/Flag_of_the_United_States.svg/2560px-Flag_of_the_United_States.svg.png');
   background-size: cover, cover;
   background-position: center, center;
   background-repeat: no-repeat, no-repeat;
-  color: var(--white);
-  padding: 200px 20px 60px;
-  text-align: center;
-  animation: flagWave 8s ease-in-out infinite;
+  animation: flagWave 6s ease-in-out infinite;
+  z-index: 0;
+}
+
+.page-header > * {
+  position: relative;
+  z-index: 1;
 }
 
 .page-header h1 {
@@ -352,22 +401,17 @@ body {
   transform: scale(1.05);
 }
 
-@media (max-width: 900px) {
-  .service-detail-card {
-    flex-direction: column;
-  }
-
-  .service-image {
-    width: 100%;
-    min-width: 100%;
-    height: 200px;
-    order: -1;
-  }
-}
-
 .service-detail-content {
   padding: 30px;
   flex: 1;
+}
+
+.service-inline-img {
+  max-width: 350px;
+  width: 100%;
+  border-radius: 8px;
+  float: right;
+  margin: 0 0 10px 20px;
 }
 
 .service-detail-content h2 {
@@ -453,7 +497,7 @@ body {
 
 .gallery-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(400px, 100%), 1fr));
   gap: 25px;
 }
 
@@ -717,10 +761,26 @@ body {
 
 /* CTA Section */
 .cta {
-  background: var(--dark-color);
+  background: #000000;
   color: var(--white);
   padding: 60px 20px;
   text-align: center;
+}
+
+.cta .cta-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+}
+
+.cta .cta-logo {
+  height: 160px;
+  width: auto;
+}
+
+.cta .cta-text {
+  flex-shrink: 0;
 }
 
 .cta h2 {
@@ -781,30 +841,196 @@ body {
   color: var(--gray-600);
 }
 
-/* Responsive Design */
-@media (max-width: 768px) {
-  .nav-links {
-    display: none;
+/* Hamburger Button */
+.hamburger {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 10px;
+  z-index: 1001;
+}
+
+.hamburger span {
+  display: block;
+  width: 28px;
+  height: 3px;
+  background: #ffffff;
+  border-radius: 3px;
+  transition: all 0.3s;
+}
+
+.hamburger.active span:nth-child(1) {
+  transform: rotate(45deg) translate(5px, 6px);
+}
+
+.hamburger.active span:nth-child(2) {
+  opacity: 0;
+}
+
+.hamburger.active span:nth-child(3) {
+  transform: rotate(-45deg) translate(5px, -6px);
+}
+
+/* Responsive Design - Tablet */
+@media (max-width: 900px) {
+  .service-detail-card {
+    flex-direction: column;
   }
 
-  .nav-container .btn {
+  .service-image {
+    width: 100%;
+    min-width: 100%;
+    height: 200px;
+    order: -1;
+  }
+
+  .features-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .services-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .cta .cta-inner {
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .cta .cta-text {
+    flex-shrink: 1;
+  }
+
+  .cta .cta-logo {
+    height: 100px;
+  }
+
+  .footer-content {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Responsive Design - Mobile */
+@media (max-width: 768px) {
+  .hamburger {
+    display: flex;
+  }
+
+  .nav-links {
     display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #000000;
+    flex-direction: column;
+    padding: 20px;
+    gap: 0;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  }
+
+  .nav-links.open {
+    display: flex;
+  }
+
+  .nav-links li {
+    padding: 12px 0;
+    border-bottom: 1px solid #222;
+  }
+
+  .nav-links li:last-child {
+    border-bottom: none;
+  }
+
+  .nav-links a {
+    font-size: 1.1rem;
+  }
+
+  .logo img {
+    height: 100px;
+  }
+
+  .hero {
+    padding: 160px 20px 60px;
   }
 
   .hero h1 {
-    font-size: 2rem;
+    font-size: 1.8rem;
   }
 
   .hero p {
     font-size: 1rem;
   }
 
+  .hero .veteran-badge {
+    font-size: 1rem;
+    padding: 10px 20px;
+    letter-spacing: 1px;
+  }
+
+  .hero .tagline {
+    font-size: 1.5rem;
+  }
+
   .page-header {
-    padding: 120px 20px 50px;
+    padding: 140px 20px 40px;
   }
 
   .page-header h1 {
-    font-size: 2rem;
+    font-size: 1.8rem;
+  }
+
+  .features-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .features h2,
+  .services-preview h2 {
+    font-size: 1.5rem;
+    margin-bottom: 30px;
+  }
+
+  .services-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .service-inline-img {
+    float: none;
+    margin: 10px 0 15px;
+    max-width: 100%;
+  }
+
+  .service-detail-content {
+    padding: 20px;
+  }
+
+  .cta {
+    padding: 40px 20px;
+  }
+
+  .cta .cta-inner {
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .cta .cta-logo {
+    height: 80px;
+  }
+
+  .cta .cta-text {
+    flex-shrink: 1;
+  }
+
+  .cta h2 {
+    font-size: 1.5rem;
+  }
+
+  .cta p {
+    font-size: 0.95rem;
   }
 
   .contact-grid {
@@ -819,6 +1045,10 @@ body {
     grid-template-columns: 1fr;
   }
 
+  .gallery-grid {
+    grid-template-columns: 1fr;
+  }
+
   .ba-container {
     height: 200px;
   }
@@ -826,5 +1056,52 @@ body {
   .ba-tag {
     font-size: 0.65rem;
     padding: 4px 8px;
+  }
+
+  .footer-content {
+    grid-template-columns: 1fr;
+    gap: 25px;
+  }
+
+  .footer {
+    padding: 40px 20px 20px;
+  }
+}
+
+/* Responsive Design - Small Mobile */
+@media (max-width: 480px) {
+  .hero {
+    padding: 140px 15px 50px;
+  }
+
+  .hero h1 {
+    font-size: 1.5rem;
+  }
+
+  .hero .tagline {
+    font-size: 1.2rem;
+  }
+
+  .hero .veteran-badge {
+    font-size: 0.85rem;
+    padding: 8px 16px;
+  }
+
+  .btn-large {
+    padding: 12px 24px;
+    font-size: 1rem;
+  }
+
+  .gallery-filters {
+    gap: 6px;
+  }
+
+  .filter-btn {
+    padding: 8px 14px;
+    font-size: 0.85rem;
+  }
+
+  .ba-container {
+    height: 150px;
   }
 }
