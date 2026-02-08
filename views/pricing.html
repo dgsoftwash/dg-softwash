@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Price Calculator - D&G Soft Wash</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/css/calculator.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-container">
+      <a href="/" class="logo"><img src="/images/logo.png" alt="D&G Soft Wash"></a>
+      <ul class="nav-links">
+        <li><a href="/">Home</a></li>
+        <li><a href="/services">Services</a></li>
+        <li><a href="/pricing" class="active">Pricing</a></li>
+        <li><a href="/gallery">Gallery</a></li>
+        <li><a href="/contact">Contact</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <header class="page-header">
+    <h1>Price Calculator</h1>
+    <p>Build your service package and see your savings</p>
+  </header>
+
+  <section class="calculator-section">
+    <div class="container">
+      <div class="calculator-grid">
+        <div class="calculator-services">
+          <h2>Select Your Services</h2>
+
+          <!-- House Washing -->
+          <div class="service-category">
+            <h3>House Washing</h3>
+            <label class="service-option">
+              <input type="checkbox" data-group="house" value="350" data-name="Rancher House Wash">
+              <span class="option-details">
+                <span class="option-name">Rancher/Single Story</span>
+                <span class="option-price">$350</span>
+              </span>
+            </label>
+            <label class="service-option">
+              <input type="checkbox" data-group="house" value="575" data-name="Single Family House Wash">
+              <span class="option-details">
+                <span class="option-name">Single Family (Two Story)</span>
+                <span class="option-price">$575</span>
+              </span>
+            </label>
+            <label class="service-option">
+              <input type="checkbox" data-group="house" value="805" data-name="Plus+ House Wash">
+              <span class="option-details">
+                <span class="option-name">Plus+ (Large/Multi-Story)</span>
+                <span class="option-price">$805</span>
+              </span>
+            </label>
+          </div>
+
+          <!-- House Add-ons -->
+          <div class="service-category addons" id="house-addons" style="display:none;">
+            <h3>House Wash Add-ons</h3>
+            <div id="house-addon-options"></div>
+          </div>
+
+          <!-- Deck -->
+          <div class="service-category">
+            <h3>Deck Cleaning</h3>
+            <label class="service-option">
+              <input type="checkbox" value="75" data-name="Little Deck">
+              <span class="option-details">
+                <span class="option-name">Little Deck</span>
+                <span class="option-price">$75</span>
+              </span>
+            </label>
+            <label class="service-option">
+              <input type="checkbox" value="115" data-name="Medium Deck">
+              <span class="option-details">
+                <span class="option-name">Medium Deck</span>
+                <span class="option-price">$115</span>
+              </span>
+            </label>
+            <label class="service-option">
+              <input type="checkbox" value="150" data-name="Large Deck">
+              <span class="option-details">
+                <span class="option-name">Large/Big Deck</span>
+                <span class="option-price">$150</span>
+              </span>
+            </label>
+          </div>
+
+          <!-- Fence -->
+          <div class="service-category">
+            <h3>Fence Cleaning</h3>
+            <label class="service-option">
+              <input type="checkbox" value="100" data-name="Standard Fence (1/4 Acre)">
+              <span class="option-details">
+                <span class="option-name">Standard (1/4 Acre Lot)</span>
+                <span class="option-price">$100</span>
+              </span>
+            </label>
+            <label class="service-option">
+              <input type="checkbox" value="175" data-name="Large Fence (1/2 Acre)">
+              <span class="option-details">
+                <span class="option-name">Large (Up to 1/2 Acre)</span>
+                <span class="option-price">$175</span>
+              </span>
+            </label>
+          </div>
+
+          <!-- RV -->
+          <div class="service-category">
+            <h3>RV Washing</h3>
+            <label class="service-option">
+              <input type="checkbox" data-group="rv" value="75" data-name="Short Bus RV">
+              <span class="option-details">
+                <span class="option-name">Short Bus RV</span>
+                <span class="option-price">$75</span>
+              </span>
+            </label>
+            <label class="service-option">
+              <input type="checkbox" data-group="rv" value="125" data-name="Medium Bumper Pull RV">
+              <span class="option-details">
+                <span class="option-name">Medium Bumper Pull</span>
+                <span class="option-price">$125</span>
+              </span>
+            </label>
+            <label class="service-option">
+              <input type="checkbox" data-group="rv" value="200" data-name="Big Boy 5th Wheel RV">
+              <span class="option-details">
+                <span class="option-name">Big Boy 5th Wheel</span>
+                <span class="option-price">$200</span>
+              </span>
+            </label>
+          </div>
+
+          <!-- RV Add-ons -->
+          <div class="service-category addons" id="rv-addons" style="display:none;">
+            <h3>RV Add-ons</h3>
+            <div id="rv-addon-options"></div>
+          </div>
+
+          <!-- Boat -->
+          <div class="service-category">
+            <h3>Boat Cleaning</h3>
+            <label class="service-option">
+              <input type="checkbox" data-group="boat" value="75" data-name="Boat (20ft or Less)">
+              <span class="option-details">
+                <span class="option-name">20ft or Less</span>
+                <span class="option-price">$75</span>
+              </span>
+            </label>
+            <label class="service-option">
+              <input type="checkbox" data-group="boat" value="115" data-name="Boat (21-26ft)">
+              <span class="option-details">
+                <span class="option-name">21ft to 26ft</span>
+                <span class="option-price">$115</span>
+              </span>
+            </label>
+          </div>
+
+        </div>
+
+        <div class="calculator-summary">
+          <div class="summary-card">
+            <h2>Your Quote</h2>
+
+            <div class="selected-services" id="selected-services">
+              <p class="empty-cart">No services selected</p>
+            </div>
+
+            <div class="summary-line subtotal">
+              <span>Subtotal</span>
+              <span id="subtotal">$0.00</span>
+            </div>
+
+            <div class="discount-options">
+              <h3>Available Discounts</h3>
+              <label class="discount-option">
+                <input type="checkbox" id="cash-discount">
+                <span>Cash Payment</span>
+                <span class="discount-amount">-10%</span>
+              </label>
+              <label class="discount-option">
+                <input type="checkbox" id="return-customer">
+                <span>Return Customer</span>
+                <span class="discount-amount">-10%</span>
+              </label>
+              <div class="auto-discount" id="multi-service-discount" style="display:none;">
+                <span id="multi-service-text">Multi-Service Discount</span>
+                <span class="discount-amount" id="multi-service-amount">-10%</span>
+              </div>
+            </div>
+
+            <div class="summary-line savings" id="savings-line" style="display:none;">
+              <span>Your Savings</span>
+              <span id="total-savings" class="savings-amount">-$0.00</span>
+            </div>
+
+            <div class="summary-line total">
+              <span>Total</span>
+              <span id="total">$0.00</span>
+            </div>
+
+            <a href="tel:7575259508" class="btn btn-primary btn-large btn-block">
+              Call to Book: (757) 525-9508
+            </a>
+            <a href="/contact" class="btn btn-secondary btn-block">
+              Send Message
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-section">
+          <h3>D&G Soft Wash</h3>
+          <p><em>Integrity You Can See</em></p>
+          <p>Veteran owned & operated. Professional exterior cleaning services for residential and commercial properties.</p>
+        </div>
+        <div class="footer-section">
+          <h3>Quick Links</h3>
+          <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/services">Services</a></li>
+            <li><a href="/gallery">Gallery</a></li>
+            <li><a href="/contact">Contact</a></li>
+          </ul>
+        </div>
+        <div class="footer-section">
+          <h3>Contact Info</h3>
+          <p>Phone: (757) 525-9508</p>
+          <p>Email: dgsoftwash@yahoo.com</p>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2025 D&G Soft Wash. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/js/calculator.js"></script>
+</body>
+</html>
