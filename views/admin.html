@@ -50,58 +50,76 @@
       <!-- Dashboard (hidden until login) -->
       <div id="admin-dashboard" class="admin-dashboard">
         <button id="admin-logout" class="admin-logout">Log Out</button>
-        <button id="print-today-btn" class="btn btn-primary" style="float:right; margin-left:10px;">Print Today's Bookings</button>
-        <div style="clear:both;margin-bottom:16px;"></div>
+        <div style="clear:both;margin-bottom:0;"></div>
 
-        <div class="admin-grid">
-          <!-- Calendar Panel -->
-          <div class="admin-panel admin-calendar">
-            <h3>Calendar</h3>
-            <div class="calendar-header">
-              <button type="button" class="calendar-nav calendar-prev">&larr;</button>
-              <h3 class="calendar-month-label"></h3>
-              <button type="button" class="calendar-nav calendar-next">&rarr;</button>
+        <!-- Tab Navigation -->
+        <div class="admin-tabs" style="display:flex; gap:8px; margin-bottom:20px; border-bottom:2px solid #e5e7eb; padding-bottom:0;">
+          <button class="admin-tab active" data-tab="schedule" style="padding:10px 22px; border:none; border-bottom:3px solid #1a1a2e; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#1a1a2e; margin-bottom:-2px;">Schedule</button>
+          <button class="admin-tab" data-tab="pricing" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Pricing</button>
+        </div>
+
+        <!-- Schedule Tab -->
+        <div id="tab-schedule" class="tab-panel">
+          <button id="print-today-btn" class="btn btn-primary" style="float:right; margin-bottom:16px;">Print Today's Bookings</button>
+          <div style="clear:both;"></div>
+
+          <div class="admin-grid">
+            <!-- Calendar Panel -->
+            <div class="admin-panel admin-calendar">
+              <h3>Calendar</h3>
+              <div class="calendar-header">
+                <button type="button" class="calendar-nav calendar-prev">&larr;</button>
+                <h3 class="calendar-month-label"></h3>
+                <button type="button" class="calendar-nav calendar-next">&rarr;</button>
+              </div>
+              <div class="calendar-grid"></div>
             </div>
-            <div class="calendar-grid"></div>
+
+            <!-- Day Detail Panel -->
+            <div class="admin-panel admin-day-detail">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <h3 style="margin:0;">Day Detail</h3>
+                <button id="print-day-btn" class="btn btn-primary" style="display:none; padding:6px 14px; font-size:0.85em;">Print This Day</button>
+              </div>
+              <div id="day-detail" style="display:block;">
+                <p class="no-selection">Click a day on the calendar to view details</p>
+                <h4 id="day-detail-title" style="margin:0 0 12px;display:none;"></h4>
+                <div class="block-day-toggle" style="display:none;">
+                  <input type="checkbox" id="block-day-toggle">
+                  <label for="block-day-toggle">Block Entire Day</label>
+                </div>
+                <div id="day-slots"></div>
+              </div>
+            </div>
           </div>
 
-          <!-- Day Detail Panel -->
-          <div class="admin-panel admin-day-detail">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-              <h3 style="margin:0;">Day Detail</h3>
-              <button id="print-day-btn" class="btn btn-primary" style="display:none; padding:6px 14px; font-size:0.85em;">Print This Day</button>
-            </div>
-            <div id="day-detail" style="display:block;">
-              <p class="no-selection">Click a day on the calendar to view details</p>
-              <h4 id="day-detail-title" style="margin:0 0 12px;display:none;"></h4>
-              <div class="block-day-toggle" style="display:none;">
-                <input type="checkbox" id="block-day-toggle">
-                <label for="block-day-toggle">Block Entire Day</label>
-              </div>
-              <div id="day-slots"></div>
-            </div>
+          <!-- Upcoming Bookings Table -->
+          <div class="bookings-table-container">
+            <h3>Upcoming Bookings</h3>
+            <table class="bookings-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Time</th>
+                  <th>Duration</th>
+                  <th>Name</th>
+                  <th>Service</th>
+                  <th>Phone</th>
+                  <th>Address</th>
+                </tr>
+              </thead>
+              <tbody id="bookings-body">
+                <tr><td colspan="7" class="no-bookings">No upcoming bookings</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
-        <!-- Upcoming Bookings Table -->
-        <div class="bookings-table-container">
-          <h3>Upcoming Bookings</h3>
-          <table class="bookings-table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Time</th>
-                <th>Duration</th>
-                <th>Name</th>
-                <th>Service</th>
-                <th>Phone</th>
-                <th>Address</th>
-              </tr>
-            </thead>
-            <tbody id="bookings-body">
-              <tr><td colspan="7" class="no-bookings">No upcoming bookings</td></tr>
-            </tbody>
-          </table>
+        <!-- Pricing Tab -->
+        <div id="tab-pricing" class="tab-panel" style="display:none;">
+          <div id="pricing-admin-container">
+            <p style="color:#666;">Loading pricing data...</p>
+          </div>
         </div>
       </div>
 

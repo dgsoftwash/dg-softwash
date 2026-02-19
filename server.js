@@ -53,6 +53,118 @@ async function initDb() {
   await pool.query(`
     ALTER TABLE bookings ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT ''
   `);
+
+  // Services table for dynamic pricing
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS services (
+      id SERIAL PRIMARY KEY,
+      key TEXT NOT NULL UNIQUE,
+      label TEXT NOT NULL,
+      category TEXT NOT NULL,
+      parent_key TEXT,
+      price INTEGER NOT NULL,
+      duration REAL NOT NULL DEFAULT 1,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      bookable_group TEXT,
+      active BOOLEAN NOT NULL DEFAULT true
+    )
+  `);
+
+  // Discounts table
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS discounts (
+      id SERIAL PRIMARY KEY,
+      key TEXT NOT NULL UNIQUE,
+      label TEXT NOT NULL,
+      percent INTEGER NOT NULL,
+      auto_apply BOOLEAN NOT NULL DEFAULT false,
+      min_services INTEGER NOT NULL DEFAULT 0,
+      active BOOLEAN NOT NULL DEFAULT true
+    )
+  `);
+
+  // Scheduled pricing changes
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS pricing_schedule (
+      id SERIAL PRIMARY KEY,
+      service_id INTEGER REFERENCES services(id),
+      discount_id INTEGER REFERENCES discounts(id),
+      field TEXT NOT NULL,
+      new_value TEXT NOT NULL,
+      effective_date DATE NOT NULL,
+      applied BOOLEAN NOT NULL DEFAULT false,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  // Seed services (ON CONFLICT DO NOTHING = safe to re-run, won't overwrite admin edits)
+  const seedServices = [
+    // House Washing
+    { key: 'house-rancher', label: 'Rancher/Single Story', category: 'house', parent_key: null, price: 350, duration: 2, sort_order: 1, bookable_group: 'house' },
+    { key: 'house-single', label: 'Single Family (Two Story)', category: 'house', parent_key: null, price: 575, duration: 3, sort_order: 2, bookable_group: 'house' },
+    { key: 'house-plus', label: 'Plus+ (Large/Multi-Story)', category: 'house', parent_key: null, price: 805, duration: 4, sort_order: 3, bookable_group: 'house' },
+    // House Add-ons (Rancher)
+    { key: 'house-addon-roof-rancher', label: 'Roof Wash', category: 'house-addon', parent_key: 'house-rancher', price: 125, duration: 1, sort_order: 1, bookable_group: null },
+    { key: 'house-addon-driveway-hot-rancher', label: 'Driveway Hot Wash', category: 'house-addon', parent_key: 'house-rancher', price: 75, duration: 1.5, sort_order: 2, bookable_group: null },
+    { key: 'house-addon-driveway-stain-rancher', label: 'Driveway Heavy Stain (Peroxide/Degreaser)', category: 'house-addon', parent_key: 'house-rancher', price: 125, duration: 2, sort_order: 3, bookable_group: null },
+    { key: 'house-addon-uv-rancher', label: 'UV Protectant', category: 'house-addon', parent_key: 'house-rancher', price: 25, duration: 1, sort_order: 4, bookable_group: null },
+    { key: 'house-addon-windows-rancher', label: 'Streak-Free Window Cleaning', category: 'house-addon', parent_key: 'house-rancher', price: 25, duration: 0.75, sort_order: 5, bookable_group: null },
+    // House Add-ons (Single Family)
+    { key: 'house-addon-roof-single', label: 'Roof Wash', category: 'house-addon', parent_key: 'house-single', price: 225, duration: 1, sort_order: 1, bookable_group: null },
+    { key: 'house-addon-driveway-hot-single', label: 'Driveway Hot Wash', category: 'house-addon', parent_key: 'house-single', price: 75, duration: 1.5, sort_order: 2, bookable_group: null },
+    { key: 'house-addon-driveway-stain-single', label: 'Driveway Heavy Stain (Peroxide/Degreaser)', category: 'house-addon', parent_key: 'house-single', price: 125, duration: 2, sort_order: 3, bookable_group: null },
+    { key: 'house-addon-uv-single', label: 'UV Protectant', category: 'house-addon', parent_key: 'house-single', price: 65, duration: 1, sort_order: 4, bookable_group: null },
+    { key: 'house-addon-windows-single', label: 'Streak-Free Window Cleaning', category: 'house-addon', parent_key: 'house-single', price: 60, duration: 0.75, sort_order: 5, bookable_group: null },
+    // House Add-ons (Plus+)
+    { key: 'house-addon-roof-plus', label: 'Roof Wash', category: 'house-addon', parent_key: 'house-plus', price: 400, duration: 1, sort_order: 1, bookable_group: null },
+    { key: 'house-addon-driveway-hot-plus', label: 'Driveway Hot Wash', category: 'house-addon', parent_key: 'house-plus', price: 125, duration: 1.5, sort_order: 2, bookable_group: null },
+    { key: 'house-addon-driveway-stain-plus', label: 'Driveway Heavy Stain (Peroxide/Degreaser)', category: 'house-addon', parent_key: 'house-plus', price: 175, duration: 2, sort_order: 3, bookable_group: null },
+    { key: 'house-addon-uv-plus', label: 'UV Protectant', category: 'house-addon', parent_key: 'house-plus', price: 100, duration: 1, sort_order: 4, bookable_group: null },
+    { key: 'house-addon-windows-plus', label: 'Streak-Free Window Cleaning', category: 'house-addon', parent_key: 'house-plus', price: 85, duration: 0.75, sort_order: 5, bookable_group: null },
+    // Deck Cleaning
+    { key: 'deck-little', label: 'Little Deck', category: 'deck', parent_key: null, price: 75, duration: 2, sort_order: 1, bookable_group: null },
+    { key: 'deck-medium', label: 'Medium Deck', category: 'deck', parent_key: null, price: 115, duration: 2, sort_order: 2, bookable_group: null },
+    { key: 'deck-large', label: 'Large/Big Deck', category: 'deck', parent_key: null, price: 150, duration: 2, sort_order: 3, bookable_group: null },
+    // Fence Cleaning
+    { key: 'fence-standard', label: 'Standard (1/4 Acre Lot)', category: 'fence', parent_key: null, price: 100, duration: 2, sort_order: 1, bookable_group: null },
+    { key: 'fence-large', label: 'Large (Up to 1/2 Acre)', category: 'fence', parent_key: null, price: 175, duration: 2, sort_order: 2, bookable_group: null },
+    // RV Washing
+    { key: 'rv-short', label: 'Short Bus RV', category: 'rv', parent_key: null, price: 75, duration: 1, sort_order: 1, bookable_group: 'rv' },
+    { key: 'rv-medium', label: 'Medium Bumper Pull', category: 'rv', parent_key: null, price: 125, duration: 1, sort_order: 2, bookable_group: 'rv' },
+    { key: 'rv-large', label: 'Big Boy 5th Wheel', category: 'rv', parent_key: null, price: 200, duration: 1, sort_order: 3, bookable_group: 'rv' },
+    // RV Add-ons (Short)
+    { key: 'rv-addon-uv-short', label: 'UV Protectant', category: 'rv-addon', parent_key: 'rv-short', price: 20, duration: 0.5, sort_order: 1, bookable_group: null },
+    { key: 'rv-addon-windows-short', label: 'Streak-Free Window Cleaning', category: 'rv-addon', parent_key: 'rv-short', price: 20, duration: 0.25, sort_order: 2, bookable_group: null },
+    // RV Add-ons (Medium)
+    { key: 'rv-addon-uv-medium', label: 'UV Protectant', category: 'rv-addon', parent_key: 'rv-medium', price: 35, duration: 0.5, sort_order: 1, bookable_group: null },
+    { key: 'rv-addon-windows-medium', label: 'Streak-Free Window Cleaning', category: 'rv-addon', parent_key: 'rv-medium', price: 35, duration: 0.25, sort_order: 2, bookable_group: null },
+    // RV Add-ons (Large)
+    { key: 'rv-addon-uv-large', label: 'UV Protectant', category: 'rv-addon', parent_key: 'rv-large', price: 50, duration: 0.5, sort_order: 1, bookable_group: null },
+    { key: 'rv-addon-windows-large', label: 'Streak-Free Window Cleaning', category: 'rv-addon', parent_key: 'rv-large', price: 50, duration: 0.25, sort_order: 2, bookable_group: null },
+    // Boat Cleaning
+    { key: 'boat-small', label: '20ft or Less', category: 'boat', parent_key: null, price: 75, duration: 1, sort_order: 1, bookable_group: 'boat' },
+    { key: 'boat-medium', label: '21ft to 26ft', category: 'boat', parent_key: null, price: 115, duration: 1, sort_order: 2, bookable_group: 'boat' }
+  ];
+  for (const svc of seedServices) {
+    await pool.query(
+      'INSERT INTO services (key, label, category, parent_key, price, duration, sort_order, bookable_group) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (key) DO NOTHING',
+      [svc.key, svc.label, svc.category, svc.parent_key, svc.price, svc.duration, svc.sort_order, svc.bookable_group]
+    );
+  }
+
+  // Seed discounts
+  const seedDiscounts = [
+    { key: 'cash', label: 'Cash Payment', percent: 10, auto_apply: false, min_services: 0 },
+    { key: 'return-customer', label: 'Return Customer', percent: 10, auto_apply: false, min_services: 0 },
+    { key: 'multi-2', label: '2+ Services Discount', percent: 10, auto_apply: true, min_services: 2 },
+    { key: 'multi-3', label: '3+ Services Discount', percent: 15, auto_apply: true, min_services: 3 }
+  ];
+  for (const disc of seedDiscounts) {
+    await pool.query(
+      'INSERT INTO discounts (key, label, percent, auto_apply, min_services) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (key) DO NOTHING',
+      [disc.key, disc.label, disc.percent, disc.auto_apply, disc.min_services]
+    );
+  }
 }
 
 // --- Booking helpers ---
@@ -69,6 +181,53 @@ const SERVICE_DURATIONS = {
 };
 
 const NOT_BOOKABLE = ['heavy-equipment', 'commercial'];
+
+// --- Pricing cache ---
+let pricingCache = null;
+let pricingCacheTime = 0;
+const PRICING_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function invalidatePricingCache() {
+  pricingCache = null;
+  pricingCacheTime = 0;
+}
+
+async function getPricingData() {
+  if (pricingCache && (Date.now() - pricingCacheTime) < PRICING_CACHE_TTL) {
+    return pricingCache;
+  }
+  const { rows: services } = await pool.query(
+    'SELECT * FROM services WHERE active = true ORDER BY category, sort_order, id'
+  );
+  const { rows: discounts } = await pool.query(
+    'SELECT * FROM discounts WHERE active = true ORDER BY min_services, id'
+  );
+  pricingCache = { services, discounts };
+  pricingCacheTime = Date.now();
+  return pricingCache;
+}
+
+// KEY_MAP: contact form service keys → services table keys (for duration lookup fallback)
+const KEY_MAP = {
+  'house-rancher': 'house-rancher',
+  'house-single': 'house-single',
+  'house-plus': 'house-plus',
+  'deck': 'deck-little',
+  'fence': 'fence-standard',
+  'rv': 'rv-short',
+  'boat': 'boat-small'
+};
+
+async function getServiceDuration(serviceKey) {
+  const mappedKey = KEY_MAP[serviceKey] || serviceKey;
+  try {
+    const { rows } = await pool.query(
+      'SELECT duration FROM services WHERE key = $1 AND active = true', [mappedKey]
+    );
+    if (rows.length > 0) return Math.ceil(parseFloat(rows[0].duration));
+  } catch (e) {}
+  return SERVICE_DURATIONS[serviceKey] || 1;
+}
 
 const SERVICE_LABELS = {
   'house-rancher': 'House Washing - Rancher',
@@ -121,6 +280,31 @@ function requireAdmin(req, res, next) {
     return res.status(401).json({ success: false, message: 'Unauthorized' });
   }
   next();
+}
+
+// --- Scheduled pricing changes ---
+async function applyDuePricingSchedules() {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const { rows: due } = await pool.query(
+      "SELECT * FROM pricing_schedule WHERE effective_date <= $1 AND applied = false", [today]
+    );
+    if (due.length === 0) return;
+    for (const row of due) {
+      if (row.service_id) {
+        const col = row.field === 'price' ? 'price' : 'duration';
+        const val = row.field === 'price' ? parseInt(row.new_value) : parseFloat(row.new_value);
+        await pool.query(`UPDATE services SET ${col} = $1 WHERE id = $2`, [val, row.service_id]);
+      } else if (row.discount_id) {
+        await pool.query('UPDATE discounts SET percent = $1 WHERE id = $2', [parseInt(row.new_value), row.discount_id]);
+      }
+      await pool.query('UPDATE pricing_schedule SET applied = true WHERE id = $1', [row.id]);
+    }
+    invalidatePricingCache();
+    console.log(`Applied ${due.length} scheduled pricing change(s).`);
+  } catch (e) {
+    console.error('Error applying pricing schedules:', e.message);
+  }
 }
 
 // --- Page routes ---
@@ -228,6 +412,16 @@ app.get('/api/availability/:year/:month', async (req, res) => {
   res.json({ days });
 });
 
+// GET /api/pricing - Public endpoint for calculator
+app.get('/api/pricing', async (req, res) => {
+  try {
+    const data = await getPricingData();
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load pricing' });
+  }
+});
+
 // --- Contact form submission (modified to support booking) ---
 app.post('/api/contact', async (req, res) => {
   const { name, email, phone, address, service, message, appointmentDate, appointmentTime, totalDuration, bookingPrice, bookingNotes } = req.body;
@@ -253,7 +447,7 @@ app.post('/api/contact', async (req, res) => {
     }
 
     const parsedDuration = totalDuration ? parseInt(totalDuration) : 0;
-    const baseDuration = parsedDuration > 0 ? parsedDuration : (SERVICE_DURATIONS[service] || 1);
+    const baseDuration = parsedDuration > 0 ? parsedDuration : await getServiceDuration(service);
     isMultiDay = baseDuration > VALID_SLOTS.length;
 
     // For multi-day bookings, force start at 9am; otherwise use selected time
@@ -439,8 +633,82 @@ app.post('/api/admin/block', requireAdmin, async (req, res) => {
   res.json({ success: true });
 });
 
+// --- Admin Pricing API ---
+
+// GET /api/admin/pricing
+app.get('/api/admin/pricing', requireAdmin, async (req, res) => {
+  try {
+    const { rows: services } = await pool.query('SELECT * FROM services ORDER BY category, sort_order, id');
+    const { rows: discounts } = await pool.query('SELECT * FROM discounts ORDER BY min_services, id');
+    const { rows: schedule } = await pool.query(
+      `SELECT ps.*, s.label as service_label, d.label as discount_label
+       FROM pricing_schedule ps
+       LEFT JOIN services s ON ps.service_id = s.id
+       LEFT JOIN discounts d ON ps.discount_id = d.id
+       WHERE ps.applied = false ORDER BY ps.effective_date`
+    );
+    res.json({ services, discounts, schedule });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load pricing data' });
+  }
+});
+
+// POST /api/admin/pricing/service/:id — immediate update
+app.post('/api/admin/pricing/service/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { field, value } = req.body;
+  if (!['price', 'duration'].includes(field)) {
+    return res.status(400).json({ error: 'Invalid field' });
+  }
+  const numVal = field === 'price' ? parseInt(value) : parseFloat(value);
+  if (isNaN(numVal) || numVal <= 0) {
+    return res.status(400).json({ error: 'Invalid value' });
+  }
+  await pool.query(`UPDATE services SET ${field} = $1 WHERE id = $2`, [numVal, parseInt(id)]);
+  invalidatePricingCache();
+  res.json({ success: true });
+});
+
+// POST /api/admin/pricing/discount/:id — immediate update
+app.post('/api/admin/pricing/discount/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { percent } = req.body;
+  const numVal = parseInt(percent);
+  if (isNaN(numVal) || numVal < 0 || numVal > 100) {
+    return res.status(400).json({ error: 'Invalid percent' });
+  }
+  await pool.query('UPDATE discounts SET percent = $1 WHERE id = $2', [numVal, parseInt(id)]);
+  invalidatePricingCache();
+  res.json({ success: true });
+});
+
+// POST /api/admin/pricing/schedule — schedule a future change
+app.post('/api/admin/pricing/schedule', requireAdmin, async (req, res) => {
+  const { service_id, discount_id, field, new_value, effective_date } = req.body;
+  if (!effective_date || new_value === undefined || new_value === '' || !field) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+  if (!service_id && !discount_id) {
+    return res.status(400).json({ error: 'Must specify service_id or discount_id' });
+  }
+  await pool.query(
+    'INSERT INTO pricing_schedule (service_id, discount_id, field, new_value, effective_date) VALUES ($1, $2, $3, $4, $5)',
+    [service_id || null, discount_id || null, field, String(new_value), effective_date]
+  );
+  res.json({ success: true });
+});
+
+// DELETE /api/admin/pricing/schedule/:id
+app.delete('/api/admin/pricing/schedule/:id', requireAdmin, async (req, res) => {
+  await pool.query('DELETE FROM pricing_schedule WHERE id = $1 AND applied = false', [req.params.id]);
+  res.json({ success: true });
+});
+
 // --- Start server ---
 initDb().then(() => {
+  applyDuePricingSchedules();
+  // Re-check scheduled pricing changes every hour
+  setInterval(applyDuePricingSchedules, 60 * 60 * 1000);
   app.listen(PORT, () => {
     console.log(`D&G Soft Wash website running on port ${PORT}`);
   });

@@ -260,21 +260,23 @@
         notes += 'Total: ' + estimate.total;
         document.getElementById('bookingNotes').value = notes;
 
-        // Auto-select service dropdown based on primary service
-        const serviceMap = [
-          { keywords: ['Rancher'], value: 'house-rancher' },
-          { keywords: ['Single Family'], value: 'house-single' },
-          { keywords: ['Plus+'], value: 'house-plus' },
-          { keywords: ['Deck'], value: 'deck' },
-          { keywords: ['Fence'], value: 'fence' },
-          { keywords: ['RV'], value: 'rv' },
-          { keywords: ['Boat'], value: 'boat' }
-        ];
+        // Auto-select service dropdown based on primary service key
+        const serviceKeyMap = {
+          'house-rancher': 'house-rancher',
+          'house-single': 'house-single',
+          'house-plus': 'house-plus',
+          'deck-little': 'deck', 'deck-medium': 'deck', 'deck-large': 'deck',
+          'fence-standard': 'fence', 'fence-large': 'fence',
+          'rv-short': 'rv', 'rv-medium': 'rv', 'rv-large': 'rv',
+          'boat-small': 'boat', 'boat-medium': 'boat'
+        };
         const primaryService = estimate.items.find(i => !i.isAddon);
         if (primaryService) {
-          const match = serviceMap.find(m => m.keywords.some(k => primaryService.name.includes(k)));
-          if (match) {
-            document.getElementById('service').value = match.value;
+          const contactValue = primaryService.key
+            ? serviceKeyMap[primaryService.key]
+            : null;
+          if (contactValue) {
+            document.getElementById('service').value = contactValue;
           }
         }
       } catch(e) {}

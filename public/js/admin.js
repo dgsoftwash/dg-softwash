@@ -419,6 +419,316 @@ document.addEventListener('DOMContentLoaded', function() {
     printDayBookings(todayStr);
   });
 
+  // --- Tab switching ---
+  document.querySelectorAll('.admin-tab').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var tab = this.dataset.tab;
+      document.querySelectorAll('.admin-tab').forEach(function(b) {
+        b.style.borderBottomColor = 'transparent';
+        b.style.color = '#666';
+        b.classList.remove('active');
+      });
+      this.style.borderBottomColor = '#1a1a2e';
+      this.style.color = '#1a1a2e';
+      this.classList.add('active');
+
+      document.querySelectorAll('.tab-panel').forEach(function(p) { p.style.display = 'none'; });
+      document.getElementById('tab-' + tab).style.display = 'block';
+
+      if (tab === 'pricing') loadPricingAdmin();
+    });
+  });
+
+  // --- Pricing Admin ---
+  var pricingAdminData = null;
+  var scheduleTarget = null; // { type: 'service'|'discount', id, field, label }
+
+  var CATEGORY_LABELS = {
+    'house': 'House Washing',
+    'house-addon': 'House Wash Add-ons',
+    'deck': 'Deck Cleaning',
+    'fence': 'Fence Cleaning',
+    'rv': 'RV Washing',
+    'rv-addon': 'RV Add-ons',
+    'boat': 'Boat Cleaning'
+  };
+
+  var PARENT_LABELS = {
+    'house-rancher': 'Rancher', 'house-single': 'Single Family', 'house-plus': 'Plus+',
+    'rv-short': 'Short Bus', 'rv-medium': 'Medium Bumper Pull', 'rv-large': 'Big Boy 5th Wheel'
+  };
+
+  async function loadPricingAdmin() {
+    var container = document.getElementById('pricing-admin-container');
+    container.innerHTML = '<p style="color:#666;">Loading...</p>';
+    try {
+      var res = await fetch('/api/admin/pricing', { headers: { 'x-admin-token': adminToken } });
+      if (res.status === 401) { return; }
+      pricingAdminData = await res.json();
+      renderPricingAdmin();
+    } catch (e) {
+      container.innerHTML = '<p style="color:#dc2626;">Failed to load pricing data.</p>';
+    }
+  }
+
+  function renderPricingAdmin() {
+    var container = document.getElementById('pricing-admin-container');
+    var html = '<h2 style="margin-bottom:20px;">Pricing Management</h2>';
+
+    // Group services by category, then by parent_key for add-ons
+    var byCategory = {};
+    pricingAdminData.services.forEach(function(svc) {
+      if (!byCategory[svc.category]) byCategory[svc.category] = [];
+      byCategory[svc.category].push(svc);
+    });
+
+    var categoryOrder = ['house', 'house-addon', 'deck', 'fence', 'rv', 'rv-addon', 'boat'];
+
+    categoryOrder.forEach(function(cat) {
+      if (!byCategory[cat]) return;
+      var services = byCategory[cat];
+
+      // For add-ons, group by parent_key
+      if (cat === 'house-addon' || cat === 'rv-addon') {
+        var byParent = {};
+        services.forEach(function(svc) {
+          var pk = svc.parent_key || 'other';
+          if (!byParent[pk]) byParent[pk] = [];
+          byParent[pk].push(svc);
+        });
+        Object.keys(byParent).forEach(function(pk) {
+          var parentLabel = PARENT_LABELS[pk] || pk;
+          html += renderServiceSection(CATEGORY_LABELS[cat] + ' (' + parentLabel + ')', byParent[pk]);
+        });
+      } else {
+        html += renderServiceSection(CATEGORY_LABELS[cat] || cat, services);
+      }
+    });
+
+    // Discounts
+    html += '<div class="bookings-table-container" style="margin-top:30px;">';
+    html += '<h3>Discounts</h3>';
+    html += '<table class="bookings-table"><thead><tr><th>Discount</th><th>Percent</th><th>Actions</th></tr></thead><tbody>';
+    pricingAdminData.discounts.filter(function(d) { return !d.auto_apply; }).forEach(function(d) {
+      html += '<tr id="discount-row-' + d.id + '">' +
+        '<td>' + escapeHtml(d.label) + '</td>' +
+        '<td><input type="number" id="disc-pct-' + d.id + '" value="' + d.percent + '" min="0" max="100" step="1" style="width:70px; padding:4px 6px; border:1px solid #ddd; border-radius:4px;"> %</td>' +
+        '<td style="white-space:nowrap;">' +
+          '<button type="button" class="btn btn-primary" style="padding:4px 12px; font-size:0.85em; margin-right:6px;" onclick="saveDiscountNow(' + d.id + ')">Save Now</button>' +
+          '<button type="button" class="btn btn-secondary" style="padding:4px 12px; font-size:0.85em;" onclick="openScheduleDiscount(' + d.id + ', \'' + escapeHtml(d.label) + '\')">Schedule</button>' +
+        '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+
+    // Scheduled Changes
+    html += '<div class="bookings-table-container" style="margin-top:30px;">';
+    html += '<h3>Scheduled Changes</h3>';
+    if (pricingAdminData.schedule.length === 0) {
+      html += '<p style="color:#666; padding:10px 0;">No pending scheduled changes.</p>';
+    } else {
+      html += '<table class="bookings-table"><thead><tr><th>Service/Discount</th><th>Field</th><th>New Value</th><th>Effective Date</th><th></th></tr></thead><tbody>';
+      pricingAdminData.schedule.forEach(function(row) {
+        var targetLabel = row.service_label || row.discount_label || 'Unknown';
+        var fieldLabel = row.field === 'price' ? 'Price' : row.field === 'duration' ? 'Duration (hrs)' : 'Percent';
+        var valDisplay = row.field === 'price' ? '$' + row.new_value : row.new_value + (row.field === 'percent' ? '%' : ' hrs');
+        html += '<tr>' +
+          '<td>' + escapeHtml(targetLabel) + '</td>' +
+          '<td>' + fieldLabel + '</td>' +
+          '<td>' + valDisplay + '</td>' +
+          '<td>' + row.effective_date + '</td>' +
+          '<td><button type="button" class="btn-cancel" onclick="deleteScheduledChange(' + row.id + ')">Delete</button></td>' +
+        '</tr>';
+      });
+      html += '</tbody></table>';
+    }
+    html += '</div>';
+
+    // Schedule a new change form
+    html += '<div class="bookings-table-container" style="margin-top:30px;">' +
+      '<h3>Schedule a Future Change</h3>' +
+      '<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; max-width:600px;">' +
+        '<div class="form-group"><label>Service or Discount</label>' +
+          '<select id="schedule-target" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px;">' +
+          '<option value="">-- Select --</option>' +
+          renderScheduleOptions() +
+          '</select></div>' +
+        '<div class="form-group"><label>Field</label>' +
+          '<select id="schedule-field" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px;">' +
+          '<option value="price">Price ($)</option>' +
+          '<option value="duration">Duration (hrs)</option>' +
+          '</select></div>' +
+        '<div class="form-group"><label>New Value</label>' +
+          '<input type="number" id="schedule-value" step="0.25" min="0" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px;" placeholder="e.g. 399"></div>' +
+        '<div class="form-group"><label>Effective Date</label>' +
+          '<input type="date" id="schedule-date" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px;"></div>' +
+      '</div>' +
+      '<button type="button" class="btn btn-primary" style="margin-top:12px;" onclick="submitScheduledChange()">Schedule Change</button>' +
+      '<p id="schedule-msg" style="margin-top:8px; color:#2d6a4f;"></p>' +
+    '</div>';
+
+    container.innerHTML = html;
+
+    // Set min date to tomorrow for schedule date
+    var tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    var tomorrowStr = tomorrow.toISOString().split('T')[0];
+    var sdInput = document.getElementById('schedule-date');
+    if (sdInput) sdInput.min = tomorrowStr;
+
+    // Update schedule-field options when target changes
+    document.getElementById('schedule-target').addEventListener('change', function() {
+      var val = this.value;
+      var fieldSel = document.getElementById('schedule-field');
+      if (val.startsWith('discount-')) {
+        fieldSel.innerHTML = '<option value="percent">Percent (%)</option>';
+      } else {
+        fieldSel.innerHTML = '<option value="price">Price ($)</option><option value="duration">Duration (hrs)</option>';
+      }
+    });
+  }
+
+  function renderScheduleOptions() {
+    if (!pricingAdminData) return '';
+    var opts = '';
+    var byCategory = {};
+    pricingAdminData.services.forEach(function(svc) {
+      if (!byCategory[svc.category]) byCategory[svc.category] = [];
+      byCategory[svc.category].push(svc);
+    });
+    var catOrder = ['house', 'house-addon', 'deck', 'fence', 'rv', 'rv-addon', 'boat'];
+    catOrder.forEach(function(cat) {
+      if (!byCategory[cat]) return;
+      var catLabel = CATEGORY_LABELS[cat] || cat;
+      opts += '<optgroup label="' + catLabel + '">';
+      byCategory[cat].forEach(function(svc) {
+        var lbl = svc.label;
+        if (svc.parent_key && PARENT_LABELS[svc.parent_key]) lbl += ' (' + PARENT_LABELS[svc.parent_key] + ')';
+        opts += '<option value="service-' + svc.id + '">' + escapeHtml(lbl) + '</option>';
+      });
+      opts += '</optgroup>';
+    });
+    opts += '<optgroup label="Discounts">';
+    pricingAdminData.discounts.forEach(function(d) {
+      opts += '<option value="discount-' + d.id + '">' + escapeHtml(d.label) + '</option>';
+    });
+    opts += '</optgroup>';
+    return opts;
+  }
+
+  function renderServiceSection(title, services) {
+    var html = '<div class="bookings-table-container" style="margin-bottom:20px;">';
+    html += '<h3>' + title + '</h3>';
+    html += '<table class="bookings-table"><thead><tr><th>Service</th><th>Price</th><th>Duration (hrs)</th><th>Actions</th></tr></thead><tbody>';
+    services.forEach(function(svc) {
+      html += '<tr id="svc-row-' + svc.id + '">' +
+        '<td>' + escapeHtml(svc.label) + '</td>' +
+        '<td><input type="number" id="svc-price-' + svc.id + '" value="' + svc.price + '" min="1" step="1" style="width:80px; padding:4px 6px; border:1px solid #ddd; border-radius:4px;"></td>' +
+        '<td><input type="number" id="svc-dur-' + svc.id + '" value="' + svc.duration + '" min="0.25" step="0.25" style="width:80px; padding:4px 6px; border:1px solid #ddd; border-radius:4px;"></td>' +
+        '<td style="white-space:nowrap;">' +
+          '<button type="button" class="btn btn-primary" style="padding:4px 12px; font-size:0.85em; margin-right:6px;" onclick="saveServiceNow(' + svc.id + ')">Save Now</button>' +
+          '<button type="button" class="btn btn-secondary" style="padding:4px 12px; font-size:0.85em;" onclick="openScheduleService(' + svc.id + ', \'' + escapeHtml(svc.label) + '\')">Schedule</button>' +
+        '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+    return html;
+  }
+
+  // Expose functions to global scope for inline onclick handlers
+  window.saveServiceNow = async function(id) {
+    var priceVal = document.getElementById('svc-price-' + id).value;
+    var durVal = document.getElementById('svc-dur-' + id).value;
+    var ok = true;
+    try {
+      var r1 = await fetch('/api/admin/pricing/service/' + id, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+        body: JSON.stringify({ field: 'price', value: priceVal })
+      });
+      var r2 = await fetch('/api/admin/pricing/service/' + id, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+        body: JSON.stringify({ field: 'duration', value: durVal })
+      });
+      if (!r1.ok || !r2.ok) ok = false;
+    } catch (e) { ok = false; }
+    showPricingMsg(ok ? 'Saved!' : 'Save failed.', ok);
+  };
+
+  window.saveDiscountNow = async function(id) {
+    var pct = document.getElementById('disc-pct-' + id).value;
+    var ok = true;
+    try {
+      var r = await fetch('/api/admin/pricing/discount/' + id, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+        body: JSON.stringify({ percent: pct })
+      });
+      if (!r.ok) ok = false;
+    } catch (e) { ok = false; }
+    showPricingMsg(ok ? 'Saved!' : 'Save failed.', ok);
+  };
+
+  window.deleteScheduledChange = async function(id) {
+    if (!confirm('Delete this scheduled change?')) return;
+    try {
+      await fetch('/api/admin/pricing/schedule/' + id, {
+        method: 'DELETE',
+        headers: { 'x-admin-token': adminToken }
+      });
+      loadPricingAdmin();
+    } catch (e) {}
+  };
+
+  window.submitScheduledChange = async function() {
+    var targetVal = document.getElementById('schedule-target').value;
+    var field = document.getElementById('schedule-field').value;
+    var value = document.getElementById('schedule-value').value;
+    var date = document.getElementById('schedule-date').value;
+    var msgEl = document.getElementById('schedule-msg');
+
+    if (!targetVal || !value || !date) {
+      msgEl.style.color = '#dc2626';
+      msgEl.textContent = 'Please fill in all fields.';
+      return;
+    }
+
+    var body = { field: field, new_value: value, effective_date: date };
+    if (targetVal.startsWith('service-')) {
+      body.service_id = parseInt(targetVal.replace('service-', ''));
+    } else {
+      body.discount_id = parseInt(targetVal.replace('discount-', ''));
+    }
+
+    try {
+      var r = await fetch('/api/admin/pricing/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+        body: JSON.stringify(body)
+      });
+      var data = await r.json();
+      if (data.success) {
+        msgEl.style.color = '#2d6a4f';
+        msgEl.textContent = 'Change scheduled for ' + date + '!';
+        loadPricingAdmin();
+      } else {
+        msgEl.style.color = '#dc2626';
+        msgEl.textContent = data.error || 'Failed to schedule.';
+      }
+    } catch (e) {
+      msgEl.style.color = '#dc2626';
+      msgEl.textContent = 'Error. Please try again.';
+    }
+  };
+
+  function showPricingMsg(msg, success) {
+    // Brief toast-style feedback
+    var toast = document.createElement('div');
+    toast.textContent = msg;
+    toast.style.cssText = 'position:fixed; bottom:24px; right:24px; background:' + (success ? '#2d6a4f' : '#dc2626') + '; color:#fff; padding:12px 24px; border-radius:8px; font-weight:600; z-index:9999; transition:opacity 0.5s;';
+    document.body.appendChild(toast);
+    setTimeout(function() { toast.style.opacity = '0'; setTimeout(function() { toast.remove(); }, 600); }, 2000);
+  }
+
   // Check if already logged in
   if (adminToken) {
     showDashboard();
