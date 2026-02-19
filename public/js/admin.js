@@ -634,6 +634,30 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // Expose functions to global scope for inline onclick handlers
+  // Pre-fill the schedule form for a specific service and scroll to it
+  window.openScheduleService = function(id, label) {
+    var sel = document.getElementById('schedule-target');
+    if (!sel) return;
+    sel.value = 'service-' + id;
+    sel.dispatchEvent(new Event('change'));
+    document.getElementById('schedule-msg').textContent = 'Scheduling change for: ' + label;
+    document.getElementById('schedule-msg').style.color = '#1a1a2e';
+    sel.closest('.bookings-table-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('schedule-value').focus();
+  };
+
+  // Pre-fill the schedule form for a specific discount and scroll to it
+  window.openScheduleDiscount = function(id, label) {
+    var sel = document.getElementById('schedule-target');
+    if (!sel) return;
+    sel.value = 'discount-' + id;
+    sel.dispatchEvent(new Event('change'));
+    document.getElementById('schedule-msg').textContent = 'Scheduling change for: ' + label;
+    document.getElementById('schedule-msg').style.color = '#1a1a2e';
+    sel.closest('.bookings-table-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('schedule-value').focus();
+  };
+
   window.saveServiceNow = async function(id) {
     var priceVal = document.getElementById('svc-price-' + id).value;
     var durVal = document.getElementById('svc-dur-' + id).value;
