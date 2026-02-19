@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - D&G Soft Wash</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/css/calendar.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-container">
+      <a href="/" class="logo"><img src="/images/logo.png" alt="D&G Soft Wash"></a>
+      <button class="hamburger" aria-label="Menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <ul class="nav-links">
+        <li><a href="/">Home</a></li>
+        <li><a href="/services">Services</a></li>
+        <li><a href="/pricing">Pricing</a></li>
+        <li><a href="/gallery">Gallery</a></li>
+        <li><a href="/contact">Contact</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <header class="page-header">
+    <h1>Admin Dashboard</h1>
+    <p>Manage bookings and availability</p>
+  </header>
+
+  <section class="admin-section">
+    <div class="container">
+
+      <!-- Login Form -->
+      <div id="admin-login" class="admin-login">
+        <h2>Admin Login</h2>
+        <form id="login-form">
+          <div class="form-group">
+            <label for="admin-password">Password</label>
+            <input type="password" id="admin-password" required>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width:100%">Log In</button>
+          <p id="login-error" class="error-msg"></p>
+        </form>
+      </div>
+
+      <!-- Dashboard (hidden until login) -->
+      <div id="admin-dashboard" class="admin-dashboard">
+        <button id="admin-logout" class="admin-logout">Log Out</button>
+        <div style="clear:both;margin-bottom:16px;"></div>
+
+        <div class="admin-grid">
+          <!-- Calendar Panel -->
+          <div class="admin-panel admin-calendar">
+            <h3>Calendar</h3>
+            <div class="calendar-header">
+              <button type="button" class="calendar-nav calendar-prev">&larr;</button>
+              <h3 class="calendar-month-label"></h3>
+              <button type="button" class="calendar-nav calendar-next">&rarr;</button>
+            </div>
+            <div class="calendar-grid"></div>
+          </div>
+
+          <!-- Day Detail Panel -->
+          <div class="admin-panel admin-day-detail">
+            <h3>Day Detail</h3>
+            <div id="day-detail" style="display:block;">
+              <p class="no-selection">Click a day on the calendar to view details</p>
+              <h4 id="day-detail-title" style="margin:0 0 12px;display:none;"></h4>
+              <div class="block-day-toggle" style="display:none;">
+                <input type="checkbox" id="block-day-toggle">
+                <label for="block-day-toggle">Block Entire Day</label>
+              </div>
+              <div id="day-slots"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Upcoming Bookings Table -->
+        <div class="bookings-table-container">
+          <h3>Upcoming Bookings</h3>
+          <table class="bookings-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Time</th>
+                <th>Name</th>
+                <th>Service</th>
+                <th>Phone</th>
+              </tr>
+            </thead>
+            <tbody id="bookings-body">
+              <tr><td colspan="5" class="no-bookings">No upcoming bookings</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-section">
+          <h3>D&G Soft Wash</h3>
+          <p><em>Integrity You Can See</em></p>
+          <p>Veteran owned & operated. Professional exterior cleaning services for residential and commercial properties.</p>
+        </div>
+        <div class="footer-section">
+          <h3>Quick Links</h3>
+          <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/services">Services</a></li>
+            <li><a href="/pricing">Pricing</a></li>
+            <li><a href="/gallery">Gallery</a></li>
+            <li><a href="/contact">Contact</a></li>
+          </ul>
+        </div>
+        <div class="footer-section">
+          <h3>Contact Info</h3>
+          <p>Phone: <a href="tel:7575259508">(757) 525-9508</a></p>
+          <p>Email: <a href="mailto:dgsoftwash@yahoo.com">dgsoftwash@yahoo.com</a></p>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2025 D&G Soft Wash. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/js/main.js"></script>
+  <script src="/js/admin.js"></script>
+</body>
+</html>
