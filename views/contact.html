@@ -36,6 +36,13 @@
       <div class="contact-grid">
         <div class="contact-form-container">
           <h2>Book a Service</h2>
+
+          <div id="estimate-summary" style="display:none; background:#f0f8f0; border:1px solid #c3e6cb; border-radius:8px; padding:16px; margin-bottom:20px;">
+            <h3 style="margin:0 0 10px; color:#2d6a4f;">Your Estimate from Price Calculator</h3>
+            <div id="estimate-items"></div>
+            <div id="estimate-total" style="font-weight:bold; font-size:1.1em; margin-top:8px; border-top:1px solid #c3e6cb; padding-top:8px;"></div>
+          </div>
+
           <form id="contact-form" class="contact-form">
             <div class="form-group">
               <label for="name">Name *</label>
@@ -68,6 +75,11 @@
                 <option value="commercial">Commercial (Estimate)</option>
               </select>
             </div>
+            <div id="multiday-notice" style="display:none; background:#fff3cd; border:1px solid #ffc107; border-radius:8px; padding:14px; margin-bottom:12px;">
+              <strong>&#9888; 2-Day Service Scheduled</strong>
+              <p id="multiday-notice-text" style="margin:6px 0 0;"></p>
+            </div>
+
             <div class="form-group">
               <label>Preferred Appointment Date & Time</label>
               <div id="booking-calendar" class="calendar-widget">
@@ -84,12 +96,15 @@
               </div>
               <input type="hidden" id="appointmentDate" name="appointmentDate">
               <input type="hidden" id="appointmentTime" name="appointmentTime">
+              <input type="hidden" id="totalDuration" name="totalDuration">
+              <input type="hidden" id="bookingPrice" name="bookingPrice">
+              <input type="hidden" id="bookingNotes" name="bookingNotes">
             </div>
             <div class="form-group">
               <label for="message">Message *</label>
               <textarea id="message" name="message" rows="5" required placeholder="Tell us about your project..."></textarea>
             </div>
-            <button type="submit" class="btn btn-primary btn-large">Send Message</button>
+            <button type="submit" class="btn btn-primary btn-large">Confirm Booking</button>
           </form>
           <div id="form-response" class="form-response"></div>
         </div>
@@ -184,5 +199,86 @@
 
   <script src="/js/main.js"></script>
   <script src="/js/calendar.js"></script>
+  <script>
+    // Pre-fill form from pricing calculator estimate
+    const estimateData = localStorage.getItem('dg_estimate');
+    if (estimateData) {
+      try {
+        const estimate = JSON.parse(estimateData);
+        localStorage.removeItem('dg_estimate');
+
+        // Show summary box
+        const summaryEl = document.getElementById('estimate-summary');
+        const itemsEl = document.getElementById('estimate-items');
+        const totalEl = document.getElementById('estimate-total');
+
+        itemsEl.innerHTML = estimate.items.map(item =>
+          `<div style="display:flex; justify-content:space-between; padding:3px 0;">
+            <span>${item.isAddon ? '&nbsp;&nbsp;+ ' + item.name : item.name}</span>
+            <span>$${item.price}</span>
+          </div>`
+        ).join('');
+
+        let totalHTML = '';
+        if (estimate.savings) {
+          totalHTML += `<div style="display:flex; justify-content:space-between; color:#2d6a4f;">
+            <span>Your Savings</span><span>${estimate.savings}</span></div>`;
+        }
+        totalHTML += `<div style="display:flex; justify-content:space-between;">
+          <span>Total</span><span>${estimate.total}</span></div>`;
+        totalEl.innerHTML = totalHTML;
+        summaryEl.style.display = 'block';
+
+        // Pre-fill the message field
+        let msg = 'I would like to book the following services:\n\n';
+        estimate.items.forEach(item => {
+          msg += (item.isAddon ? '  + ' : '') + item.name + ' - $' + item.price + '\n';
+        });
+        if (estimate.savings) {
+          msg += '\nSavings: ' + estimate.savings;
+        }
+        msg += '\nEstimated Total: ' + estimate.total;
+        document.getElementById('message').value = msg;
+
+        // Set total duration for slot blocking
+        if (estimate.totalDuration) {
+          document.getElementById('totalDuration').value = estimate.totalDuration;
+          window.estimateDuration = estimate.totalDuration;
+        }
+
+        // Set price from estimate
+        if (estimate.total) {
+          document.getElementById('bookingPrice').value = estimate.total;
+        }
+
+        // Build itemized notes for storage
+        var notes = '';
+        estimate.items.forEach(function(item) {
+          notes += (item.isAddon ? '  + ' : '') + item.name + ': $' + item.price + '\n';
+        });
+        if (estimate.savings) notes += 'Savings: ' + estimate.savings + '\n';
+        notes += 'Total: ' + estimate.total;
+        document.getElementById('bookingNotes').value = notes;
+
+        // Auto-select service dropdown based on primary service
+        const serviceMap = [
+          { keywords: ['Rancher'], value: 'house-rancher' },
+          { keywords: ['Single Family'], value: 'house-single' },
+          { keywords: ['Plus+'], value: 'house-plus' },
+          { keywords: ['Deck'], value: 'deck' },
+          { keywords: ['Fence'], value: 'fence' },
+          { keywords: ['RV'], value: 'rv' },
+          { keywords: ['Boat'], value: 'boat' }
+        ];
+        const primaryService = estimate.items.find(i => !i.isAddon);
+        if (primaryService) {
+          const match = serviceMap.find(m => m.keywords.some(k => primaryService.name.includes(k)));
+          if (match) {
+            document.getElementById('service').value = match.value;
+          }
+        }
+      } catch(e) {}
+    }
+  </script>
 </body>
 </html>

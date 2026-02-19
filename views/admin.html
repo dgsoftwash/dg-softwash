@@ -50,6 +50,7 @@
       <!-- Dashboard (hidden until login) -->
       <div id="admin-dashboard" class="admin-dashboard">
         <button id="admin-logout" class="admin-logout">Log Out</button>
+        <button id="print-today-btn" class="btn btn-primary" style="float:right; margin-left:10px;">Print Today's Bookings</button>
         <div style="clear:both;margin-bottom:16px;"></div>
 
         <div class="admin-grid">
@@ -66,7 +67,10 @@
 
           <!-- Day Detail Panel -->
           <div class="admin-panel admin-day-detail">
-            <h3>Day Detail</h3>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <h3 style="margin:0;">Day Detail</h3>
+              <button id="print-day-btn" class="btn btn-primary" style="display:none; padding:6px 14px; font-size:0.85em;">Print This Day</button>
+            </div>
             <div id="day-detail" style="display:block;">
               <p class="no-selection">Click a day on the calendar to view details</p>
               <h4 id="day-detail-title" style="margin:0 0 12px;display:none;"></h4>

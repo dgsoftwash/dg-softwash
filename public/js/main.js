@@ -45,6 +45,12 @@ document.addEventListener('DOMContentLoaded', function() {
         if (result.success) {
           formResponse.className = 'form-response success';
           formResponse.textContent = result.message;
+          if (result.day2Notice) {
+            const notice = document.createElement('p');
+            notice.style.cssText = 'margin-top:8px; font-weight:bold;';
+            notice.textContent = result.day2Notice;
+            formResponse.appendChild(notice);
+          }
           contactForm.reset();
         } else {
           formResponse.className = 'form-response error';

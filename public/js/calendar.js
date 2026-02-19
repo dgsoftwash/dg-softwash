@@ -27,6 +27,9 @@ document.addEventListener('DOMContentLoaded', function() {
   const NOT_BOOKABLE = ['heavy-equipment', 'commercial'];
 
   function getSelectedDuration() {
+    if (window.estimateDuration && window.estimateDuration > 0) {
+      return window.estimateDuration;
+    }
     var serviceSelect = document.getElementById('service');
     if (!serviceSelect) return 1;
     return SERVICE_DURATIONS[serviceSelect.value] || 1;
@@ -81,6 +84,8 @@ document.addEventListener('DOMContentLoaded', function() {
     dateInput.value = '';
     timeInput.value = '';
     selectionDisplay.style.display = 'none';
+    const notice = document.getElementById('multiday-notice');
+    if (notice) notice.style.display = 'none';
     renderCalendar();
   });
 
@@ -204,6 +209,33 @@ document.addEventListener('DOMContentLoaded', function() {
 
       const duration = getSelectedDuration();
 
+      // Multi-day booking handling
+      if (duration > SLOTS.length) {
+        const d1 = new Date(dateStr + 'T12:00:00');
+        const d2 = new Date(d1);
+        d2.setDate(d2.getDate() + 1);
+        if (d2.getDay() === 0) d2.setDate(d2.getDate() + 1); // Skip Sunday
+        const day2DateStr = d2.toISOString().split('T')[0];
+        const day1Label = d1.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+        const day2Label = d2.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+        const overflow = duration - SLOTS.length;
+
+        timeSlotsContainer.innerHTML =
+          '<div style="background:#fff3cd; border:1px solid #ffc107; border-radius:8px; padding:14px; margin-bottom:14px; text-align:left;">' +
+            '<strong>&#9888; This service package requires 2 days to complete.</strong>' +
+            '<ul style="margin:8px 0 0; padding-left:20px; line-height:1.8;">' +
+              '<li><strong>Day 1:</strong> ' + day1Label + ' &mdash; Full day (9:00 AM &ndash; 3:00 PM)</li>' +
+              '<li><strong>Day 2:</strong> ' + day2Label + ' &mdash; Starting at 9:00 AM (' + overflow + ' hour' + (overflow !== 1 ? 's' : '') + ')</li>' +
+            '</ul>' +
+          '</div>' +
+          '<button type="button" id="confirm-2day-btn" class="btn btn-primary" style="width:100%; padding:12px; font-size:1em;">Confirm 2-Day Booking</button>';
+
+        document.getElementById('confirm-2day-btn').addEventListener('click', function() {
+          selectSlot(dateStr, '09:00', day2DateStr, overflow);
+        });
+        return;
+      }
+
       // Build raw availability map from API data
       const rawAvail = {};
       SLOTS.forEach(function(slot) {
@@ -253,7 +285,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  function selectSlot(date, time) {
+  function selectSlot(date, time, day2DateStr, day2Hours) {
     selectedDate = date;
     selectedTime = time;
     dateInput.value = date;
@@ -261,10 +293,27 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const dateObj = new Date(date + 'T12:00:00');
     const options = { weekday: 'short', month: 'short', day: 'numeric' };
-    const dateLabel = dateObj.toLocaleDateString('en-US', options);
-    selectionText.textContent = dateLabel + ' at ' + SLOT_LABELS[time];
-    selectionDisplay.style.display = 'flex';
 
+    if (day2DateStr) {
+      const day2Obj = new Date(day2DateStr + 'T12:00:00');
+      selectionText.textContent = dateObj.toLocaleDateString('en-US', options) + ' + ' + day2Obj.toLocaleDateString('en-US', options) + ' (2-day service)';
+
+      // Show the notice on the form
+      const notice = document.getElementById('multiday-notice');
+      const noticeText = document.getElementById('multiday-notice-text');
+      if (notice && noticeText) {
+        const day1Label = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+        const day2Label = day2Obj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+        noticeText.textContent = 'Day 1: ' + day1Label + ' (Full day, 9:00 AM – 3:00 PM)  •  Day 2: ' + day2Label + ' (9:00 AM, ' + day2Hours + ' hour' + (day2Hours !== 1 ? 's' : '') + ')';
+        notice.style.display = 'block';
+      }
+    } else {
+      selectionText.textContent = dateObj.toLocaleDateString('en-US', options) + ' at ' + SLOT_LABELS[time];
+      const notice = document.getElementById('multiday-notice');
+      if (notice) notice.style.display = 'none';
+    }
+
+    selectionDisplay.style.display = 'flex';
     closeModal();
     renderCalendar();
   }
@@ -288,7 +337,10 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   if (serviceSelect) {
-    serviceSelect.addEventListener('change', updateCalendarVisibility);
+    serviceSelect.addEventListener('change', function() {
+      window.estimateDuration = 0; // Clear add-on duration when user manually picks a service
+      updateCalendarVisibility();
+    });
     updateCalendarVisibility(); // Check initial value on page load
   }
 

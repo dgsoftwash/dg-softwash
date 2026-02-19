@@ -37,6 +37,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const daySlots = document.getElementById('day-slots');
   const blockDayCheckbox = document.getElementById('block-day-toggle');
   const bookingsBody = document.getElementById('bookings-body');
+  const printDayBtn = document.getElementById('print-day-btn');
 
   // Login
   loginForm.addEventListener('submit', async function(e) {
@@ -181,6 +182,8 @@ document.addEventListener('DOMContentLoaded', function() {
     dayDetail.querySelector('.no-selection').style.display = 'none';
     dayDetailTitle.style.display = 'block';
     dayDetail.querySelector('.block-day-toggle').style.display = 'flex';
+    printDayBtn.style.display = 'inline-block';
+    printDayBtn.onclick = function() { printDayBookings(dateStr); };
 
     var dateObj = new Date(dateStr + 'T12:00:00');
     var options = { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' };
@@ -359,6 +362,62 @@ document.addEventListener('DOMContentLoaded', function() {
     div.textContent = str;
     return div.innerHTML;
   }
+
+  function printDayBookings(dateStr) {
+    var bookingsForDay = allBookings
+      .filter(function(b) { return b.date === dateStr; })
+      .sort(function(a, b) { return a.time < b.time ? -1 : 1; });
+
+    var dateObj = new Date(dateStr + 'T12:00:00');
+    var dateLabel = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+
+    var rows = '';
+    if (bookingsForDay.length === 0) {
+      rows = '<p style="text-align:center; color:#666; margin-top:30px;">No bookings for this day.</p>';
+    } else {
+      bookingsForDay.forEach(function(b) {
+        var timeLabel = SLOT_LABELS[b.time] || b.time;
+        var dur = b.duration || 1;
+        rows += '<div style="border:1px solid #ddd; border-radius:8px; padding:16px; margin-bottom:16px; page-break-inside:avoid;">' +
+          '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">' +
+            '<span style="font-size:1.2em; font-weight:bold; color:#1a1a2e;">' + timeLabel + '</span>' +
+            '<span style="font-size:1.1em; font-weight:bold; color:#2d6a4f;">' + (b.price ? b.price : 'Price not on file') + '</span>' +
+          '</div>' +
+          '<table style="width:100%; border-collapse:collapse; font-size:0.95em;">' +
+            '<tr><td style="padding:4px 8px; color:#555; width:120px;">Name</td><td style="padding:4px 8px; font-weight:600;">' + escapeHtml(b.name) + '</td>' +
+                '<td style="padding:4px 8px; color:#555; width:120px;">Phone</td><td style="padding:4px 8px; font-weight:600;">' + escapeHtml(b.phone || '-') + '</td></tr>' +
+            '<tr><td style="padding:4px 8px; color:#555;">Email</td><td style="padding:4px 8px;" colspan="3">' + escapeHtml(b.email || '-') + '</td></tr>' +
+            '<tr><td style="padding:4px 8px; color:#555;">Address</td><td style="padding:4px 8px;" colspan="3">' + escapeHtml(b.address || '-') + '</td></tr>' +
+            '<tr><td style="padding:4px 8px; color:#555;">Service</td><td style="padding:4px 8px;">' + escapeHtml(b.service || '-') + '</td>' +
+                '<td style="padding:4px 8px; color:#555;">Duration</td><td style="padding:4px 8px;">' + dur + ' hr' + (dur > 1 ? 's' : '') + '</td></tr>' +
+          '</table>' +
+          (b.notes ? '<div style="margin-top:10px; padding:10px; background:#f9f9f9; border-radius:6px; font-size:0.9em; white-space:pre-line;">' + escapeHtml(b.notes) + '</div>' : '') +
+        '</div>';
+      });
+    }
+
+    var printWindow = window.open('', '_blank');
+    printWindow.document.write('<!DOCTYPE html><html><head><title>D&G Soft Wash - ' + dateLabel + '</title>' +
+      '<style>body{font-family:Arial,sans-serif;margin:30px;color:#1a1a2e;} h1{margin:0;font-size:1.6em;} .header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1a1a2e;padding-bottom:12px;margin-bottom:24px;} .subtitle{color:#555;font-size:1em;margin-top:4px;} @media print{button{display:none;}}</style>' +
+      '</head><body>' +
+      '<div class="header">' +
+        '<div><h1>D&amp;G Soft Wash</h1><div class="subtitle">Integrity You Can See &mdash; Veteran Owned &amp; Operated</div></div>' +
+        '<div style="text-align:right;"><strong>Schedule</strong><br>' + dateLabel + '<br><span style="color:#555;">' + bookingsForDay.length + ' booking' + (bookingsForDay.length !== 1 ? 's' : '') + '</span></div>' +
+      '</div>' +
+      rows +
+      '<div style="text-align:center; margin-top:30px; color:#aaa; font-size:0.85em;">Printed from D&amp;G Soft Wash Admin Dashboard &mdash; (757) 525-9508</div>' +
+      '<div style="text-align:center; margin-top:16px;"><button onclick="window.print()" style="padding:10px 30px; font-size:1em; cursor:pointer;">Print</button></div>' +
+      '</body></html>');
+    printWindow.document.close();
+  }
+
+  // Print Today's Bookings
+  document.getElementById('print-today-btn').addEventListener('click', function() {
+    var todayStr = today.getFullYear() + '-' +
+      String(today.getMonth() + 1).padStart(2, '0') + '-' +
+      String(today.getDate()).padStart(2, '0');
+    printDayBookings(todayStr);
+  });
 
   // Check if already logged in
   if (adminToken) {
