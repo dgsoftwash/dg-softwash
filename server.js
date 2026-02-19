@@ -1,19 +1,48 @@
 const express = require('express');
 const path = require('path');
-const fs = require('fs');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
+const { Pool } = require('pg');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// --- Bookings data helpers ---
-const DATA_FILE = path.join(__dirname, 'data', 'bookings.json');
+// --- PostgreSQL setup ---
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
+});
+
+async function initDb() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS bookings (
+      id SERIAL PRIMARY KEY,
+      date TEXT NOT NULL,
+      time TEXT NOT NULL,
+      duration INTEGER NOT NULL DEFAULT 1,
+      name TEXT NOT NULL DEFAULT '',
+      email TEXT NOT NULL DEFAULT '',
+      phone TEXT NOT NULL DEFAULT '',
+      service TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS blocked (
+      id SERIAL PRIMARY KEY,
+      date TEXT NOT NULL,
+      time TEXT NOT NULL,
+      reason TEXT NOT NULL DEFAULT ''
+    )
+  `);
+}
+
+// --- Booking helpers ---
 const VALID_SLOTS = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00'];
 
 const SERVICE_DURATIONS = {
@@ -28,6 +57,8 @@ const SERVICE_DURATIONS = {
 
 const NOT_BOOKABLE = ['heavy-equipment', 'commercial'];
 
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'dgsoftwash2025';
+
 // Returns all slot times a booking occupies based on its duration
 function getOccupiedSlots(booking) {
   const duration = booking.duration || 1;
@@ -38,19 +69,6 @@ function getOccupiedSlots(booking) {
     slots.push(VALID_SLOTS[startIndex + i]);
   }
   return slots;
-}
-
-function readData() {
-  try {
-    const raw = fs.readFileSync(DATA_FILE, 'utf8');
-    return JSON.parse(raw);
-  } catch (e) {
-    return { bookings: [], blocked: [], adminPassword: 'dgsoftwash2025' };
-  }
-}
-
-function writeData(data) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
 }
 
 // Simple token store (in-memory, resets on server restart)
@@ -91,56 +109,66 @@ app.get('/admin', (req, res) => {
 
 // --- Availability API ---
 
-// GET /api/availability/:date/slots - individual day slots (must be before /:year/:month)
-app.get('/api/availability/:date/slots', (req, res) => {
+// GET /api/availability/:date/slots - individual day slots
+app.get('/api/availability/:date/slots', async (req, res) => {
   const dateStr = req.params.date;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
     return res.status(400).json({ error: 'Invalid date format' });
   }
 
-  const data = readData();
-  const dayBlocked = data.blocked.some(b => b.date === dateStr && b.time === 'all');
+  const { rows: bookings } = await pool.query(
+    'SELECT time, duration FROM bookings WHERE date = $1', [dateStr]
+  );
+  const { rows: blockedRows } = await pool.query(
+    'SELECT time FROM blocked WHERE date = $1', [dateStr]
+  );
 
-  const dayBookings = data.bookings.filter(b => b.date === dateStr);
+  const dayBlocked = blockedRows.some(b => b.time === 'all');
+
   const occupiedSlots = new Set();
-  dayBookings.forEach(b => {
+  bookings.forEach(b => {
     getOccupiedSlots(b).forEach(s => occupiedSlots.add(s));
   });
 
+  const blockedTimes = new Set(blockedRows.map(b => b.time));
+
   const slots = VALID_SLOTS.map(slot => {
     if (dayBlocked) return { time: slot, available: false };
-    const isBooked = occupiedSlots.has(slot);
-    const isBlocked = data.blocked.some(b => b.date === dateStr && b.time === slot);
-    return { time: slot, available: !isBooked && !isBlocked };
+    return { time: slot, available: !occupiedSlots.has(slot) && !blockedTimes.has(slot) };
   });
 
   res.json({ slots });
 });
 
 // GET /api/availability/:year/:month - month availability overview
-app.get('/api/availability/:year/:month', (req, res) => {
+app.get('/api/availability/:year/:month', async (req, res) => {
   const year = parseInt(req.params.year);
   const month = parseInt(req.params.month); // 1-indexed
   if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
     return res.status(400).json({ error: 'Invalid year or month' });
   }
 
-  const data = readData();
+  const prefix = year + '-' + String(month).padStart(2, '0');
+  const { rows: bookings } = await pool.query(
+    'SELECT date, time, duration FROM bookings WHERE date LIKE $1', [prefix + '%']
+  );
+  const { rows: blockedRows } = await pool.query(
+    'SELECT date, time FROM blocked WHERE date LIKE $1', [prefix + '%']
+  );
+
   const daysInMonth = new Date(year, month, 0).getDate();
   const days = [];
 
   for (let day = 1; day <= daysInMonth; day++) {
-    const dateStr = year + '-' + String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+    const dateStr = prefix + '-' + String(day).padStart(2, '0');
 
-    // Check if entire day is blocked
-    const dayBlocked = data.blocked.some(b => b.date === dateStr && b.time === 'all');
+    const dayBlocked = blockedRows.some(b => b.date === dateStr && b.time === 'all');
     if (dayBlocked) {
       days.push({ date: dateStr, availableSlots: 0 });
       continue;
     }
 
-    // Count available slots (accounting for multi-slot bookings)
-    const dayBookings = data.bookings.filter(b => b.date === dateStr);
+    const dayBookings = bookings.filter(b => b.date === dateStr);
     const occupiedSlots = new Set();
     dayBookings.forEach(b => {
       getOccupiedSlots(b).forEach(s => occupiedSlots.add(s));
@@ -149,7 +177,7 @@ app.get('/api/availability/:year/:month', (req, res) => {
     let available = 0;
     VALID_SLOTS.forEach(slot => {
       const isBooked = occupiedSlots.has(slot);
-      const isBlocked = data.blocked.some(b => b.date === dateStr && b.time === slot);
+      const isBlocked = blockedRows.some(b => b.date === dateStr && b.time === slot);
       if (!isBooked && !isBlocked) available++;
     });
 
@@ -185,40 +213,38 @@ app.post('/api/contact', async (req, res) => {
     }
 
     const neededSlots = VALID_SLOTS.slice(startIndex, startIndex + duration);
-    const data = readData();
 
-    // Build set of occupied slots for the day
-    const dayBlocked = data.blocked.some(b => b.date === appointmentDate && b.time === 'all');
+    // Check blocked
+    const { rows: blockedRows } = await pool.query(
+      'SELECT time FROM blocked WHERE date = $1', [appointmentDate]
+    );
+    const dayBlocked = blockedRows.some(b => b.time === 'all');
     if (dayBlocked) {
       return res.json({ success: false, message: 'Sorry, that day is not available. Please select another.' });
     }
 
-    const dayBookings = data.bookings.filter(b => b.date === appointmentDate);
+    // Build set of occupied slots for the day
+    const { rows: dayBookings } = await pool.query(
+      'SELECT time, duration FROM bookings WHERE date = $1', [appointmentDate]
+    );
     const occupiedSlots = new Set();
     dayBookings.forEach(b => {
       getOccupiedSlots(b).forEach(s => occupiedSlots.add(s));
     });
 
+    const blockedTimes = new Set(blockedRows.map(b => b.time));
+
     // Check ALL needed slots are free
-    const blockedSlot = neededSlots.find(s =>
-      occupiedSlots.has(s) || data.blocked.some(b => b.date === appointmentDate && b.time === s)
-    );
+    const blockedSlot = neededSlots.find(s => occupiedSlots.has(s) || blockedTimes.has(s));
     if (blockedSlot) {
       return res.json({ success: false, message: 'Sorry, that time slot is no longer available. Please select another.' });
     }
 
-    // Save booking with duration
-    data.bookings.push({
-      date: appointmentDate,
-      time: appointmentTime,
-      duration: duration,
-      name: name || '',
-      email: email || '',
-      phone: phone || '',
-      service: service || '',
-      createdAt: new Date().toISOString()
-    });
-    writeData(data);
+    // Save booking
+    await pool.query(
+      'INSERT INTO bookings (date, time, duration, name, email, phone, service) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+      [appointmentDate, appointmentTime, duration, name || '', email || '', phone || '', service || '']
+    );
   }
 
   /*
@@ -247,9 +273,8 @@ app.post('/api/contact', async (req, res) => {
 // POST /api/admin/login
 app.post('/api/admin/login', (req, res) => {
   const { password } = req.body;
-  const data = readData();
 
-  if (password === data.adminPassword) {
+  if (password === ADMIN_PASSWORD) {
     const token = crypto.randomBytes(32).toString('hex');
     adminTokens.add(token);
     res.json({ success: true, token });
@@ -259,32 +284,42 @@ app.post('/api/admin/login', (req, res) => {
 });
 
 // GET /api/admin/bookings
-app.get('/api/admin/bookings', requireAdmin, (req, res) => {
-  const data = readData();
-  res.json({ bookings: data.bookings, blocked: data.blocked });
+app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
+  const { rows: bookings } = await pool.query('SELECT date, time, duration, name, email, phone, service, created_at FROM bookings ORDER BY date, time');
+  const { rows: blocked } = await pool.query('SELECT date, time, reason FROM blocked ORDER BY date, time');
+  res.json({ bookings, blocked });
 });
 
 // POST /api/admin/block
-app.post('/api/admin/block', requireAdmin, (req, res) => {
+app.post('/api/admin/block', requireAdmin, async (req, res) => {
   const { action, date, time } = req.body;
-  const data = readData();
 
   if (action === 'block') {
     // Don't duplicate
-    const exists = data.blocked.some(b => b.date === date && b.time === time);
-    if (!exists) {
-      data.blocked.push({ date, time, reason: 'Admin blocked' });
+    const { rows } = await pool.query(
+      'SELECT 1 FROM blocked WHERE date = $1 AND time = $2', [date, time]
+    );
+    if (rows.length === 0) {
+      await pool.query(
+        'INSERT INTO blocked (date, time, reason) VALUES ($1, $2, $3)',
+        [date, time, 'Admin blocked']
+      );
     }
   } else if (action === 'unblock') {
-    data.blocked = data.blocked.filter(b => !(b.date === date && b.time === time));
+    await pool.query('DELETE FROM blocked WHERE date = $1 AND time = $2', [date, time]);
   } else if (action === 'cancel') {
-    data.bookings = data.bookings.filter(b => !(b.date === date && b.time === time));
+    await pool.query('DELETE FROM bookings WHERE date = $1 AND time = $2', [date, time]);
   }
 
-  writeData(data);
   res.json({ success: true });
 });
 
-app.listen(PORT, () => {
-  console.log(`D&G Soft Wash website running at http://localhost:${PORT}`);
+// --- Start server ---
+initDb().then(() => {
+  app.listen(PORT, () => {
+    console.log(`D&G Soft Wash website running on port ${PORT}`);
+  });
+}).catch(err => {
+  console.error('Failed to initialize database:', err);
+  process.exit(1);
 });
