@@ -192,10 +192,20 @@ document.addEventListener('DOMContentLoaded', function() {
     blockDayCheckbox.checked = isDayBlocked;
 
     daySlots.innerHTML = '';
+
+    // Build map of slot -> booking that occupies it (accounting for duration)
+    var slotBookingMap = {};
+    allBookings.filter(function(b) { return b.date === dateStr; }).forEach(function(b) {
+      var dur = b.duration || 1;
+      var startIdx = SLOTS.indexOf(b.time);
+      if (startIdx === -1) return;
+      for (var i = 0; i < dur && (startIdx + i) < SLOTS.length; i++) {
+        slotBookingMap[SLOTS[startIdx + i]] = b;
+      }
+    });
+
     SLOTS.forEach(function(slot) {
-      var booking = allBookings.find(function(b) {
-        return b.date === dateStr && b.time === slot;
-      });
+      var booking = slotBookingMap[slot] || null;
       var blocked = allBlocked.some(function(b) {
         return b.date === dateStr && (b.time === slot || b.time === 'all');
       });
@@ -215,7 +225,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
       if (booking) {
         labelEl.className += ' booked';
-        labelEl.textContent = 'Booked - ' + booking.name;
+        var isStart = booking.time === slot;
+        labelEl.textContent = isStart
+          ? 'Booked - ' + booking.name
+          : 'Booked (cont.) - ' + booking.name;
       } else if (blocked) {
         labelEl.className += ' blocked';
         labelEl.textContent = 'Blocked';
@@ -230,7 +243,7 @@ document.addEventListener('DOMContentLoaded', function() {
       var actions = document.createElement('div');
       actions.className = 'slot-actions';
 
-      if (booking) {
+      if (booking && booking.time === slot) {
         var cancelBtn = document.createElement('button');
         cancelBtn.type = 'button';
         cancelBtn.className = 'btn-cancel';
@@ -239,6 +252,8 @@ document.addEventListener('DOMContentLoaded', function() {
           adminAction('cancel', dateStr, slot);
         });
         actions.appendChild(cancelBtn);
+      } else if (booking) {
+        // Continuation slot — no actions needed
       } else if (blocked && !isDayBlocked) {
         var unblockBtn = document.createElement('button');
         unblockBtn.type = 'button';
@@ -312,7 +327,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (upcoming.length === 0) {
       var row = document.createElement('tr');
       var td = document.createElement('td');
-      td.colSpan = 5;
+      td.colSpan = 6;
       td.className = 'no-bookings';
       td.textContent = 'No upcoming bookings';
       row.appendChild(td);
@@ -325,9 +340,11 @@ document.addEventListener('DOMContentLoaded', function() {
       var dateObj = new Date(b.date + 'T12:00:00');
       var dateLabel = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
+      var dur = b.duration || 1;
       row.innerHTML =
         '<td>' + dateLabel + '</td>' +
         '<td>' + (SLOT_LABELS[b.time] || b.time) + '</td>' +
+        '<td>' + dur + 'hr' + (dur > 1 ? 's' : '') + '</td>' +
         '<td>' + escapeHtml(b.name) + '</td>' +
         '<td>' + escapeHtml(b.service || '-') + '</td>' +
         '<td>' + escapeHtml(b.phone || '-') + '</td>';

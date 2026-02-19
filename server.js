@@ -16,6 +16,30 @@ app.use(express.static(path.join(__dirname, 'public')));
 const DATA_FILE = path.join(__dirname, 'data', 'bookings.json');
 const VALID_SLOTS = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00'];
 
+const SERVICE_DURATIONS = {
+  'house-rancher': 2,
+  'house-single': 3,
+  'house-plus': 4,
+  'deck': 2,
+  'fence': 2,
+  'rv': 1,
+  'boat': 1
+};
+
+const NOT_BOOKABLE = ['heavy-equipment', 'commercial'];
+
+// Returns all slot times a booking occupies based on its duration
+function getOccupiedSlots(booking) {
+  const duration = booking.duration || 1;
+  const startIndex = VALID_SLOTS.indexOf(booking.time);
+  if (startIndex === -1) return [booking.time];
+  const slots = [];
+  for (let i = 0; i < duration && (startIndex + i) < VALID_SLOTS.length; i++) {
+    slots.push(VALID_SLOTS[startIndex + i]);
+  }
+  return slots;
+}
+
 function readData() {
   try {
     const raw = fs.readFileSync(DATA_FILE, 'utf8');
@@ -77,9 +101,15 @@ app.get('/api/availability/:date/slots', (req, res) => {
   const data = readData();
   const dayBlocked = data.blocked.some(b => b.date === dateStr && b.time === 'all');
 
+  const dayBookings = data.bookings.filter(b => b.date === dateStr);
+  const occupiedSlots = new Set();
+  dayBookings.forEach(b => {
+    getOccupiedSlots(b).forEach(s => occupiedSlots.add(s));
+  });
+
   const slots = VALID_SLOTS.map(slot => {
     if (dayBlocked) return { time: slot, available: false };
-    const isBooked = data.bookings.some(b => b.date === dateStr && b.time === slot);
+    const isBooked = occupiedSlots.has(slot);
     const isBlocked = data.blocked.some(b => b.date === dateStr && b.time === slot);
     return { time: slot, available: !isBooked && !isBlocked };
   });
@@ -109,10 +139,16 @@ app.get('/api/availability/:year/:month', (req, res) => {
       continue;
     }
 
-    // Count available slots
+    // Count available slots (accounting for multi-slot bookings)
+    const dayBookings = data.bookings.filter(b => b.date === dateStr);
+    const occupiedSlots = new Set();
+    dayBookings.forEach(b => {
+      getOccupiedSlots(b).forEach(s => occupiedSlots.add(s));
+    });
+
     let available = 0;
     VALID_SLOTS.forEach(slot => {
-      const isBooked = data.bookings.some(b => b.date === dateStr && b.time === slot);
+      const isBooked = occupiedSlots.has(slot);
       const isBlocked = data.blocked.some(b => b.date === dateStr && b.time === slot);
       if (!isBooked && !isBlocked) available++;
     });
@@ -131,25 +167,51 @@ app.post('/api/contact', async (req, res) => {
 
   // If appointment requested, validate and save booking
   if (appointmentDate && appointmentTime) {
+    // Reject not-bookable services
+    if (NOT_BOOKABLE.includes(service)) {
+      return res.json({ success: false, message: 'This service requires a custom estimate. Please call or text to book.' });
+    }
+
     if (!VALID_SLOTS.includes(appointmentTime)) {
       return res.json({ success: false, message: 'Invalid time slot selected.' });
     }
 
+    const duration = SERVICE_DURATIONS[service] || 1;
+    const startIndex = VALID_SLOTS.indexOf(appointmentTime);
+
+    // Verify all consecutive slots fit within operating hours
+    if (startIndex + duration > VALID_SLOTS.length) {
+      return res.json({ success: false, message: 'Not enough time remaining in the day for this service.' });
+    }
+
+    const neededSlots = VALID_SLOTS.slice(startIndex, startIndex + duration);
     const data = readData();
 
-    // Check if slot is still available
+    // Build set of occupied slots for the day
     const dayBlocked = data.blocked.some(b => b.date === appointmentDate && b.time === 'all');
-    const slotBooked = data.bookings.some(b => b.date === appointmentDate && b.time === appointmentTime);
-    const slotBlocked = data.blocked.some(b => b.date === appointmentDate && b.time === appointmentTime);
+    if (dayBlocked) {
+      return res.json({ success: false, message: 'Sorry, that day is not available. Please select another.' });
+    }
 
-    if (dayBlocked || slotBooked || slotBlocked) {
+    const dayBookings = data.bookings.filter(b => b.date === appointmentDate);
+    const occupiedSlots = new Set();
+    dayBookings.forEach(b => {
+      getOccupiedSlots(b).forEach(s => occupiedSlots.add(s));
+    });
+
+    // Check ALL needed slots are free
+    const blockedSlot = neededSlots.find(s =>
+      occupiedSlots.has(s) || data.blocked.some(b => b.date === appointmentDate && b.time === s)
+    );
+    if (blockedSlot) {
       return res.json({ success: false, message: 'Sorry, that time slot is no longer available. Please select another.' });
     }
 
-    // Save booking
+    // Save booking with duration
     data.bookings.push({
       date: appointmentDate,
       time: appointmentTime,
+      duration: duration,
       name: name || '',
       email: email || '',
       phone: phone || '',

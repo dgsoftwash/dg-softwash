@@ -14,6 +14,24 @@ document.addEventListener('DOMContentLoaded', function() {
     '15:00': '3:00 PM'
   };
 
+  const SERVICE_DURATIONS = {
+    'house-rancher': 2,
+    'house-single': 3,
+    'house-plus': 4,
+    'deck': 2,
+    'fence': 2,
+    'rv': 1,
+    'boat': 1
+  };
+
+  const NOT_BOOKABLE = ['heavy-equipment', 'commercial'];
+
+  function getSelectedDuration() {
+    var serviceSelect = document.getElementById('service');
+    if (!serviceSelect) return 1;
+    return SERVICE_DURATIONS[serviceSelect.value] || 1;
+  }
+
   let currentYear, currentMonth; // 0-indexed month
   let selectedDate = null;
   let selectedTime = null;
@@ -184,13 +202,32 @@ document.addEventListener('DOMContentLoaded', function() {
       const data = await res.json();
       timeSlotsContainer.innerHTML = '';
 
+      const duration = getSelectedDuration();
+
+      // Build raw availability map from API data
+      const rawAvail = {};
       SLOTS.forEach(function(slot) {
         const slotData = data.slots ? data.slots.find(function(s) { return s.time === slot; }) : null;
-        const isAvailable = slotData ? slotData.available : true;
+        rawAvail[slot] = slotData ? slotData.available : true;
+      });
+
+      SLOTS.forEach(function(slot, idx) {
+        // A start time is only available if it AND the next (duration-1) consecutive slots are all free
+        let canStart = true;
+        if (idx + duration > SLOTS.length) {
+          canStart = false; // Not enough slots remaining in the day
+        } else {
+          for (let d = 0; d < duration; d++) {
+            if (!rawAvail[SLOTS[idx + d]]) {
+              canStart = false;
+              break;
+            }
+          }
+        }
 
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'time-slot' + (isAvailable ? '' : ' booked');
+        btn.className = 'time-slot' + (canStart ? '' : ' booked');
 
         const timeSpan = document.createElement('span');
         timeSpan.className = 'slot-time';
@@ -198,12 +235,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const statusSpan = document.createElement('span');
         statusSpan.className = 'slot-status';
-        statusSpan.textContent = isAvailable ? 'Available' : 'Booked';
+        statusSpan.textContent = canStart ? 'Available' : 'Booked';
 
         btn.appendChild(timeSpan);
         btn.appendChild(statusSpan);
 
-        if (isAvailable) {
+        if (canStart) {
           btn.addEventListener('click', function() {
             selectSlot(dateStr, slot);
           });
@@ -230,6 +267,29 @@ document.addEventListener('DOMContentLoaded', function() {
 
     closeModal();
     renderCalendar();
+  }
+
+  // Service dropdown: hide calendar for non-bookable services
+  var serviceSelect = document.getElementById('service');
+  function updateCalendarVisibility() {
+    if (!serviceSelect) return;
+    var val = serviceSelect.value;
+    if (NOT_BOOKABLE.includes(val)) {
+      calendarContainer.style.display = 'none';
+      // Clear any selection
+      selectedDate = null;
+      selectedTime = null;
+      dateInput.value = '';
+      timeInput.value = '';
+      selectionDisplay.style.display = 'none';
+    } else {
+      calendarContainer.style.display = '';
+    }
+  }
+
+  if (serviceSelect) {
+    serviceSelect.addEventListener('change', updateCalendarVisibility);
+    updateCalendarVisibility(); // Check initial value on page load
   }
 
   // Initial load
