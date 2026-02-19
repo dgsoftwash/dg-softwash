@@ -28,6 +28,7 @@ async function initDb() {
       name TEXT NOT NULL DEFAULT '',
       email TEXT NOT NULL DEFAULT '',
       phone TEXT NOT NULL DEFAULT '',
+      address TEXT NOT NULL DEFAULT '',
       service TEXT NOT NULL DEFAULT '',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
@@ -39,6 +40,10 @@ async function initDb() {
       time TEXT NOT NULL,
       reason TEXT NOT NULL DEFAULT ''
     )
+  `);
+  // Migration: add address column if it doesn't exist
+  await pool.query(`
+    ALTER TABLE bookings ADD COLUMN IF NOT EXISTS address TEXT NOT NULL DEFAULT ''
   `);
 }
 
@@ -189,9 +194,9 @@ app.get('/api/availability/:year/:month', async (req, res) => {
 
 // --- Contact form submission (modified to support booking) ---
 app.post('/api/contact', async (req, res) => {
-  const { name, email, phone, service, message, appointmentDate, appointmentTime } = req.body;
+  const { name, email, phone, address, service, message, appointmentDate, appointmentTime } = req.body;
 
-  console.log('Contact form submission:', { name, email, phone, service, message, appointmentDate, appointmentTime });
+  console.log('Contact form submission:', { name, email, phone, address, service, message, appointmentDate, appointmentTime });
 
   // If appointment requested, validate and save booking
   if (appointmentDate && appointmentTime) {
@@ -242,8 +247,8 @@ app.post('/api/contact', async (req, res) => {
 
     // Save booking
     await pool.query(
-      'INSERT INTO bookings (date, time, duration, name, email, phone, service) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-      [appointmentDate, appointmentTime, duration, name || '', email || '', phone || '', service || '']
+      'INSERT INTO bookings (date, time, duration, name, email, phone, address, service) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+      [appointmentDate, appointmentTime, duration, name || '', email || '', phone || '', address || '', service || '']
     );
   }
 
@@ -285,7 +290,7 @@ app.post('/api/admin/login', (req, res) => {
 
 // GET /api/admin/bookings
 app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
-  const { rows: bookings } = await pool.query('SELECT date, time, duration, name, email, phone, service, created_at FROM bookings ORDER BY date, time');
+  const { rows: bookings } = await pool.query('SELECT date, time, duration, name, email, phone, address, service, created_at FROM bookings ORDER BY date, time');
   const { rows: blocked } = await pool.query('SELECT date, time, reason FROM blocked ORDER BY date, time');
   res.json({ bookings, blocked });
 });

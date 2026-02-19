@@ -327,7 +327,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (upcoming.length === 0) {
       var row = document.createElement('tr');
       var td = document.createElement('td');
-      td.colSpan = 6;
+      td.colSpan = 7;
       td.className = 'no-bookings';
       td.textContent = 'No upcoming bookings';
       row.appendChild(td);
@@ -347,7 +347,8 @@ document.addEventListener('DOMContentLoaded', function() {
         '<td>' + dur + 'hr' + (dur > 1 ? 's' : '') + '</td>' +
         '<td>' + escapeHtml(b.name) + '</td>' +
         '<td>' + escapeHtml(b.service || '-') + '</td>' +
-        '<td>' + escapeHtml(b.phone || '-') + '</td>';
+        '<td>' + escapeHtml(b.phone || '-') + '</td>' +
+        '<td>' + escapeHtml(b.address || '-') + '</td>';
       bookingsBody.appendChild(row);
     });
   }
