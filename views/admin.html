@@ -56,6 +56,7 @@
         <div class="admin-tabs" style="display:flex; gap:8px; margin-bottom:20px; border-bottom:2px solid #e5e7eb; padding-bottom:0;">
           <button class="admin-tab active" data-tab="schedule" style="padding:10px 22px; border:none; border-bottom:3px solid #1a1a2e; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#1a1a2e; margin-bottom:-2px;">Schedule</button>
           <button class="admin-tab" data-tab="customers" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Customers</button>
+          <button class="admin-tab" data-tab="work-orders" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Work Orders</button>
           <button class="admin-tab" data-tab="pricing" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Pricing</button>
         </div>
 
@@ -128,6 +129,10 @@
               <span id="past-bookings-count" style="color:#888; font-size:0.9em; font-weight:400;"></span>
             </div>
             <div id="past-bookings-content" style="display:none;">
+              <div style="margin-bottom:12px; padding-top:8px;">
+                <input type="search" id="past-search" placeholder="Search past bookings by name, phone, service..."
+                  style="width:100%; max-width:400px; padding:8px 12px; border:1px solid #ddd; border-radius:6px; font-size:0.93em;">
+              </div>
               <table class="bookings-table">
                 <thead>
                   <tr>
@@ -156,6 +161,13 @@
         <div id="tab-customers" class="tab-panel" style="display:none;">
           <div id="customers-admin-container">
             <p style="color:#666;">Loading customers...</p>
+          </div>
+        </div>
+
+        <!-- Work Orders Tab -->
+        <div id="tab-work-orders" class="tab-panel" style="display:none;">
+          <div id="work-orders-admin-container">
+            <p style="color:#666;">Loading work orders...</p>
           </div>
         </div>
 
@@ -226,7 +238,7 @@
           </div>
           <div class="form-group"><label>Duration (hrs)</label><input type="number" id="mb-duration" value="1" min="1" max="14" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"></div>
           <div class="form-group"><label>Price</label><input type="text" id="mb-price" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;" placeholder="e.g. $350"></div>
-          <div class="form-group" style="grid-column:1/-1;"><label>Notes</label><textarea id="mb-notes" rows="3" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box; resize:vertical;"></textarea></div>
+          <div class="form-group" style="grid-column:1/-1;"><label>Notes / Services &amp; Add-ons</label><textarea id="mb-notes" rows="3" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box; resize:vertical;"></textarea></div>
         </div>
         <p id="mb-error" style="color:#dc2626; margin-top:8px; min-height:1.2em;"></p>
         <button type="submit" class="btn btn-primary" style="width:100%; margin-top:4px;">Save Booking</button>

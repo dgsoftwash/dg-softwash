@@ -324,6 +324,65 @@ function formatSlot(slot) {
   return (hour > 12 ? hour - 12 : hour) + ':00 ' + (hour >= 12 ? 'PM' : 'AM');
 }
 
+function generateInvoiceEmail(wo, woId, dateLabel, deadlineLabel) {
+  var notesBlock = wo.booking_notes
+    ? '<div style="margin-bottom:20px;"><div style="font-weight:600; margin-bottom:6px; color:#1a1a2e;">Services &amp; Add-ons</div>' +
+      '<div style="background:#f8f9fa; border-radius:6px; padding:14px; white-space:pre-line; font-family:monospace; font-size:0.88em; line-height:1.6;">' +
+      wo.booking_notes.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div></div>'
+    : '';
+  return '<!DOCTYPE html><html><head><meta charset="UTF-8"></head>' +
+    '<body style="font-family:Arial,sans-serif;margin:0;padding:0;background:#f4f4f4;">' +
+    '<div style="max-width:600px;margin:30px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);">' +
+    '<div style="background:#1a1a2e;color:#fff;padding:24px 30px;">' +
+    '<h1 style="margin:0;font-size:1.4em;">D&amp;G Soft Wash</h1>' +
+    '<p style="margin:6px 0 0;color:#aab4d4;font-size:0.95em;">Integrity You Can See &mdash; Veteran Owned &amp; Operated</p></div>' +
+    '<div style="padding:30px;">' +
+    '<h2 style="margin-top:0;color:#1a1a2e;">INVOICE #' + woId + '</h2>' +
+    '<table style="width:100%;border-collapse:collapse;margin-bottom:20px;">' +
+    '<tr><td style="padding:7px 0;color:#555;width:160px;">Date of Service</td><td style="padding:7px 0;font-weight:600;">' + dateLabel + '</td></tr>' +
+    '<tr><td style="padding:7px 0;color:#555;">Service</td><td style="padding:7px 0;">' + (wo.service || '&mdash;').replace(/&/g,'&amp;') + '</td></tr>' +
+    '<tr><td style="padding:7px 0;color:#555;">Amount Due</td><td style="padding:7px 0;font-weight:700;color:#dc2626;font-size:1.1em;">' + (wo.price || '&mdash;').replace(/&/g,'&amp;') + '</td></tr>' +
+    '<tr><td style="padding:7px 0;color:#555;">Payment Due</td><td style="padding:7px 0;">' + deadlineLabel + '</td></tr>' +
+    '</table>' + notesBlock +
+    '<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:12px 18px;margin-bottom:20px;text-align:center;">' +
+    '<span style="color:#dc2626;font-weight:700;font-size:1em;">PAYMENT STATUS: NOT PAID</span></div>' +
+    '<p style="color:#555;">Payment is due within 5 business days. We accept cash, check, and major credit cards.</p>' +
+    '<p style="color:#555;">If you have any questions, please call or text us at <strong>(757) 525-9508</strong> or email <strong>dgsoftwash@yahoo.com</strong>.</p>' +
+    '</div>' +
+    '<div style="background:#f8f9fa;padding:16px 30px;text-align:center;color:#888;font-size:0.85em;border-top:1px solid #e5e7eb;">' +
+    'D&amp;G Soft Wash &mdash; (757) 525-9508 &mdash; dgsoftwash@yahoo.com</div>' +
+    '</div></body></html>';
+}
+
+function generatePaidEmail(wo, woId, dateLabel) {
+  var notesBlock = wo.booking_notes
+    ? '<div style="margin-bottom:20px;"><div style="font-weight:600; margin-bottom:6px; color:#1a1a2e;">Services &amp; Add-ons</div>' +
+      '<div style="background:#f8f9fa; border-radius:6px; padding:14px; white-space:pre-line; font-family:monospace; font-size:0.88em; line-height:1.6;">' +
+      wo.booking_notes.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div></div>'
+    : '';
+  return '<!DOCTYPE html><html><head><meta charset="UTF-8"></head>' +
+    '<body style="font-family:Arial,sans-serif;margin:0;padding:0;background:#f4f4f4;">' +
+    '<div style="max-width:600px;margin:30px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);">' +
+    '<div style="background:#1a1a2e;color:#fff;padding:24px 30px;">' +
+    '<h1 style="margin:0;font-size:1.4em;">D&amp;G Soft Wash</h1>' +
+    '<p style="margin:6px 0 0;color:#aab4d4;font-size:0.95em;">Integrity You Can See &mdash; Veteran Owned &amp; Operated</p></div>' +
+    '<div style="padding:30px;">' +
+    '<h2 style="margin-top:0;color:#1a1a2e;">PAYMENT RECEIPT #' + woId + '</h2>' +
+    '<table style="width:100%;border-collapse:collapse;margin-bottom:20px;">' +
+    '<tr><td style="padding:7px 0;color:#555;width:160px;">Date of Service</td><td style="padding:7px 0;font-weight:600;">' + dateLabel + '</td></tr>' +
+    '<tr><td style="padding:7px 0;color:#555;">Service</td><td style="padding:7px 0;">' + (wo.service || '&mdash;').replace(/&/g,'&amp;') + '</td></tr>' +
+    '<tr><td style="padding:7px 0;color:#555;">Amount</td><td style="padding:7px 0;font-weight:700;color:#2d6a4f;font-size:1.1em;">' + (wo.price || '&mdash;').replace(/&/g,'&amp;') + '</td></tr>' +
+    '</table>' + notesBlock +
+    '<div style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:8px;padding:12px 18px;margin-bottom:20px;text-align:center;">' +
+    '<span style="color:#065f46;font-weight:700;font-size:1em;">&#10003; PAID IN FULL</span></div>' +
+    '<p style="color:#555;">Thank you for your business! We appreciate your trust in D&amp;G Soft Wash. We hope to serve you again soon.</p>' +
+    '<p style="color:#555;">If you have any questions, please call or text us at <strong>(757) 525-9508</strong>.</p>' +
+    '</div>' +
+    '<div style="background:#f8f9fa;padding:16px 30px;text-align:center;color:#888;font-size:0.85em;border-top:1px solid #e5e7eb;">' +
+    'D&amp;G Soft Wash &mdash; (757) 525-9508 &mdash; dgsoftwash@yahoo.com</div>' +
+    '</div></body></html>';
+}
+
 // Simple token store (in-memory, resets on server restart)
 const adminTokens = new Set();
 
@@ -874,6 +933,12 @@ app.patch('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const { status_job_complete, status_invoiced, status_invoice_paid, status_paid, admin_notes } = req.body;
+
+    // Fetch current state before update
+    const { rows: current } = await pool.query('SELECT * FROM work_orders WHERE id = $1', [id]);
+    if (!current.length) return res.status(404).json({ error: 'Not found' });
+    const before = current[0];
+
     const updates = [];
     const values = [];
     let idx = 1;
@@ -882,10 +947,66 @@ app.patch('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
     if (status_invoice_paid !== undefined) { updates.push(`status_invoice_paid = $${idx++}`); values.push(status_invoice_paid); }
     if (status_paid !== undefined) { updates.push(`status_paid = $${idx++}`); values.push(status_paid); }
     if (admin_notes !== undefined) { updates.push(`admin_notes = $${idx++}`); values.push(admin_notes); }
-    if (updates.length === 0) return res.json({ success: true });
+    if (updates.length === 0) return res.json({ success: true, email_sent: null });
     values.push(id);
     await pool.query(`UPDATE work_orders SET ${updates.join(', ')} WHERE id = $${idx}`, values);
-    res.json({ success: true });
+
+    // Detect if invoiced or invoice_paid flipped false→true and send email
+    let email_sent = null;
+    const invoicedChanged = status_invoiced === true && !before.status_invoiced;
+    const paidChanged = status_invoice_paid === true && !before.status_invoice_paid;
+
+    if (invoicedChanged || paidChanged) {
+      const { rows: woRows } = await pool.query(`
+        SELECT wo.*, b.date, b.time, b.duration,
+          b.name as booking_name, b.email as booking_email, b.phone as booking_phone,
+          b.address as booking_address, b.service, b.price, b.notes as booking_notes,
+          c.name as customer_name
+        FROM work_orders wo
+        LEFT JOIN bookings b ON wo.booking_id = b.id
+        LEFT JOIN customers c ON wo.customer_id = c.id
+        WHERE wo.id = $1
+      `, [id]);
+
+      if (woRows.length) {
+        const wo = woRows[0];
+        const recipientEmail = wo.booking_email;
+        const dateLabel = wo.date
+          ? new Date(wo.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+          : '—';
+
+        if (invoicedChanged && recipientEmail) {
+          const deadline = new Date();
+          deadline.setDate(deadline.getDate() + 5);
+          const deadlineLabel = deadline.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+          try {
+            await transporter.sendMail({
+              from: 'dgsoftwash@yahoo.com',
+              to: recipientEmail,
+              subject: `D&G Soft Wash - Invoice #${id}`,
+              html: generateInvoiceEmail(wo, id, dateLabel, deadlineLabel)
+            });
+            email_sent = 'invoice';
+          } catch (emailErr) {
+            console.error('Invoice email failed:', emailErr.message);
+          }
+        } else if (paidChanged && recipientEmail) {
+          try {
+            await transporter.sendMail({
+              from: 'dgsoftwash@yahoo.com',
+              to: recipientEmail,
+              subject: `D&G Soft Wash - Payment Receipt #${id}`,
+              html: generatePaidEmail(wo, id, dateLabel)
+            });
+            email_sent = 'paid';
+          } catch (emailErr) {
+            console.error('Paid receipt email failed:', emailErr.message);
+          }
+        }
+      }
+    }
+
+    res.json({ success: true, email_sent });
   } catch (e) {
     res.status(500).json({ error: 'Failed to update work order' });
   }
@@ -911,6 +1032,25 @@ app.post('/api/admin/email', requireAdmin, async (req, res) => {
   } catch (e) {
     console.error('Admin email failed:', e.message);
     res.status(500).json({ error: 'Failed to send email' });
+  }
+});
+
+// GET /api/admin/work-orders — list all work orders
+app.get('/api/admin/work-orders', requireAdmin, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT wo.*, b.date, b.time, b.duration,
+        b.name as booking_name, b.email as booking_email, b.phone as booking_phone,
+        b.address as booking_address, b.service, b.price, b.notes as booking_notes,
+        c.name as customer_name
+      FROM work_orders wo
+      LEFT JOIN bookings b ON wo.booking_id = b.id
+      LEFT JOIN customers c ON wo.customer_id = c.id
+      ORDER BY wo.created_at DESC
+    `);
+    res.json({ work_orders: rows });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load work orders' });
   }
 });
 

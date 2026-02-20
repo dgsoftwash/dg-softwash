@@ -369,7 +369,7 @@ document.addEventListener('DOMContentLoaded', function() {
     renderPastBookings(todayStr);
   }
 
-  function renderPastBookings(todayStr) {
+  function renderPastBookings(todayStr, searchQuery) {
     var pastBody = document.getElementById('past-bookings-body');
     var pastCount = document.getElementById('past-bookings-count');
     if (!pastBody) return;
@@ -386,6 +386,16 @@ document.addEventListener('DOMContentLoaded', function() {
         return a.time > b.time ? -1 : 1;
       });
 
+    if (searchQuery) {
+      past = past.filter(function(b) {
+        return (b.name || '').toLowerCase().indexOf(searchQuery) !== -1 ||
+          (b.email || '').toLowerCase().indexOf(searchQuery) !== -1 ||
+          (b.phone || '').toLowerCase().indexOf(searchQuery) !== -1 ||
+          (b.service || '').toLowerCase().indexOf(searchQuery) !== -1 ||
+          (b.address || '').toLowerCase().indexOf(searchQuery) !== -1;
+      });
+    }
+
     pastCount.textContent = '(' + past.length + ')';
     pastBody.innerHTML = '';
 
@@ -394,7 +404,7 @@ document.addEventListener('DOMContentLoaded', function() {
       var td = document.createElement('td');
       td.colSpan = 11;
       td.className = 'no-bookings';
-      td.textContent = 'No past bookings';
+      td.textContent = searchQuery ? 'No matching past bookings' : 'No past bookings';
       row.appendChild(td);
       pastBody.appendChild(row);
     } else {
@@ -490,6 +500,14 @@ document.addEventListener('DOMContentLoaded', function() {
       var visible = pastContent.style.display !== 'none';
       pastContent.style.display = visible ? 'none' : 'block';
       pastArrow.innerHTML = visible ? '&#9654;' : '&#9660;';
+    });
+  }
+
+  // Past bookings search
+  var pastSearchInput = document.getElementById('past-search');
+  if (pastSearchInput) {
+    pastSearchInput.addEventListener('input', function() {
+      renderPastBookings(null, this.value.toLowerCase().trim());
     });
   }
 
@@ -605,8 +623,14 @@ document.addEventListener('DOMContentLoaded', function() {
         '<tr><td style="padding:5px 8px; color:#555;">Email</td><td style="padding:5px 8px;">' + escapeHtml(wo.booking_email || '—') + '</td></tr>' +
         '<tr><td style="padding:5px 8px; color:#555;">Address</td><td style="padding:5px 8px;">' + escapeHtml(wo.booking_address || '—') + '</td></tr>' +
         '<tr><td style="padding:5px 8px; color:#555;">Price</td><td style="padding:5px 8px; font-weight:600; color:#2d6a4f;">' + escapeHtml(wo.price || '—') + '</td></tr>' +
-        (wo.booking_notes ? '<tr><td style="padding:5px 8px; color:#555;">Notes</td><td style="padding:5px 8px;">' + escapeHtml(wo.booking_notes) + '</td></tr>' : '') +
       '</table>';
+
+    var addonsHtml = wo.booking_notes
+      ? '<div style="margin-bottom:18px;">' +
+          '<div style="font-weight:600; margin-bottom:8px; color:#1a1a2e;">Services &amp; Add-ons</div>' +
+          '<div style="background:#f8f9fa; border-radius:8px; padding:14px; white-space:pre-line; font-family:monospace; font-size:0.9em; line-height:1.6;">' +
+          escapeHtml(wo.booking_notes) + '</div></div>'
+      : '';
 
     var statusHtml = '<div style="margin-bottom:18px; padding:14px; background:#f8f9fa; border-radius:8px;">' +
       '<div style="font-weight:600; margin-bottom:10px; color:#1a1a2e;">Status</div>' +
@@ -623,7 +647,7 @@ document.addEventListener('DOMContentLoaded', function() {
       '<p id="wo-notes-status" style="margin-top:4px; font-size:0.85em; color:#888;"></p>' +
       '</div>';
 
-    content.innerHTML = infoHtml + statusHtml + notesHtml;
+    content.innerHTML = infoHtml + addonsHtml + statusHtml + notesHtml;
 
     document.getElementById('wo-admin-notes').addEventListener('blur', async function() {
       var notesStatus = document.getElementById('wo-notes-status');
@@ -666,8 +690,11 @@ document.addEventListener('DOMContentLoaded', function() {
         body: JSON.stringify(body)
       });
       if (res.status === 401) { handleAuthExpired(); return; }
+      var data = await res.json();
       // Re-open modal to refresh
       await openWorkOrderModal(woId);
+      if (data.email_sent === 'invoice') showPricingMsg('Invoice emailed to customer!', true);
+      if (data.email_sent === 'paid') showPricingMsg('Payment receipt emailed to customer!', true);
     } catch (err) {
       console.error('Toggle WO status failed:', err);
     }
@@ -694,8 +721,8 @@ document.addEventListener('DOMContentLoaded', function() {
       '<tr><td class="label">Address</td><td colspan="3">' + escapeHtml(wo.booking_address || '—') + '</td></tr>' +
       '<tr><td class="label">Service</td><td>' + escapeHtml(wo.service || '—') + '</td><td class="label">Duration</td><td>' + dur + ' hr' + (dur !== 1 ? 's' : '') + '</td></tr>' +
       '<tr><td class="label">Time</td><td>' + timeLabel + '</td><td class="label">Price</td><td><strong style="color:#2d6a4f;">' + escapeHtml(wo.price || '—') + '</strong></td></tr>' +
-      (wo.booking_notes ? '<tr><td class="label">Notes</td><td colspan="3">' + escapeHtml(wo.booking_notes) + '</td></tr>' : '') +
       '</table>' +
+      (wo.booking_notes ? '<div class="section"><strong>Services &amp; Add-ons</strong><div style="margin-top:8px; white-space:pre-line; font-family:monospace; font-size:0.9em; line-height:1.6;">' + escapeHtml(wo.booking_notes) + '</div></div>' : '') +
       (statusList.length ? '<div class="section"><strong>Status:</strong> ' + statusList.join(' &bull; ') + '</div>' : '') +
       (wo.admin_notes ? '<div class="section"><strong>D&amp;G Comments:</strong><br><span style="white-space:pre-line;">' + escapeHtml(wo.admin_notes) + '</span></div>' : '') +
       '<div style="text-align:center; margin-top:40px; color:#aaa; font-size:0.85em;">D&amp;G Soft Wash &mdash; (757) 525-9508 &mdash; dgsoftwash@yahoo.com</div>' +
@@ -980,6 +1007,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
       if (tab === 'pricing') loadPricingAdmin();
       if (tab === 'customers') loadCustomersTab();
+      if (tab === 'work-orders') loadWorkOrdersTab();
     });
   });
 
@@ -1286,6 +1314,103 @@ document.addEventListener('DOMContentLoaded', function() {
       msgEl.style.color = '#dc2626';
       msgEl.textContent = 'Error. Please try again.';
     }
+  };
+
+  // --- Work Orders Tab ---
+  var currentWoFilter = 'all';
+  var allWorkOrders = [];
+
+  async function loadWorkOrdersTab() {
+    var container = document.getElementById('work-orders-admin-container');
+    container.innerHTML = '<p style="color:#666;">Loading...</p>';
+    try {
+      var res = await fetch('/api/admin/work-orders', { headers: { 'x-admin-token': adminToken } });
+      if (res.status === 401) { handleAuthExpired(); return; }
+      var data = await res.json();
+      allWorkOrders = data.work_orders || [];
+      currentWoFilter = 'all';
+      renderWorkOrdersList();
+    } catch (e) {
+      container.innerHTML = '<p style="color:#dc2626;">Failed to load work orders.</p>';
+    }
+  }
+
+  function renderWorkOrdersList() {
+    var container = document.getElementById('work-orders-admin-container');
+    var html = '<h2 style="margin-bottom:16px;">Work Orders</h2>';
+
+    // Filter buttons
+    var filters = [
+      { key: 'all', label: 'All' },
+      { key: 'job_complete', label: 'Job Complete' },
+      { key: 'invoiced', label: 'Invoiced' },
+      { key: 'invoice_paid', label: 'Invoice Paid' },
+      { key: 'paid', label: 'Paid' },
+      { key: 'outstanding', label: 'Outstanding' }
+    ];
+    html += '<div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px;">';
+    filters.forEach(function(f) {
+      var active = currentWoFilter === f.key;
+      html += '<button type="button" onclick="setWoFilter(\'' + f.key + '\')" style="padding:6px 16px; border-radius:20px; border:' +
+        (active ? 'none' : '2px solid #ddd') + '; background:' + (active ? '#1a1a2e' : '#fff') + '; color:' +
+        (active ? '#fff' : '#555') + '; font-weight:600; font-size:0.88em; cursor:pointer;">' + f.label + '</button>';
+    });
+    html += '</div>';
+
+    // Apply filter
+    var filtered = allWorkOrders.filter(function(wo) {
+      if (currentWoFilter === 'all') return true;
+      if (currentWoFilter === 'outstanding') return !wo.status_paid;
+      if (currentWoFilter === 'job_complete') return wo.status_job_complete;
+      if (currentWoFilter === 'invoiced') return wo.status_invoiced;
+      if (currentWoFilter === 'invoice_paid') return wo.status_invoice_paid;
+      if (currentWoFilter === 'paid') return wo.status_paid;
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      html += '<p style="color:#666; padding:20px 0;">No work orders match this filter.</p>';
+      container.innerHTML = html;
+      return;
+    }
+
+    html += '<div style="overflow-x:auto;"><table class="bookings-table"><thead><tr>' +
+      '<th>WO#</th><th>Customer</th><th>Date</th><th>Service</th><th>Price</th><th>Status</th><th>View</th>' +
+      '</tr></thead><tbody>';
+
+    filtered.forEach(function(wo) {
+      var dateLabel = wo.date
+        ? new Date(wo.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        : '—';
+
+      // Status badge pills
+      var badges = '';
+      if (wo.status_job_complete) badges += '<span style="background:#dbeafe; color:#1e40af; padding:2px 7px; border-radius:10px; font-size:0.78em; margin-right:3px; white-space:nowrap;">Job Done</span>';
+      if (wo.status_invoiced) badges += '<span style="background:#fef3c7; color:#92400e; padding:2px 7px; border-radius:10px; font-size:0.78em; margin-right:3px; white-space:nowrap;">Invoiced</span>';
+      if (wo.status_invoice_paid) badges += '<span style="background:#d1fae5; color:#065f46; padding:2px 7px; border-radius:10px; font-size:0.78em; margin-right:3px; white-space:nowrap;">Inv. Paid</span>';
+      if (wo.status_paid) badges += '<span style="background:#d1fae5; color:#065f46; padding:2px 7px; border-radius:10px; font-size:0.78em; margin-right:3px; white-space:nowrap;">Paid</span>';
+      if (!wo.status_job_complete && !wo.status_invoiced && !wo.status_invoice_paid && !wo.status_paid) {
+        badges = '<span style="background:#fee2e2; color:#991b1b; padding:2px 7px; border-radius:10px; font-size:0.78em;">Outstanding</span>';
+      }
+
+      html += '<tr>' +
+        '<td style="font-weight:600;">#' + wo.id + '</td>' +
+        '<td>' + escapeHtml(wo.booking_name || wo.customer_name || '—') + '</td>' +
+        '<td>' + dateLabel + '</td>' +
+        '<td>' + escapeHtml(wo.service || '—') + '</td>' +
+        '<td>' + escapeHtml(wo.price || '—') + '</td>' +
+        '<td>' + badges + '</td>' +
+        '<td><button type="button" onclick="openWorkOrderModal(' + wo.id + ')" style="padding:4px 12px; font-size:0.82em; background:#1a1a2e; color:#fff; border:none; border-radius:4px; cursor:pointer;">View</button></td>' +
+        '</tr>';
+    });
+
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+  }
+
+  window.setWoFilter = function(filterKey) {
+    currentWoFilter = filterKey;
+    renderWorkOrdersList();
   };
 
   function showPricingMsg(msg, success) {
