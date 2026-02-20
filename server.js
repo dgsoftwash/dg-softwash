@@ -83,6 +83,11 @@ async function initDb() {
     )
   `);
 
+  // Migration: add standalone fields to work_orders
+  await pool.query(`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS service TEXT NOT NULL DEFAULT ''`);
+  await pool.query(`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS price TEXT NOT NULL DEFAULT ''`);
+  await pool.query(`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT ''`);
+
   // Migration: add customer_id to bookings
   await pool.query(`
     ALTER TABLE bookings ADD COLUMN IF NOT EXISTS customer_id INTEGER
@@ -907,6 +912,15 @@ app.patch('/api/admin/customers/:id', requireAdmin, async (req, res) => {
   }
 });
 
+// POST /api/admin/customers — add a customer without a booking
+app.post('/api/admin/customers', requireAdmin, async (req, res) => {
+  const { name, email, phone, address, notes } = req.body;
+  if (!name) return res.status(400).json({ error: 'Name is required' });
+  const customer = await upsertCustomer(name, email, phone, address);
+  if (notes) await pool.query('UPDATE customers SET notes=$1 WHERE id=$2', [notes, customer.id]);
+  res.json({ success: true, customer_id: customer.id });
+});
+
 // GET /api/admin/work-orders/:id — get work order with booking + customer info
 app.get('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
   try {
@@ -915,8 +929,12 @@ app.get('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
       SELECT wo.*,
         b.date, b.time, b.duration,
         b.name as booking_name, b.email as booking_email, b.phone as booking_phone,
-        b.address as booking_address, b.service, b.price, b.notes as booking_notes,
-        c.name as customer_name, c.notes as customer_notes
+        b.address as booking_address,
+        COALESCE(b.service, wo.service) as service,
+        COALESCE(b.price, wo.price) as price,
+        COALESCE(b.notes, wo.notes) as booking_notes,
+        c.name as customer_name, c.notes as customer_notes,
+        c.email as customer_email, c.phone as customer_phone, c.address as customer_address
       FROM work_orders wo
       LEFT JOIN bookings b ON wo.booking_id = b.id
       LEFT JOIN customers c ON wo.customer_id = c.id
@@ -961,8 +979,11 @@ app.patch('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
       const { rows: woRows } = await pool.query(`
         SELECT wo.*, b.date, b.time, b.duration,
           b.name as booking_name, b.email as booking_email, b.phone as booking_phone,
-          b.address as booking_address, b.service, b.price, b.notes as booking_notes,
-          c.name as customer_name
+          b.address as booking_address,
+          COALESCE(b.service, wo.service) as service,
+          COALESCE(b.price, wo.price) as price,
+          COALESCE(b.notes, wo.notes) as booking_notes,
+          c.name as customer_name, c.email as customer_email
         FROM work_orders wo
         LEFT JOIN bookings b ON wo.booking_id = b.id
         LEFT JOIN customers c ON wo.customer_id = c.id
@@ -971,7 +992,7 @@ app.patch('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
 
       if (woRows.length) {
         const wo = woRows[0];
-        const recipientEmail = wo.booking_email;
+        const recipientEmail = wo.booking_email || wo.customer_email;
         const dateLabel = wo.date
           ? new Date(wo.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
           : '—';
@@ -1042,7 +1063,10 @@ app.get('/api/admin/work-orders', requireAdmin, async (req, res) => {
     const { rows } = await pool.query(`
       SELECT wo.*, b.date, b.time, b.duration,
         b.name as booking_name, b.email as booking_email, b.phone as booking_phone,
-        b.address as booking_address, b.service, b.price, b.notes as booking_notes,
+        b.address as booking_address,
+        COALESCE(b.service, wo.service) as service,
+        COALESCE(b.price, wo.price) as price,
+        COALESCE(b.notes, wo.notes) as booking_notes,
         c.name as customer_name
       FROM work_orders wo
       LEFT JOIN bookings b ON wo.booking_id = b.id
@@ -1053,6 +1077,18 @@ app.get('/api/admin/work-orders', requireAdmin, async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: 'Failed to load work orders' });
   }
+});
+
+// POST /api/admin/work-orders — create standalone work order
+app.post('/api/admin/work-orders', requireAdmin, async (req, res) => {
+  const { name, email, phone, address, service, price, notes } = req.body;
+  if (!name) return res.status(400).json({ error: 'Customer name is required' });
+  const customer = await upsertCustomer(name, email, phone, address);
+  const { rows: [wo] } = await pool.query(
+    'INSERT INTO work_orders (customer_id, service, price, notes) VALUES ($1,$2,$3,$4) RETURNING id',
+    [customer.id, service || '', price || '', notes || '']
+  );
+  res.json({ success: true, work_order_id: wo.id });
 });
 
 // --- Start server ---

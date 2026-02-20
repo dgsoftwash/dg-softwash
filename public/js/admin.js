@@ -619,9 +619,9 @@ document.addEventListener('DOMContentLoaded', function() {
         '<tr><td style="padding:5px 8px; color:#555; width:110px;">Customer</td><td style="padding:5px 8px; font-weight:600;">' + escapeHtml(wo.booking_name || wo.customer_name || '—') + '</td></tr>' +
         '<tr><td style="padding:5px 8px; color:#555;">Date</td><td style="padding:5px 8px;">' + dateLabel + ' &middot; ' + timeLabel + ' &middot; ' + dur + ' hr' + (dur > 1 ? 's' : '') + '</td></tr>' +
         '<tr><td style="padding:5px 8px; color:#555;">Service</td><td style="padding:5px 8px;">' + escapeHtml(wo.service || '—') + '</td></tr>' +
-        '<tr><td style="padding:5px 8px; color:#555;">Phone</td><td style="padding:5px 8px;">' + escapeHtml(wo.booking_phone || '—') + '</td></tr>' +
-        '<tr><td style="padding:5px 8px; color:#555;">Email</td><td style="padding:5px 8px;">' + escapeHtml(wo.booking_email || '—') + '</td></tr>' +
-        '<tr><td style="padding:5px 8px; color:#555;">Address</td><td style="padding:5px 8px;">' + escapeHtml(wo.booking_address || '—') + '</td></tr>' +
+        '<tr><td style="padding:5px 8px; color:#555;">Phone</td><td style="padding:5px 8px;">' + escapeHtml(wo.booking_phone || wo.customer_phone || '—') + '</td></tr>' +
+        '<tr><td style="padding:5px 8px; color:#555;">Email</td><td style="padding:5px 8px;">' + escapeHtml(wo.booking_email || wo.customer_email || '—') + '</td></tr>' +
+        '<tr><td style="padding:5px 8px; color:#555;">Address</td><td style="padding:5px 8px;">' + escapeHtml(wo.booking_address || wo.customer_address || '—') + '</td></tr>' +
         '<tr><td style="padding:5px 8px; color:#555;">Price</td><td style="padding:5px 8px; font-weight:600; color:#2d6a4f;">' + escapeHtml(wo.price || '—') + '</td></tr>' +
       '</table>';
 
@@ -752,6 +752,7 @@ document.addEventListener('DOMContentLoaded', function() {
     html += '<div style="display:flex; gap:10px; margin-bottom:16px; align-items:center; flex-wrap:wrap;">' +
       '<button type="button" class="btn btn-primary" style="padding:7px 16px; font-size:0.9em;" onclick="emailSelectedCustomers()">Email Selected</button>' +
       '<button type="button" class="btn btn-secondary" style="padding:7px 16px; font-size:0.9em;" onclick="emailAllCustomers()">Email All</button>' +
+      '<button type="button" class="btn btn-secondary" style="padding:7px 16px; font-size:0.9em;" onclick="openAddCustomerModal()">+ Add Customer</button>' +
       '<span id="customers-selected-count" style="color:#666; font-size:0.9em;"></span>' +
       '</div>';
 
@@ -1342,7 +1343,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function renderWorkOrdersList() {
     var container = document.getElementById('work-orders-admin-container');
-    var html = '<h2 style="margin-bottom:16px;">Work Orders</h2>';
+    var html = '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">' +
+      '<h2 style="margin:0;">Work Orders</h2>' +
+      '<button type="button" class="btn btn-primary" style="padding:7px 16px; font-size:0.9em;" onclick="openGenerateWoModal()">+ Generate Work Order</button>' +
+      '</div>';
 
     // Filter buttons
     var filters = [
@@ -1425,6 +1429,267 @@ document.addEventListener('DOMContentLoaded', function() {
     toast.style.cssText = 'position:fixed; bottom:24px; right:24px; background:' + (success ? '#2d6a4f' : '#dc2626') + '; color:#fff; padding:12px 24px; border-radius:8px; font-weight:600; z-index:9999; transition:opacity 0.5s;';
     document.body.appendChild(toast);
     setTimeout(function() { toast.style.opacity = '0'; setTimeout(function() { toast.remove(); }, 600); }, 2000);
+  }
+
+  // --- Add Customer Modal ---
+  var addCustomerModal = document.getElementById('add-customer-modal');
+  var closeAddCustomerModalBtn = document.getElementById('close-add-customer-modal');
+  var addCustomerForm = document.getElementById('add-customer-form');
+
+  window.openAddCustomerModal = function() {
+    addCustomerModal.style.display = 'block';
+    document.getElementById('ac-error').textContent = '';
+    addCustomerForm.reset();
+  };
+
+  if (closeAddCustomerModalBtn) {
+    closeAddCustomerModalBtn.addEventListener('click', function() {
+      addCustomerModal.style.display = 'none';
+    });
+  }
+  addCustomerModal && addCustomerModal.addEventListener('click', function(e) {
+    if (e.target === addCustomerModal) addCustomerModal.style.display = 'none';
+  });
+
+  if (addCustomerForm) {
+    addCustomerForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      var errEl = document.getElementById('ac-error');
+      errEl.textContent = '';
+      var body = {
+        name: document.getElementById('ac-name').value.trim(),
+        email: document.getElementById('ac-email').value.trim(),
+        phone: document.getElementById('ac-phone').value.trim(),
+        address: document.getElementById('ac-address').value.trim(),
+        notes: document.getElementById('ac-notes').value.trim()
+      };
+      if (!body.name) { errEl.textContent = 'Name is required.'; return; }
+      try {
+        var res = await fetch('/api/admin/customers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+          body: JSON.stringify(body)
+        });
+        if (res.status === 401) { handleAuthExpired(); return; }
+        var data = await res.json();
+        if (data.success) {
+          addCustomerModal.style.display = 'none';
+          await loadCustomersTab();
+          showPricingMsg('Customer saved!', true);
+        } else {
+          errEl.textContent = data.error || 'Failed to save customer.';
+        }
+      } catch (err) {
+        errEl.textContent = 'Error. Please try again.';
+      }
+    });
+  }
+
+  // --- Generate Work Order Modal ---
+  var generateWoModal = document.getElementById('generate-wo-modal');
+  var closeGenerateWoModalBtn = document.getElementById('close-generate-wo-modal');
+  var generateWoForm = document.getElementById('generate-wo-form');
+  var gwoAllServices = null;
+
+  if (closeGenerateWoModalBtn) {
+    closeGenerateWoModalBtn.addEventListener('click', function() {
+      generateWoModal.style.display = 'none';
+    });
+  }
+  generateWoModal && generateWoModal.addEventListener('click', function(e) {
+    if (e.target === generateWoModal) generateWoModal.style.display = 'none';
+  });
+
+  var GWO_CATEGORY_LABELS = {
+    'house': 'House Washing',
+    'deck': 'Deck Cleaning',
+    'fence': 'Fence Cleaning',
+    'rv': 'RV Washing',
+    'boat': 'Boat Cleaning'
+  };
+
+  window.openGenerateWoModal = async function() {
+    generateWoModal.style.display = 'block';
+    document.getElementById('gwo-error').textContent = '';
+    generateWoForm.reset();
+    document.getElementById('gwo-addons-container').style.display = 'none';
+    document.getElementById('gwo-addons-list').innerHTML = '';
+    document.getElementById('gwo-price-display').innerHTML = '<span style="color:#888;">Select a service to calculate price</span>';
+    document.getElementById('gwo-notes-preview').textContent = '';
+
+    if (!gwoAllServices) {
+      try {
+        var res = await fetch('/api/pricing');
+        var data = await res.json();
+        gwoAllServices = data.services || [];
+      } catch (e) {
+        document.getElementById('gwo-error').textContent = 'Failed to load pricing data.';
+        return;
+      }
+    }
+
+    var sel = document.getElementById('gwo-base-service');
+    sel.innerHTML = '<option value="">-- Select a service --</option>';
+    var baseServices = gwoAllServices.filter(function(s) { return !s.parent_key; });
+    var byCat = {};
+    baseServices.forEach(function(s) {
+      if (!byCat[s.category]) byCat[s.category] = [];
+      byCat[s.category].push(s);
+    });
+    var catOrder = ['house', 'deck', 'fence', 'rv', 'boat'];
+    catOrder.forEach(function(cat) {
+      if (!byCat[cat]) return;
+      var grp = document.createElement('optgroup');
+      grp.label = GWO_CATEGORY_LABELS[cat] || cat;
+      byCat[cat].forEach(function(s) {
+        var opt = document.createElement('option');
+        opt.value = s.key;
+        opt.textContent = s.label + ' \u2014 $' + s.price;
+        grp.appendChild(opt);
+      });
+      sel.appendChild(grp);
+    });
+
+    sel.onchange = function() {
+      renderGwoAddons(this.value);
+      recalcGwo();
+    };
+  };
+
+  function renderGwoAddons(baseKey) {
+    var container = document.getElementById('gwo-addons-container');
+    var list = document.getElementById('gwo-addons-list');
+    if (!baseKey || !gwoAllServices) {
+      container.style.display = 'none';
+      list.innerHTML = '';
+      return;
+    }
+    var addons = gwoAllServices.filter(function(s) { return s.parent_key === baseKey; });
+    if (addons.length === 0) {
+      container.style.display = 'none';
+      list.innerHTML = '';
+      return;
+    }
+    list.innerHTML = '';
+    addons.forEach(function(addon) {
+      var label = document.createElement('label');
+      label.style.cssText = 'display:flex; align-items:center; gap:8px; margin-bottom:8px; cursor:pointer; font-weight:400;';
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.className = 'gwo-addon-checkbox';
+      cb.value = addon.key;
+      cb.onchange = recalcGwo;
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(addon.label + ' \u2014 $' + addon.price));
+      list.appendChild(label);
+    });
+    container.style.display = 'block';
+  }
+
+  window.recalcGwo = function() {
+    var baseKey = document.getElementById('gwo-base-service').value;
+    if (!baseKey || !gwoAllServices) {
+      document.getElementById('gwo-price-display').innerHTML = '<span style="color:#888;">Select a service to calculate price</span>';
+      document.getElementById('gwo-notes-preview').textContent = '';
+      return;
+    }
+    var baseService = gwoAllServices.find(function(s) { return s.key === baseKey; });
+    if (!baseService) return;
+
+    var subtotal = baseService.price;
+    var lines = [baseService.label + ': $' + baseService.price];
+
+    document.querySelectorAll('.gwo-addon-checkbox:checked').forEach(function(cb) {
+      var addon = gwoAllServices.find(function(s) { return s.key === cb.value; });
+      if (addon) {
+        subtotal += addon.price;
+        lines.push('  + ' + addon.label + ': $' + addon.price);
+      }
+    });
+
+    var manualPct = 0;
+    if (document.getElementById('gwo-disc-cash').checked) manualPct += 10;
+    if (document.getElementById('gwo-disc-return').checked) manualPct += 10;
+    var savings = Math.round(subtotal * manualPct / 100);
+    var total = subtotal - savings;
+
+    var notesLines = lines.slice();
+    if (savings > 0) notesLines.push('Savings: -$' + savings);
+    notesLines.push('Total: $' + total);
+
+    document.getElementById('gwo-notes-preview').textContent = notesLines.join('\n');
+
+    var priceHtml = '<div style="font-size:1.3em; font-weight:700; color:#2d6a4f;">Total: $' + total + '</div>';
+    if (savings > 0) {
+      priceHtml += '<div style="color:#888; font-size:0.9em; margin-top:4px;">Subtotal: $' + subtotal + ' &mdash; Savings: -$' + savings + ' (' + manualPct + '% off)</div>';
+    }
+    document.getElementById('gwo-price-display').innerHTML = priceHtml;
+  };
+
+  if (generateWoForm) {
+    generateWoForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      var errEl = document.getElementById('gwo-error');
+      errEl.textContent = '';
+
+      var baseKey = document.getElementById('gwo-base-service').value;
+      if (!baseKey) { errEl.textContent = 'Please select a service.'; return; }
+
+      var baseService = gwoAllServices && gwoAllServices.find(function(s) { return s.key === baseKey; });
+      var subtotal = baseService ? baseService.price : 0;
+      var serviceLabel = baseService ? baseService.label : '';
+      var lines = baseService ? [baseService.label + ': $' + baseService.price] : [];
+
+      document.querySelectorAll('.gwo-addon-checkbox:checked').forEach(function(cb) {
+        var addon = gwoAllServices && gwoAllServices.find(function(s) { return s.key === cb.value; });
+        if (addon) {
+          subtotal += addon.price;
+          lines.push('  + ' + addon.label + ': $' + addon.price);
+          serviceLabel += ' + ' + addon.label;
+        }
+      });
+
+      var manualPct = 0;
+      if (document.getElementById('gwo-disc-cash').checked) manualPct += 10;
+      if (document.getElementById('gwo-disc-return').checked) manualPct += 10;
+      var savings = Math.round(subtotal * manualPct / 100);
+      var total = subtotal - savings;
+
+      var notesLines = lines.slice();
+      if (savings > 0) notesLines.push('Savings: -$' + savings);
+      notesLines.push('Total: $' + total);
+
+      var body = {
+        name: document.getElementById('gwo-name').value.trim(),
+        email: document.getElementById('gwo-email').value.trim(),
+        phone: document.getElementById('gwo-phone').value.trim(),
+        address: document.getElementById('gwo-address').value.trim(),
+        service: serviceLabel,
+        price: '$' + total,
+        notes: notesLines.join('\n')
+      };
+      if (!body.name) { errEl.textContent = 'Customer name is required.'; return; }
+
+      try {
+        var res = await fetch('/api/admin/work-orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+          body: JSON.stringify(body)
+        });
+        if (res.status === 401) { handleAuthExpired(); return; }
+        var data = await res.json();
+        if (data.success) {
+          generateWoModal.style.display = 'none';
+          await loadWorkOrdersTab();
+          showPricingMsg('Work Order #' + data.work_order_id + ' created!', true);
+          openWorkOrderModal(data.work_order_id);
+        } else {
+          errEl.textContent = data.error || 'Failed to create work order.';
+        }
+      } catch (err) {
+        errEl.textContent = 'Error. Please try again.';
+      }
+    });
   }
 
   // Check if already logged in
