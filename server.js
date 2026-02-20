@@ -5,6 +5,17 @@ const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const { Pool } = require('pg');
 
+let twilioClient = null;
+if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+  try {
+    const twilio = require('twilio');
+    twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+    console.log('Twilio SMS enabled.');
+  } catch (e) {
+    console.warn('Twilio package not installed — SMS disabled.');
+  }
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -87,6 +98,23 @@ async function initDb() {
   await pool.query(`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS service TEXT NOT NULL DEFAULT ''`);
   await pool.query(`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS price TEXT NOT NULL DEFAULT ''`);
   await pool.query(`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT ''`);
+
+  // Migration: new work_orders fields
+  await pool.query(`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS payment_method TEXT NOT NULL DEFAULT ''`);
+  await pool.query(`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS completion_notes TEXT NOT NULL DEFAULT ''`);
+  await pool.query(`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS mileage REAL NOT NULL DEFAULT 0`);
+
+  // Expenses table
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS expenses (
+      id SERIAL PRIMARY KEY,
+      date DATE NOT NULL,
+      category TEXT NOT NULL DEFAULT '',
+      amount NUMERIC(10,2) NOT NULL DEFAULT 0,
+      notes TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
 
   // Migration: add customer_id to bookings
   await pool.query(`
@@ -300,6 +328,12 @@ const SERVICE_LABELS = {
   'commercial': 'Commercial (Estimate)'
 };
 
+function parsePrice(str) {
+  if (!str) return 0;
+  var n = parseFloat(String(str).replace(/[$,]/g, ''));
+  return isNaN(n) ? 0 : n;
+}
+
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'dgsoftwash2025';
 
 // --- Email setup ---
@@ -383,6 +417,58 @@ function generatePaidEmail(wo, woId, dateLabel) {
     '<span style="color:#065f46;font-weight:700;font-size:1em;">&#10003; PAID IN FULL</span></div>' +
     '<p style="color:#555;">Thank you for your business! We appreciate your trust in D&amp;G Soft Wash. We hope to serve you again soon.</p>' +
     '<p style="color:#555;">If you have any questions, please call or text us at <strong>(757) 525-9508</strong>.</p>' +
+    '</div>' +
+    '<div style="background:#f8f9fa;padding:16px 30px;text-align:center;color:#888;font-size:0.85em;border-top:1px solid #e5e7eb;">' +
+    'D&amp;G Soft Wash &mdash; (757) 525-9508 &mdash; dgsoftwash@yahoo.com</div>' +
+    '</div></body></html>';
+}
+
+function generateQuoteEmail(name, service, price, notes) {
+  var notesBlock = notes
+    ? '<div style="margin-bottom:20px;"><div style="font-weight:600; margin-bottom:6px; color:#1a1a2e;">Services &amp; Add-ons</div>' +
+      '<div style="background:#f8f9fa; border-radius:6px; padding:14px; white-space:pre-line; font-family:monospace; font-size:0.88em; line-height:1.6;">' +
+      notes.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div></div>'
+    : '';
+  return '<!DOCTYPE html><html><head><meta charset="UTF-8"></head>' +
+    '<body style="font-family:Arial,sans-serif;margin:0;padding:0;background:#f4f4f4;">' +
+    '<div style="max-width:600px;margin:30px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);">' +
+    '<div style="background:#1a1a2e;color:#fff;padding:24px 30px;">' +
+    '<h1 style="margin:0;font-size:1.4em;">D&amp;G Soft Wash</h1>' +
+    '<p style="margin:6px 0 0;color:#aab4d4;font-size:0.95em;">Integrity You Can See &mdash; Veteran Owned &amp; Operated</p></div>' +
+    '<div style="padding:30px;">' +
+    '<h2 style="margin-top:0;color:#1a1a2e;">Your Estimate</h2>' +
+    '<p style="color:#555;">Hi ' + (name || 'there').replace(/</g,'&lt;') + ',</p>' +
+    '<p style="color:#555;">Thank you for your interest in D&amp;G Soft Wash! Here is your personalized estimate:</p>' +
+    '<table style="width:100%;border-collapse:collapse;margin-bottom:20px;">' +
+    '<tr><td style="padding:7px 0;color:#555;width:160px;">Service</td><td style="padding:7px 0;font-weight:600;">' + (service||'—').replace(/&/g,'&amp;') + '</td></tr>' +
+    '<tr><td style="padding:7px 0;color:#555;">Estimate</td><td style="padding:7px 0;font-weight:700;color:#2d6a4f;font-size:1.1em;">' + (price||'—').replace(/&/g,'&amp;') + '</td></tr>' +
+    '</table>' + notesBlock +
+    '<div style="background:#dbeafe;border:1px solid #93c5fd;border-radius:8px;padding:16px 18px;margin-bottom:20px;text-align:center;">' +
+    '<p style="margin:0 0 8px;color:#1e40af;font-weight:600;">Ready to book?</p>' +
+    '<p style="margin:0;color:#1e40af;">Call or text us at <strong>(757) 525-9508</strong></p></div>' +
+    '<p style="color:#555;font-size:0.9em;">This estimate is valid for 30 days. Final price may vary based on actual job conditions.</p>' +
+    '</div>' +
+    '<div style="background:#f8f9fa;padding:16px 30px;text-align:center;color:#888;font-size:0.85em;border-top:1px solid #e5e7eb;">' +
+    'D&amp;G Soft Wash &mdash; (757) 525-9508 &mdash; dgsoftwash@yahoo.com</div>' +
+    '</div></body></html>';
+}
+
+function generateReviewEmail(customerName, reviewUrl) {
+  var firstName = (customerName || 'there').split(' ')[0].replace(/</g,'&lt;');
+  return '<!DOCTYPE html><html><head><meta charset="UTF-8"></head>' +
+    '<body style="font-family:Arial,sans-serif;margin:0;padding:0;background:#f4f4f4;">' +
+    '<div style="max-width:600px;margin:30px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);">' +
+    '<div style="background:#1a1a2e;color:#fff;padding:24px 30px;">' +
+    '<h1 style="margin:0;font-size:1.4em;">D&amp;G Soft Wash</h1>' +
+    '<p style="margin:6px 0 0;color:#aab4d4;font-size:0.95em;">Integrity You Can See &mdash; Veteran Owned &amp; Operated</p></div>' +
+    '<div style="padding:30px;">' +
+    '<h2 style="margin-top:0;color:#1a1a2e;">How did we do, ' + firstName + '?</h2>' +
+    '<p style="color:#555;">We hope you\'re loving the results from your recent soft wash service! Your satisfaction means everything to us as a small, veteran-owned business.</p>' +
+    '<p style="color:#555;">If you had a great experience, a quick Google review would mean the world to us &mdash; it only takes a minute!</p>' +
+    '<div style="text-align:center;margin:30px 0;">' +
+    '<a href="' + reviewUrl + '" style="background:#1a1a2e;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:1.05em;">&#11088; Leave a Google Review</a></div>' +
+    '<p style="color:#555;font-size:0.9em;">If there\'s anything we could have done better, please reach out at <strong>(757) 525-9508</strong> &mdash; we always want the chance to make it right.</p>' +
+    '<p style="color:#555;">Thank you for supporting a local, veteran-owned business!</p>' +
     '</div>' +
     '<div style="background:#f8f9fa;padding:16px 30px;text-align:center;color:#888;font-size:0.85em;border-top:1px solid #e5e7eb;">' +
     'D&amp;G Soft Wash &mdash; (757) 525-9508 &mdash; dgsoftwash@yahoo.com</div>' +
@@ -951,7 +1037,7 @@ app.get('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
 app.patch('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const { status_job_complete, status_invoiced, status_invoice_paid, status_paid, admin_notes } = req.body;
+    const { status_job_complete, status_invoiced, status_invoice_paid, status_paid, admin_notes, payment_method, completion_notes, mileage } = req.body;
 
     // Fetch current state before update
     const { rows: current } = await pool.query('SELECT * FROM work_orders WHERE id = $1', [id]);
@@ -966,6 +1052,9 @@ app.patch('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
     if (status_invoice_paid !== undefined) { updates.push(`status_invoice_paid = $${idx++}`); values.push(status_invoice_paid); }
     if (status_paid !== undefined) { updates.push(`status_paid = $${idx++}`); values.push(status_paid); }
     if (admin_notes !== undefined) { updates.push(`admin_notes = $${idx++}`); values.push(admin_notes); }
+    if (payment_method !== undefined) { updates.push(`payment_method = $${idx++}`); values.push(payment_method); }
+    if (completion_notes !== undefined) { updates.push(`completion_notes = $${idx++}`); values.push(completion_notes); }
+    if (mileage !== undefined) { updates.push(`mileage = $${idx++}`); values.push(parseFloat(mileage) || 0); }
     if (updates.length === 0) return res.json({ success: true, email_sent: null });
     values.push(id);
     await pool.query(`UPDATE work_orders SET ${updates.join(', ')} WHERE id = $${idx}`, values);
@@ -1089,6 +1178,274 @@ app.post('/api/admin/work-orders', requireAdmin, async (req, res) => {
     [customer.id, service || '', price || '', notes || '']
   );
   res.json({ success: true, work_order_id: wo.id });
+});
+
+app.get('/api/admin/dashboard', requireAdmin, async (req, res) => {
+  try {
+    // Monday and Sunday of current week (PostgreSQL week starts Monday)
+    const { rows: weekJobs } = await pool.query(`
+      SELECT wo.id as work_order_id, wo.status_job_complete, wo.status_paid,
+        b.date, b.time, b.name as booking_name,
+        COALESCE(b.service, wo.service) as service,
+        COALESCE(b.price, wo.price) as price,
+        c.name as customer_name
+      FROM work_orders wo
+      LEFT JOIN bookings b ON wo.booking_id = b.id
+      LEFT JOIN customers c ON wo.customer_id = c.id
+      WHERE b.date >= DATE_TRUNC('week', CURRENT_DATE)
+        AND b.date < DATE_TRUNC('week', CURRENT_DATE) + INTERVAL '7 days'
+      ORDER BY b.date, b.time
+    `);
+
+    const { rows: outstandingInvoices } = await pool.query(`
+      SELECT wo.id, COALESCE(b.price, wo.price) as price,
+        COALESCE(b.name, c.name) as customer_name,
+        COALESCE(b.service, wo.service) as service,
+        b.date
+      FROM work_orders wo
+      LEFT JOIN bookings b ON wo.booking_id = b.id
+      LEFT JOIN customers c ON wo.customer_id = c.id
+      WHERE wo.status_job_complete = true AND wo.status_paid = false
+      ORDER BY wo.created_at DESC
+    `);
+
+    const { rows: paidThisMonth } = await pool.query(`
+      SELECT COALESCE(b.price, wo.price) as price
+      FROM work_orders wo
+      LEFT JOIN bookings b ON wo.booking_id = b.id
+      WHERE wo.status_paid = true
+        AND DATE_TRUNC('month', wo.created_at) = DATE_TRUNC('month', CURRENT_DATE)
+    `);
+
+    const { rows: expenseRows } = await pool.query(`
+      SELECT COALESCE(SUM(amount), 0) as total
+      FROM expenses
+      WHERE DATE_TRUNC('month', date) = DATE_TRUNC('month', CURRENT_DATE)
+    `);
+
+    const { rows: reserviceDue } = await pool.query(`
+      SELECT c.id, c.name, c.email, c.phone, MAX(b.date) as last_service_date
+      FROM customers c
+      LEFT JOIN bookings b ON b.customer_id = c.id
+      GROUP BY c.id, c.name, c.email, c.phone
+      HAVING MAX(b.date) < CURRENT_DATE - INTERVAL '6 months'
+      ORDER BY last_service_date ASC
+      LIMIT 15
+    `);
+
+    const monthlyRevenue = paidThisMonth.reduce((sum, r) => sum + parsePrice(r.price), 0);
+    const outstandingTotal = outstandingInvoices.reduce((sum, r) => sum + parsePrice(r.price), 0);
+
+    res.json({
+      week_jobs: weekJobs,
+      outstanding_invoices: outstandingInvoices,
+      outstanding_total: outstandingTotal,
+      monthly_revenue: monthlyRevenue,
+      monthly_expenses: parseFloat(expenseRows[0].total) || 0,
+      reservice_due: reserviceDue
+    });
+  } catch (e) {
+    console.error('Dashboard error:', e.message);
+    res.status(500).json({ error: 'Failed to load dashboard' });
+  }
+});
+
+app.post('/api/admin/quotes', requireAdmin, async (req, res) => {
+  const { name, email, service, price, notes } = req.body;
+  if (!email) return res.status(400).json({ error: 'Customer email is required to send a quote' });
+  try {
+    await transporter.sendMail({
+      from: 'dgsoftwash@yahoo.com',
+      to: email,
+      subject: `D&G Soft Wash - Estimate for ${service || 'Services'}`,
+      html: generateQuoteEmail(name, service, price, notes)
+    });
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Quote email error:', e.message);
+    res.status(500).json({ error: 'Failed to send quote email' });
+  }
+});
+
+app.get('/api/admin/expenses', requireAdmin, async (req, res) => {
+  try {
+    const year = req.query.year ? parseInt(req.query.year) : null;
+    const month = req.query.month ? parseInt(req.query.month) : null;
+    let query = 'SELECT * FROM expenses';
+    const params = [];
+    const conditions = [];
+    if (year) { params.push(year); conditions.push(`EXTRACT(YEAR FROM date) = $${params.length}`); }
+    if (month) { params.push(month); conditions.push(`EXTRACT(MONTH FROM date) = $${params.length}`); }
+    if (conditions.length) query += ' WHERE ' + conditions.join(' AND ');
+    query += ' ORDER BY date DESC, created_at DESC';
+    const { rows } = await pool.query(query, params);
+    const total = rows.reduce((sum, r) => sum + parseFloat(r.amount), 0);
+    res.json({ expenses: rows, total });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load expenses' });
+  }
+});
+
+app.post('/api/admin/expenses', requireAdmin, async (req, res) => {
+  const { date, category, amount, notes } = req.body;
+  if (!date || !amount) return res.status(400).json({ error: 'Date and amount are required' });
+  const numAmount = parseFloat(amount);
+  if (isNaN(numAmount) || numAmount <= 0) return res.status(400).json({ error: 'Amount must be a positive number' });
+  try {
+    const { rows: [expense] } = await pool.query(
+      'INSERT INTO expenses (date, category, amount, notes) VALUES ($1,$2,$3,$4) RETURNING *',
+      [date, category || '', numAmount, notes || '']
+    );
+    res.json({ success: true, expense });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to add expense' });
+  }
+});
+
+app.delete('/api/admin/expenses/:id', requireAdmin, async (req, res) => {
+  await pool.query('DELETE FROM expenses WHERE id = $1', [parseInt(req.params.id)]);
+  res.json({ success: true });
+});
+
+app.get('/api/admin/revenue-report', requireAdmin, async (req, res) => {
+  try {
+    const year = parseInt(req.query.year) || new Date().getFullYear();
+
+    const { rows: paidWos } = await pool.query(`
+      SELECT wo.id, wo.mileage,
+        COALESCE(b.price, wo.price) as price,
+        COALESCE(b.service, wo.service) as service,
+        COALESCE(b.name, c.name) as customer_name,
+        wo.payment_method,
+        COALESCE(b.date::text, TO_CHAR(wo.created_at, 'YYYY-MM-DD')) as date
+      FROM work_orders wo
+      LEFT JOIN bookings b ON wo.booking_id = b.id
+      LEFT JOIN customers c ON wo.customer_id = c.id
+      WHERE wo.status_paid = true
+        AND EXTRACT(YEAR FROM COALESCE(b.date::date, wo.created_at::date)) = $1
+      ORDER BY COALESCE(b.date::date, wo.created_at::date)
+    `, [year]);
+
+    const { rows: expenseRows } = await pool.query(
+      'SELECT * FROM expenses WHERE EXTRACT(YEAR FROM date) = $1 ORDER BY date',
+      [year]
+    );
+
+    // Build monthly breakdown
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const monthly = monthNames.map((label, i) => {
+      const m = i + 1;
+      const wos = paidWos.filter(w => parseInt(w.date.split('-')[1]) === m);
+      const exps = expenseRows.filter(e => new Date(e.date + 'T12:00:00').getMonth() + 1 === m);
+      const gross = wos.reduce((s, w) => s + parsePrice(w.price), 0);
+      const expenses = exps.reduce((s, e) => s + parseFloat(e.amount), 0);
+      return { month: m, label, job_count: wos.length, gross_revenue: gross, expenses, net: gross - expenses };
+    });
+
+    // Service breakdown
+    const byService = {};
+    paidWos.forEach(w => {
+      const key = (w.service || 'Unknown').split(' + ')[0].trim();
+      if (!byService[key]) byService[key] = { service: key, count: 0, revenue: 0 };
+      byService[key].count++;
+      byService[key].revenue += parsePrice(w.price);
+    });
+    const byServiceArr = Object.values(byService).sort((a, b) => b.revenue - a.revenue);
+
+    // Top customers
+    const byCust = {};
+    paidWos.forEach(w => {
+      const key = w.customer_name || 'Unknown';
+      if (!byCust[key]) byCust[key] = { customer_name: key, job_count: 0, total_revenue: 0 };
+      byCust[key].job_count++;
+      byCust[key].total_revenue += parsePrice(w.price);
+    });
+    const topCustomers = Object.values(byCust).sort((a, b) => b.total_revenue - a.total_revenue).slice(0, 10);
+
+    const totalMiles = paidWos.reduce((s, w) => s + (parseFloat(w.mileage) || 0), 0);
+
+    res.json({
+      year,
+      monthly,
+      by_service: byServiceArr,
+      top_customers: topCustomers,
+      total_miles: totalMiles,
+      mileage_deduction: Math.round(totalMiles * 0.70 * 100) / 100
+    });
+  } catch (e) {
+    console.error('Revenue report error:', e.message);
+    res.status(500).json({ error: 'Failed to load revenue report' });
+  }
+});
+
+app.post('/api/admin/work-orders/:id/review-request', requireAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { rows } = await pool.query(`
+      SELECT wo.status_paid,
+        b.name as booking_name, b.email as booking_email,
+        c.name as customer_name, c.email as customer_email
+      FROM work_orders wo
+      LEFT JOIN bookings b ON wo.booking_id = b.id
+      LEFT JOIN customers c ON wo.customer_id = c.id
+      WHERE wo.id = $1
+    `, [id]);
+    if (!rows.length) return res.status(404).json({ error: 'Not found' });
+    const wo = rows[0];
+    if (!wo.status_paid) return res.status(400).json({ error: 'Work order is not yet marked as paid' });
+    const recipientEmail = wo.booking_email || wo.customer_email;
+    if (!recipientEmail) return res.status(400).json({ error: 'No email on file for this customer' });
+    const customerName = wo.booking_name || wo.customer_name || 'Valued Customer';
+    const reviewUrl = process.env.GOOGLE_REVIEW_URL || 'https://search.google.com/local/writereview';
+    await transporter.sendMail({
+      from: 'dgsoftwash@yahoo.com',
+      to: recipientEmail,
+      subject: 'How did we do? — D&G Soft Wash',
+      html: generateReviewEmail(customerName, reviewUrl)
+    });
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Review request error:', e.message);
+    res.status(500).json({ error: 'Failed to send review request' });
+  }
+});
+
+app.post('/api/admin/work-orders/:id/sms-reminder', requireAdmin, async (req, res) => {
+  if (!twilioClient) {
+    return res.status(503).json({ error: 'SMS not configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_FROM_NUMBER in your environment, then run: npm install twilio' });
+  }
+  try {
+    const id = parseInt(req.params.id);
+    const { rows } = await pool.query(`
+      SELECT b.date, b.time, b.name as booking_name, b.phone as booking_phone,
+        b.address as booking_address,
+        c.name as customer_name, c.phone as customer_phone, c.address as customer_address
+      FROM work_orders wo
+      LEFT JOIN bookings b ON wo.booking_id = b.id
+      LEFT JOIN customers c ON wo.customer_id = c.id
+      WHERE wo.id = $1
+    `, [id]);
+    if (!rows.length) return res.status(404).json({ error: 'Not found' });
+    const wo = rows[0];
+    const rawPhone = wo.booking_phone || wo.customer_phone || '';
+    const digits = rawPhone.replace(/\D/g, '');
+    const phone = digits.length === 10 ? '+1' + digits : (digits.length === 11 && digits[0] === '1' ? '+' + digits : null);
+    if (!phone) return res.status(400).json({ error: 'Invalid or missing phone number on file' });
+    const name = (wo.booking_name || wo.customer_name || '').split(' ')[0] || 'there';
+    const dateLabel = wo.date ? new Date(wo.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : '';
+    const timeLabel = wo.time ? formatSlot(wo.time) : '';
+    const address = wo.booking_address || wo.customer_address || '';
+    const body = `Hi ${name}! Reminder: D&G Soft Wash is scheduled${dateLabel ? ' for ' + dateLabel : ''}${timeLabel ? ' at ' + timeLabel : ''}${address ? ' at ' + address : ''}. Questions? Call/text (757) 525-9508.`;
+    await twilioClient.messages.create({
+      body,
+      from: process.env.TWILIO_FROM_NUMBER,
+      to: phone
+    });
+    res.json({ success: true });
+  } catch (e) {
+    console.error('SMS error:', e.message);
+    res.status(500).json({ error: 'Failed to send SMS: ' + e.message });
+  }
 });
 
 // --- Start server ---

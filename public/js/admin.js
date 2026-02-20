@@ -19,6 +19,11 @@ document.addEventListener('DOMContentLoaded', function() {
   let currentEmailRecipients = [];
   let currentWorkOrderId = null;
 
+  var qtAllServices = null;
+  var currentExpenseYear = new Date().getFullYear();
+  var currentExpenseMonth = new Date().getMonth() + 1;
+  var currentRevenueYear = new Date().getFullYear();
+
   const today = new Date();
   currentYear = today.getFullYear();
   currentMonth = today.getMonth();
@@ -76,6 +81,7 @@ document.addEventListener('DOMContentLoaded', function() {
   function showDashboard() {
     loginSection.style.display = 'none';
     dashboard.classList.add('active');
+    loadDashboardTab();
     loadAdminData();
   }
 
@@ -623,6 +629,15 @@ document.addEventListener('DOMContentLoaded', function() {
         '<tr><td style="padding:5px 8px; color:#555;">Email</td><td style="padding:5px 8px;">' + escapeHtml(wo.booking_email || wo.customer_email || '—') + '</td></tr>' +
         '<tr><td style="padding:5px 8px; color:#555;">Address</td><td style="padding:5px 8px;">' + escapeHtml(wo.booking_address || wo.customer_address || '—') + '</td></tr>' +
         '<tr><td style="padding:5px 8px; color:#555;">Price</td><td style="padding:5px 8px; font-weight:600; color:#2d6a4f;">' + escapeHtml(wo.price || '—') + '</td></tr>' +
+        '<tr><td style="padding:5px 8px; color:#555;">Payment</td><td style="padding:5px 8px;">' +
+          '<select id="wo-payment-method" style="padding:4px 8px; border:1px solid #ddd; border-radius:4px; font-size:0.9em;">' +
+          '<option value="">-- Not set --</option>' +
+          ['Cash','Check','Card (Chase)','Zelle','Other'].map(function(m) {
+            return '<option value="' + m + '"' + (wo.payment_method === m ? ' selected' : '') + '>' + m + '</option>';
+          }).join('') +
+          '</select></td></tr>' +
+        '<tr><td style="padding:5px 8px; color:#555;">Mileage</td><td style="padding:5px 8px;">' +
+          '<input type="number" id="wo-mileage" value="' + (wo.mileage || 0) + '" min="0" step="0.1" style="width:80px; padding:4px 6px; border:1px solid #ddd; border-radius:4px;"> mi</td></tr>' +
       '</table>';
 
     var addonsHtml = wo.booking_notes
@@ -647,7 +662,30 @@ document.addEventListener('DOMContentLoaded', function() {
       '<p id="wo-notes-status" style="margin-top:4px; font-size:0.85em; color:#888;"></p>' +
       '</div>';
 
-    content.innerHTML = infoHtml + addonsHtml + statusHtml + notesHtml;
+    var completionNotesHtml = '<div style="margin-top:16px;">' +
+      '<div style="font-weight:600; margin-bottom:8px; color:#1a1a2e;">Completion Notes</div>' +
+      '<textarea id="wo-completion-notes" rows="3" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box; resize:vertical; font-family:inherit;" placeholder="Notes about the completed job, products used, access codes, etc...">' + escapeHtml(wo.completion_notes || '') + '</textarea>' +
+      '<p id="wo-completion-notes-status" style="margin-top:4px; font-size:0.85em; color:#888;"></p>' +
+      '</div>';
+
+    var actionsHtml = '';
+    var recipientEmail = wo.booking_email || wo.customer_email;
+    var hasPhone = !!(wo.booking_phone || wo.customer_phone);
+    if (wo.status_paid && recipientEmail) {
+      actionsHtml += '<button type="button" id="wo-review-btn" class="btn btn-secondary" style="padding:7px 16px; font-size:0.88em; margin-right:8px; margin-top:8px;">&#11088; Send Review Request</button>';
+    }
+    if (wo.date && hasPhone) {
+      actionsHtml += '<button type="button" id="wo-sms-btn" class="btn btn-secondary" style="padding:7px 16px; font-size:0.88em; margin-top:8px;">&#128240; Send SMS Reminder</button>';
+    }
+    if (actionsHtml) {
+      actionsHtml = '<div style="margin-top:16px; padding-top:16px; border-top:1px solid #e5e7eb;">' +
+        '<div style="font-weight:600; margin-bottom:8px; color:#1a1a2e;">Actions</div>' +
+        '<div>' + actionsHtml + '</div>' +
+        '<p id="wo-action-status" style="margin-top:6px; font-size:0.85em; color:#888;"></p>' +
+        '</div>';
+    }
+
+    content.innerHTML = infoHtml + addonsHtml + statusHtml + notesHtml + completionNotesHtml + actionsHtml;
 
     document.getElementById('wo-admin-notes').addEventListener('blur', async function() {
       var notesStatus = document.getElementById('wo-notes-status');
@@ -666,6 +704,109 @@ document.addEventListener('DOMContentLoaded', function() {
         notesStatus.style.color = '#dc2626';
       }
     });
+
+    var paymentSel = document.getElementById('wo-payment-method');
+    if (paymentSel) {
+      paymentSel.addEventListener('change', async function() {
+        try {
+          await fetch('/api/admin/work-orders/' + wo.id, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+            body: JSON.stringify({ payment_method: this.value })
+          });
+        } catch(e) {}
+      });
+    }
+
+    var mileageInput = document.getElementById('wo-mileage');
+    if (mileageInput) {
+      mileageInput.addEventListener('blur', async function() {
+        try {
+          await fetch('/api/admin/work-orders/' + wo.id, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+            body: JSON.stringify({ mileage: parseFloat(this.value) || 0 })
+          });
+        } catch(e) {}
+      });
+    }
+
+    var completionNotesEl = document.getElementById('wo-completion-notes');
+    if (completionNotesEl) {
+      completionNotesEl.addEventListener('blur', async function() {
+        var statusEl = document.getElementById('wo-completion-notes-status');
+        statusEl.textContent = 'Saving...';
+        try {
+          var res = await fetch('/api/admin/work-orders/' + wo.id, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+            body: JSON.stringify({ completion_notes: this.value })
+          });
+          statusEl.textContent = res.ok ? 'Saved.' : 'Save failed.';
+          statusEl.style.color = res.ok ? '#2d6a4f' : '#dc2626';
+          setTimeout(function() { statusEl.textContent = ''; }, 2500);
+        } catch(e) {
+          statusEl.textContent = 'Error saving.';
+          statusEl.style.color = '#dc2626';
+        }
+      });
+    }
+
+    var reviewBtn = document.getElementById('wo-review-btn');
+    if (reviewBtn) {
+      reviewBtn.addEventListener('click', async function() {
+        var statusEl = document.getElementById('wo-action-status');
+        reviewBtn.disabled = true;
+        statusEl.textContent = 'Sending...';
+        statusEl.style.color = '#666';
+        try {
+          var res = await fetch('/api/admin/work-orders/' + wo.id + '/review-request', {
+            method: 'POST',
+            headers: { 'x-admin-token': adminToken }
+          });
+          var data = await res.json();
+          if (data.success) {
+            statusEl.textContent = 'Review request sent!';
+            statusEl.style.color = '#2d6a4f';
+          } else {
+            statusEl.textContent = data.error || 'Failed to send.';
+            statusEl.style.color = '#dc2626';
+          }
+        } catch(e) {
+          statusEl.textContent = 'Error. Please try again.';
+          statusEl.style.color = '#dc2626';
+        }
+        reviewBtn.disabled = false;
+      });
+    }
+
+    var smsBtn = document.getElementById('wo-sms-btn');
+    if (smsBtn) {
+      smsBtn.addEventListener('click', async function() {
+        var statusEl = document.getElementById('wo-action-status');
+        smsBtn.disabled = true;
+        statusEl.textContent = 'Sending SMS...';
+        statusEl.style.color = '#666';
+        try {
+          var res = await fetch('/api/admin/work-orders/' + wo.id + '/sms-reminder', {
+            method: 'POST',
+            headers: { 'x-admin-token': adminToken }
+          });
+          var data = await res.json();
+          if (data.success) {
+            statusEl.textContent = 'SMS reminder sent!';
+            statusEl.style.color = '#2d6a4f';
+          } else {
+            statusEl.textContent = data.error || 'Failed to send SMS.';
+            statusEl.style.color = '#dc2626';
+          }
+        } catch(e) {
+          statusEl.textContent = 'Error. Please try again.';
+          statusEl.style.color = '#dc2626';
+        }
+        smsBtn.disabled = false;
+      });
+    }
 
     if (woPrintBtn) {
       woPrintBtn.onclick = function() { printWorkOrder(wo); };
@@ -725,10 +866,118 @@ document.addEventListener('DOMContentLoaded', function() {
       (wo.booking_notes ? '<div class="section"><strong>Services &amp; Add-ons</strong><div style="margin-top:8px; white-space:pre-line; font-family:monospace; font-size:0.9em; line-height:1.6;">' + escapeHtml(wo.booking_notes) + '</div></div>' : '') +
       (statusList.length ? '<div class="section"><strong>Status:</strong> ' + statusList.join(' &bull; ') + '</div>' : '') +
       (wo.admin_notes ? '<div class="section"><strong>D&amp;G Comments:</strong><br><span style="white-space:pre-line;">' + escapeHtml(wo.admin_notes) + '</span></div>' : '') +
+      (wo.completion_notes ? '<div class="section"><strong>Completion Notes:</strong><br><span style="white-space:pre-line;">' + escapeHtml(wo.completion_notes) + '</span></div>' : '') +
+      (wo.mileage ? '<div class="section"><strong>Mileage:</strong> ' + wo.mileage + ' mi</div>' : '') +
       '<div style="text-align:center; margin-top:40px; color:#aaa; font-size:0.85em;">D&amp;G Soft Wash &mdash; (757) 525-9508 &mdash; dgsoftwash@yahoo.com</div>' +
       '<div style="text-align:center; margin-top:16px;"><button onclick="window.print()" style="padding:10px 30px; font-size:1em; cursor:pointer;">Print</button></div>' +
       '</body></html>');
     printWindow.document.close();
+  }
+
+  // --- Dashboard Tab ---
+  async function loadDashboardTab() {
+    var container = document.getElementById('dashboard-admin-container');
+    if (!container) return;
+    container.innerHTML = '<p style="color:#666;">Loading...</p>';
+    try {
+      var res = await fetch('/api/admin/dashboard', { headers: { 'x-admin-token': adminToken } });
+      if (res.status === 401) { handleAuthExpired(); return; }
+      var data = await res.json();
+      renderDashboard(data);
+    } catch (e) {
+      container.innerHTML = '<p style="color:#dc2626;">Failed to load dashboard.</p>';
+    }
+  }
+
+  function renderDashboard(data) {
+    var container = document.getElementById('dashboard-admin-container');
+    var monthName = new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    var SLOT_LABELS_D = { '09:00':'9:00 AM','10:00':'10:00 AM','11:00':'11:00 AM','12:00':'12:00 PM','13:00':'1:00 PM','14:00':'2:00 PM','15:00':'3:00 PM' };
+
+    var html = '<h2 style="margin-bottom:20px;">Dashboard</h2>';
+
+    // Summary cards
+    html += '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:16px; margin-bottom:28px;">';
+    html += '<div style="background:#dbeafe; border-radius:10px; padding:20px; text-align:center;">' +
+      '<div style="font-size:2em; font-weight:700; color:#1e40af;">' + (data.week_jobs || []).length + '</div>' +
+      '<div style="color:#1e40af; font-size:0.9em; margin-top:4px;">This Week\'s Jobs</div></div>';
+    html += '<div style="background:#fee2e2; border-radius:10px; padding:20px; text-align:center;">' +
+      '<div style="font-size:2em; font-weight:700; color:#991b1b;">$' + ((data.outstanding_total||0).toFixed(2)) + '</div>' +
+      '<div style="color:#991b1b; font-size:0.9em; margin-top:4px;">Outstanding (' + (data.outstanding_invoices||[]).length + ' WOs)</div></div>';
+    html += '<div style="background:#d1fae5; border-radius:10px; padding:20px; text-align:center;">' +
+      '<div style="font-size:2em; font-weight:700; color:#065f46;">$' + ((data.monthly_revenue||0).toFixed(2)) + '</div>' +
+      '<div style="color:#065f46; font-size:0.9em; margin-top:4px;">' + monthName + ' Revenue</div></div>';
+    html += '<div style="background:#fef3c7; border-radius:10px; padding:20px; text-align:center;">' +
+      '<div style="font-size:2em; font-weight:700; color:#92400e;">$' + ((data.monthly_expenses||0).toFixed(2)) + '</div>' +
+      '<div style="color:#92400e; font-size:0.9em; margin-top:4px;">' + monthName + ' Expenses</div></div>';
+    html += '</div>';
+
+    // Net profit line
+    var net = (data.monthly_revenue||0) - (data.monthly_expenses||0);
+    html += '<div style="background:#f8f9fa; border-radius:8px; padding:12px 18px; margin-bottom:24px; display:flex; align-items:center; gap:12px;">' +
+      '<span style="color:#555;">Net Profit (' + monthName + '):</span>' +
+      '<span style="font-weight:700; font-size:1.1em; color:' + (net >= 0 ? '#065f46' : '#991b1b') + ';">$' + net.toFixed(2) + '</span>' +
+      '</div>';
+
+    // This week's jobs
+    var weekJobs = data.week_jobs || [];
+    html += '<div class="bookings-table-container" style="margin-bottom:24px;"><h3>This Week\'s Jobs (' + weekJobs.length + ')</h3>';
+    if (weekJobs.length === 0) {
+      html += '<p style="color:#666; padding:10px 0;">No jobs scheduled this week.</p>';
+    } else {
+      html += '<div style="overflow-x:auto;"><table class="bookings-table"><thead><tr><th>Date</th><th>Customer</th><th>Service</th><th>Price</th><th>Status</th><th>WO</th></tr></thead><tbody>';
+      weekJobs.forEach(function(j) {
+        var dateLabel = new Date(j.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        var timeLabel = SLOT_LABELS_D[j.time] || j.time || '';
+        var statusBadge = j.status_paid
+          ? '<span style="background:#d1fae5; color:#065f46; padding:2px 7px; border-radius:10px; font-size:0.78em;">Paid</span>'
+          : j.status_job_complete
+            ? '<span style="background:#fef3c7; color:#92400e; padding:2px 7px; border-radius:10px; font-size:0.78em;">Done, Unpaid</span>'
+            : '<span style="background:#dbeafe; color:#1e40af; padding:2px 7px; border-radius:10px; font-size:0.78em;">Upcoming</span>';
+        html += '<tr><td>' + dateLabel + (timeLabel ? '<br><span style="color:#888;font-size:0.85em;">' + timeLabel + '</span>' : '') + '</td>' +
+          '<td>' + escapeHtml(j.booking_name || j.customer_name || '—') + '</td>' +
+          '<td>' + escapeHtml(j.service || '—') + '</td>' +
+          '<td>' + escapeHtml(j.price || '—') + '</td>' +
+          '<td>' + statusBadge + '</td>' +
+          '<td><button type="button" onclick="openWorkOrderModal(' + j.work_order_id + ')" style="padding:3px 10px; font-size:0.8em; background:#1a1a2e; color:#fff; border:none; border-radius:4px; cursor:pointer;">View</button></td></tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+    html += '</div>';
+
+    // Outstanding invoices
+    var outstanding = data.outstanding_invoices || [];
+    if (outstanding.length > 0) {
+      html += '<div class="bookings-table-container" style="margin-bottom:24px;"><h3>Outstanding Invoices</h3>';
+      html += '<div style="overflow-x:auto;"><table class="bookings-table"><thead><tr><th>WO#</th><th>Customer</th><th>Service</th><th>Amount</th><th>View</th></tr></thead><tbody>';
+      outstanding.forEach(function(inv) {
+        html += '<tr><td style="font-weight:600;">#' + inv.id + '</td>' +
+          '<td>' + escapeHtml(inv.customer_name || '—') + '</td>' +
+          '<td>' + escapeHtml(inv.service || '—') + '</td>' +
+          '<td style="font-weight:600; color:#dc2626;">' + escapeHtml(inv.price || '—') + '</td>' +
+          '<td><button type="button" onclick="openWorkOrderModal(' + inv.id + ')" style="padding:3px 10px; font-size:0.8em; background:#1a1a2e; color:#fff; border:none; border-radius:4px; cursor:pointer;">View</button></td></tr>';
+      });
+      html += '</tbody></table></div></div>';
+    }
+
+    // Re-service due
+    var due = data.reservice_due || [];
+    if (due.length > 0) {
+      html += '<div class="bookings-table-container"><h3>Due for Re-service (' + due.length + ' customers)</h3>';
+      html += '<p style="color:#888; font-size:0.9em; margin-bottom:12px;">Last service was more than 6 months ago.</p>';
+      html += '<div style="overflow-x:auto;"><table class="bookings-table"><thead><tr><th>Customer</th><th>Phone</th><th>Last Service</th><th>Action</th></tr></thead><tbody>';
+      due.forEach(function(c) {
+        var lastSvc = c.last_service_date ? new Date(c.last_service_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Never';
+        html += '<tr><td><strong>' + escapeHtml(c.name||'—') + '</strong>' +
+          (c.email ? '<br><span style="color:#888;font-size:0.85em;">' + escapeHtml(c.email) + '</span>' : '') + '</td>' +
+          '<td>' + escapeHtml(c.phone||'—') + '</td>' +
+          '<td>' + lastSvc + '</td>' +
+          '<td><button type="button" class="btn btn-primary" style="padding:4px 12px; font-size:0.82em;" onclick="emailOneCustomer(\'' + escapeHtml(c.name||'') + '\', \'' + escapeHtml(c.email||'') + '\')">Email</button></td></tr>';
+      });
+      html += '</tbody></table></div></div>';
+    }
+
+    container.innerHTML = html;
   }
 
   // --- Customers Tab ---
@@ -773,9 +1022,13 @@ document.addEventListener('DOMContentLoaded', function() {
       var lastSvc = c.last_service_date
         ? new Date(c.last_service_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
         : '—';
+      var sixMonthsAgo = new Date(); sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+      var isDue = c.last_service_date && new Date(c.last_service_date + 'T12:00:00') < sixMonthsAgo;
       html += '<tr>' +
         '<td><input type="checkbox" class="customer-checkbox" data-id="' + c.id + '" data-name="' + escapeHtml(c.name) + '" data-email="' + escapeHtml(c.email) + '" onchange="updateCustomerSelectedCount()"></td>' +
-        '<td><a href="#" onclick="openCustomerDetail(' + c.id + '); return false;" style="color:#1a1a2e; font-weight:600;">' + escapeHtml(c.name || '—') + '</a></td>' +
+        '<td><a href="#" onclick="openCustomerDetail(' + c.id + '); return false;" style="color:#1a1a2e; font-weight:600;">' + escapeHtml(c.name || '—') + '</a>' +
+        (isDue ? '<span style="background:#fed7aa; color:#9a3412; padding:2px 8px; border-radius:10px; font-size:0.75em; margin-left:8px; white-space:nowrap;">Due for Re-service</span>' : '') +
+        '</td>' +
         '<td>' + escapeHtml(c.email || '—') + '</td>' +
         '<td>' + escapeHtml(c.phone || '—') + '</td>' +
         '<td>' + escapeHtml(c.address || '—') + '</td>' +
@@ -1009,8 +1262,147 @@ document.addEventListener('DOMContentLoaded', function() {
       if (tab === 'pricing') loadPricingAdmin();
       if (tab === 'customers') loadCustomersTab();
       if (tab === 'work-orders') loadWorkOrdersTab();
+      if (tab === 'dashboard') loadDashboardTab();
+      if (tab === 'expenses') loadExpensesTab();
+      if (tab === 'revenue') loadRevenueTab();
     });
   });
+
+  // --- Revenue Report Tab ---
+  async function loadRevenueTab() {
+    var container = document.getElementById('revenue-admin-container');
+    if (!container) return;
+    container.innerHTML = '<p style="color:#666;">Loading...</p>';
+    try {
+      var res = await fetch('/api/admin/revenue-report?year=' + currentRevenueYear, {
+        headers: { 'x-admin-token': adminToken }
+      });
+      if (res.status === 401) { handleAuthExpired(); return; }
+      var data = await res.json();
+      renderRevenueReport(data);
+    } catch (e) {
+      container.innerHTML = '<p style="color:#dc2626;">Failed to load revenue report.</p>';
+    }
+  }
+
+  function renderRevenueReport(data) {
+    var container = document.getElementById('revenue-admin-container');
+    var thisYear = new Date().getFullYear();
+
+    var html = '<h2 style="margin-bottom:20px;">Revenue Report</h2>';
+
+    // Year selector
+    var yearOpts = '';
+    for (var y = thisYear; y >= thisYear - 4; y--) {
+      yearOpts += '<option value="' + y + '"' + (y === data.year ? ' selected' : '') + '>' + y + '</option>';
+    }
+    html += '<div style="display:flex; align-items:center; gap:10px; margin-bottom:24px;">' +
+      '<label style="font-weight:600;">Year:</label>' +
+      '<select id="revenue-year-sel" style="padding:7px 12px; border:1px solid #ddd; border-radius:6px;" onchange="changeRevenueYear(this.value)">' + yearOpts + '</select>' +
+      '</div>';
+
+    // Totals summary
+    var totalGross = data.monthly.reduce(function(s,m) { return s + m.gross_revenue; }, 0);
+    var totalExp = data.monthly.reduce(function(s,m) { return s + m.expenses; }, 0);
+    var totalNet = totalGross - totalExp;
+    html += '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:16px; margin-bottom:28px;">';
+    html += '<div style="background:#d1fae5; border-radius:10px; padding:16px; text-align:center;"><div style="font-size:1.6em; font-weight:700; color:#065f46;">$' + totalGross.toFixed(2) + '</div><div style="color:#065f46; font-size:0.85em; margin-top:4px;">' + data.year + ' Gross Revenue</div></div>';
+    html += '<div style="background:#fee2e2; border-radius:10px; padding:16px; text-align:center;"><div style="font-size:1.6em; font-weight:700; color:#991b1b;">$' + totalExp.toFixed(2) + '</div><div style="color:#991b1b; font-size:0.85em; margin-top:4px;">' + data.year + ' Expenses</div></div>';
+    html += '<div style="background:' + (totalNet >= 0 ? '#d1fae5' : '#fee2e2') + '; border-radius:10px; padding:16px; text-align:center;"><div style="font-size:1.6em; font-weight:700; color:' + (totalNet >= 0 ? '#065f46' : '#991b1b') + ';">$' + totalNet.toFixed(2) + '</div><div style="font-size:0.85em; margin-top:4px; color:' + (totalNet >= 0 ? '#065f46' : '#991b1b') + ';">' + data.year + ' Net Profit</div></div>';
+    html += '<div style="background:#dbeafe; border-radius:10px; padding:16px; text-align:center;"><div style="font-size:1.6em; font-weight:700; color:#1e40af;">' + (data.total_miles||0).toFixed(1) + ' mi</div><div style="color:#1e40af; font-size:0.85em; margin-top:4px;">Miles &bull; ~$' + (data.mileage_deduction||0).toFixed(0) + ' deduction</div></div>';
+    html += '</div>';
+
+    // Monthly breakdown table
+    html += '<div class="bookings-table-container" style="margin-bottom:28px;">';
+    html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">';
+    html += '<h3 style="margin:0;">Monthly Breakdown</h3>';
+    html += '<button type="button" class="btn btn-secondary" style="padding:5px 14px; font-size:0.85em;" onclick="exportMonthlyCsv()">Export CSV</button></div>';
+    html += '<div style="overflow-x:auto;"><table class="bookings-table"><thead><tr><th>Month</th><th>Jobs</th><th>Gross Revenue</th><th>Expenses</th><th>Net</th></tr></thead><tbody>';
+    data.monthly.forEach(function(m) {
+      if (m.job_count === 0 && m.expenses === 0) return;
+      var net = m.gross_revenue - m.expenses;
+      html += '<tr>' +
+        '<td>' + m.label + '</td>' +
+        '<td style="text-align:center;">' + m.job_count + '</td>' +
+        '<td style="color:#065f46; font-weight:600;">$' + m.gross_revenue.toFixed(2) + '</td>' +
+        '<td style="color:#dc2626;">$' + m.expenses.toFixed(2) + '</td>' +
+        '<td style="font-weight:700; color:' + (net >= 0 ? '#065f46' : '#dc2626') + ';">$' + net.toFixed(2) + '</td>' +
+        '</tr>';
+    });
+    var allJobs = data.monthly.reduce(function(s,m){return s+m.job_count;},0);
+    html += '<tr style="font-weight:700; background:#f8f9fa;"><td>Total</td><td style="text-align:center;">' + allJobs + '</td><td style="color:#065f46;">$' + totalGross.toFixed(2) + '</td><td style="color:#dc2626;">$' + totalExp.toFixed(2) + '</td><td style="color:' + (totalNet>=0?'#065f46':'#dc2626') + ';">$' + totalNet.toFixed(2) + '</td></tr>';
+    html += '</tbody></table></div></div>';
+
+    // Service breakdown
+    if (data.by_service && data.by_service.length) {
+      html += '<div class="bookings-table-container" style="margin-bottom:28px;">';
+      html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">';
+      html += '<h3 style="margin:0;">By Service</h3>';
+      html += '<button type="button" class="btn btn-secondary" style="padding:5px 14px; font-size:0.85em;" onclick="exportServiceCsv()">Export CSV</button></div>';
+      html += '<div style="overflow-x:auto;"><table class="bookings-table"><thead><tr><th>Service</th><th>Jobs</th><th>Revenue</th></tr></thead><tbody>';
+      data.by_service.forEach(function(s) {
+        html += '<tr><td>' + escapeHtml(s.service) + '</td><td style="text-align:center;">' + s.count + '</td><td style="font-weight:600; color:#2d6a4f;">$' + s.revenue.toFixed(2) + '</td></tr>';
+      });
+      html += '</tbody></table></div></div>';
+    }
+
+    // Top customers
+    if (data.top_customers && data.top_customers.length) {
+      html += '<div class="bookings-table-container" style="margin-bottom:28px;">';
+      html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">';
+      html += '<h3 style="margin:0;">Top Customers</h3>';
+      html += '<button type="button" class="btn btn-secondary" style="padding:5px 14px; font-size:0.85em;" onclick="exportTopCustomersCsv()">Export CSV</button></div>';
+      html += '<div style="overflow-x:auto;"><table class="bookings-table"><thead><tr><th>Customer</th><th>Jobs</th><th>Total Spent</th></tr></thead><tbody>';
+      data.top_customers.forEach(function(c, i) {
+        html += '<tr><td>' + (i===0?'&#127942; ':'') + escapeHtml(c.customer_name) + '</td><td style="text-align:center;">' + c.job_count + '</td><td style="font-weight:600; color:#2d6a4f;">$' + c.total_revenue.toFixed(2) + '</td></tr>';
+      });
+      html += '</tbody></table></div></div>';
+    }
+
+    // Mileage summary
+    if (data.total_miles > 0) {
+      html += '<div class="bookings-table-container"><h3>Mileage &amp; Tax Deduction</h3>' +
+        '<table class="bookings-table"><tbody>' +
+        '<tr><td style="color:#555;">Total Miles (' + data.year + ')</td><td style="font-weight:600;">' + data.total_miles.toFixed(1) + ' mi</td></tr>' +
+        '<tr><td style="color:#555;">IRS Rate</td><td>$0.70/mile (2025)</td></tr>' +
+        '<tr><td style="color:#555;">Estimated Deduction</td><td style="font-weight:700; color:#2d6a4f;">$' + (data.mileage_deduction||0).toFixed(2) + '</td></tr>' +
+        '</tbody></table>' +
+        '<p style="color:#888; font-size:0.85em; margin-top:8px;">Consult your tax professional for actual deduction eligibility.</p>' +
+        '</div>';
+    }
+
+    container.innerHTML = html;
+    window._revenueData = data;
+  }
+
+  window.changeRevenueYear = function(year) {
+    currentRevenueYear = parseInt(year);
+    loadRevenueTab();
+  };
+
+  window.exportMonthlyCsv = function() {
+    if (!window._revenueData) return;
+    var csv = 'Month,Jobs,Gross Revenue,Expenses,Net\n';
+    window._revenueData.monthly.forEach(function(m) {
+      csv += [m.label, m.job_count, m.gross_revenue.toFixed(2), m.expenses.toFixed(2), (m.gross_revenue - m.expenses).toFixed(2)].join(',') + '\n';
+    });
+    var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+    a.download = 'revenue-monthly-' + window._revenueData.year + '.csv'; a.click();
+  };
+  window.exportServiceCsv = function() {
+    if (!window._revenueData) return;
+    var csv = 'Service,Jobs,Revenue\n';
+    window._revenueData.by_service.forEach(function(s) { csv += ['"'+s.service+'"',s.count,s.revenue.toFixed(2)].join(',') + '\n'; });
+    var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+    a.download = 'revenue-by-service-' + window._revenueData.year + '.csv'; a.click();
+  };
+  window.exportTopCustomersCsv = function() {
+    if (!window._revenueData) return;
+    var csv = 'Customer,Jobs,Total Revenue\n';
+    window._revenueData.top_customers.forEach(function(c) { csv += ['"'+c.customer_name+'"',c.job_count,c.total_revenue.toFixed(2)].join(',') + '\n'; });
+    var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+    a.download = 'revenue-top-customers-' + window._revenueData.year + '.csv'; a.click();
+  };
 
   // --- Pricing Admin ---
   var pricingAdminData = null;
@@ -1317,6 +1709,155 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   };
 
+  // --- Expenses Tab ---
+  async function loadExpensesTab() {
+    var container = document.getElementById('expenses-admin-container');
+    if (!container) return;
+    container.innerHTML = '<p style="color:#666;">Loading...</p>';
+    try {
+      var res = await fetch('/api/admin/expenses?year=' + currentExpenseYear + '&month=' + currentExpenseMonth, {
+        headers: { 'x-admin-token': adminToken }
+      });
+      if (res.status === 401) { handleAuthExpired(); return; }
+      var data = await res.json();
+      renderExpensesTab(data);
+    } catch (e) {
+      container.innerHTML = '<p style="color:#dc2626;">Failed to load expenses.</p>';
+    }
+  }
+
+  function renderExpensesTab(data) {
+    var container = document.getElementById('expenses-admin-container');
+    var expenses = data.expenses || [];
+    var total = data.total || 0;
+    var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    var categories = ['Fuel','Supplies','Equipment','Insurance','Marketing','Vehicle','Other'];
+
+    var html = '<h2 style="margin-bottom:20px;">Expenses</h2>';
+
+    // Add expense form
+    html += '<div class="bookings-table-container" style="margin-bottom:24px;"><h3>Add Expense</h3>' +
+      '<form id="add-expense-form"><div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; align-items:end; flex-wrap:wrap;">' +
+      '<div class="form-group"><label>Date *</label><input type="date" id="exp-date" required style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;" value="' + new Date().toISOString().split('T')[0] + '"></div>' +
+      '<div class="form-group"><label>Category</label><select id="exp-category" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;">' +
+      categories.map(function(c) { return '<option>' + c + '</option>'; }).join('') +
+      '</select></div>' +
+      '<div class="form-group"><label>Amount ($) *</label><input type="number" id="exp-amount" required min="0.01" step="0.01" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;" placeholder="0.00"></div>' +
+      '</div>' +
+      '<div class="form-group" style="margin-top:10px;"><label>Notes</label><input type="text" id="exp-notes" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;" placeholder="Optional description"></div>' +
+      '<p id="exp-error" style="color:#dc2626; min-height:1.2em; margin:6px 0;"></p>' +
+      '<button type="submit" class="btn btn-primary" style="padding:8px 24px;">Add Expense</button>' +
+      '</form></div>';
+
+    // Filter row
+    var yearOptions = '';
+    var thisYear = new Date().getFullYear();
+    for (var y = thisYear; y >= thisYear - 4; y--) {
+      yearOptions += '<option value="' + y + '"' + (y === currentExpenseYear ? ' selected' : '') + '>' + y + '</option>';
+    }
+    var monthOptions = monthNames.map(function(m, i) {
+      return '<option value="' + (i+1) + '"' + ((i+1) === currentExpenseMonth ? ' selected' : '') + '>' + m + '</option>';
+    }).join('');
+    html += '<div style="display:flex; gap:10px; align-items:center; margin-bottom:16px; flex-wrap:wrap;">' +
+      '<select id="exp-filter-year" style="padding:7px 12px; border:1px solid #ddd; border-radius:6px;">' + yearOptions + '</select>' +
+      '<select id="exp-filter-month" style="padding:7px 12px; border:1px solid #ddd; border-radius:6px;">' + monthOptions + '</select>' +
+      '<button type="button" class="btn btn-secondary" style="padding:7px 16px; font-size:0.9em;" onclick="applyExpenseFilter()">Filter</button>' +
+      '<span style="color:#555; font-weight:600;">Total: <span style="color:#1a1a2e;">$' + parseFloat(total).toFixed(2) + '</span></span>' +
+      '<button type="button" class="btn btn-secondary" style="padding:7px 16px; font-size:0.9em;" onclick="exportExpensesCsv()">Export CSV</button>' +
+      '</div>';
+
+    // Table
+    if (expenses.length === 0) {
+      html += '<p style="color:#666; padding:20px 0;">No expenses for this period.</p>';
+    } else {
+      html += '<div style="overflow-x:auto;"><table class="bookings-table"><thead><tr><th>Date</th><th>Category</th><th>Amount</th><th>Notes</th><th></th></tr></thead><tbody>';
+      expenses.forEach(function(e) {
+        var dateLabel = new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        html += '<tr>' +
+          '<td>' + dateLabel + '</td>' +
+          '<td>' + escapeHtml(e.category) + '</td>' +
+          '<td style="font-weight:600; color:#dc2626;">$' + parseFloat(e.amount).toFixed(2) + '</td>' +
+          '<td>' + escapeHtml(e.notes || '—') + '</td>' +
+          '<td><button type="button" class="btn-cancel" onclick="deleteExpense(' + e.id + ')">Delete</button></td>' +
+          '</tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+
+    container.innerHTML = html;
+
+    // Wire add expense form
+    var expForm = document.getElementById('add-expense-form');
+    if (expForm) {
+      expForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        var errEl = document.getElementById('exp-error');
+        errEl.textContent = '';
+        var body = {
+          date: document.getElementById('exp-date').value,
+          category: document.getElementById('exp-category').value,
+          amount: document.getElementById('exp-amount').value,
+          notes: document.getElementById('exp-notes').value.trim()
+        };
+        try {
+          var res = await fetch('/api/admin/expenses', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+            body: JSON.stringify(body)
+          });
+          if (res.status === 401) { handleAuthExpired(); return; }
+          var data = await res.json();
+          if (data.success) {
+            loadExpensesTab();
+            showPricingMsg('Expense added!', true);
+          } else {
+            errEl.textContent = data.error || 'Failed to add expense.';
+          }
+        } catch(err) {
+          errEl.textContent = 'Error. Please try again.';
+        }
+      });
+    }
+  }
+
+  window.applyExpenseFilter = function() {
+    var y = parseInt(document.getElementById('exp-filter-year').value);
+    var m = parseInt(document.getElementById('exp-filter-month').value);
+    currentExpenseYear = y;
+    currentExpenseMonth = m;
+    loadExpensesTab();
+  };
+
+  window.deleteExpense = async function(id) {
+    if (!confirm('Delete this expense?')) return;
+    try {
+      var res = await fetch('/api/admin/expenses/' + id, {
+        method: 'DELETE',
+        headers: { 'x-admin-token': adminToken }
+      });
+      if (res.status === 401) { handleAuthExpired(); return; }
+      loadExpensesTab();
+      showPricingMsg('Expense deleted.', true);
+    } catch(e) {}
+  };
+
+  window.exportExpensesCsv = function() {
+    var rows = document.querySelectorAll('#expenses-admin-container table tbody tr');
+    if (!rows.length) { alert('No expenses to export.'); return; }
+    var csv = 'Date,Category,Amount,Notes\n';
+    rows.forEach(function(row) {
+      var cells = row.querySelectorAll('td');
+      if (cells.length >= 4) {
+        csv += [cells[0].textContent, cells[1].textContent, cells[2].textContent, '"' + cells[3].textContent.replace(/"/g,'""') + '"'].join(',') + '\n';
+      }
+    });
+    var blob = new Blob([csv], { type: 'text/csv' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'expenses-' + currentExpenseYear + '-' + String(currentExpenseMonth).padStart(2,'0') + '.csv';
+    a.click();
+  };
+
   // --- Work Orders Tab ---
   var currentWoFilter = 'all';
   var allWorkOrders = [];
@@ -1343,10 +1884,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function renderWorkOrdersList() {
     var container = document.getElementById('work-orders-admin-container');
-    var html = '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">' +
+    var html = '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:8px;">' +
       '<h2 style="margin:0;">Work Orders</h2>' +
+      '<div style="display:flex; gap:8px;">' +
+      '<button type="button" class="btn btn-secondary" style="padding:7px 16px; font-size:0.9em;" onclick="openQuoteModal()">Send Quote</button>' +
       '<button type="button" class="btn btn-primary" style="padding:7px 16px; font-size:0.9em;" onclick="openGenerateWoModal()">+ Generate Work Order</button>' +
-      '</div>';
+      '</div></div>';
 
     // Filter buttons
     var filters = [
@@ -1429,6 +1972,161 @@ document.addEventListener('DOMContentLoaded', function() {
     toast.style.cssText = 'position:fixed; bottom:24px; right:24px; background:' + (success ? '#2d6a4f' : '#dc2626') + '; color:#fff; padding:12px 24px; border-radius:8px; font-weight:600; z-index:9999; transition:opacity 0.5s;';
     document.body.appendChild(toast);
     setTimeout(function() { toast.style.opacity = '0'; setTimeout(function() { toast.remove(); }, 600); }, 2000);
+  }
+
+  // --- Quote Modal ---
+  var quoteModal = document.getElementById('quote-modal');
+  var closeQuoteModalBtn = document.getElementById('close-quote-modal');
+  var quoteForm = document.getElementById('quote-form');
+
+  if (closeQuoteModalBtn) {
+    closeQuoteModalBtn.addEventListener('click', function() { quoteModal.style.display = 'none'; });
+  }
+  quoteModal && quoteModal.addEventListener('click', function(e) {
+    if (e.target === quoteModal) quoteModal.style.display = 'none';
+  });
+
+  window.openQuoteModal = async function() {
+    quoteModal.style.display = 'block';
+    document.getElementById('qt-error').textContent = '';
+    quoteForm.reset();
+    document.getElementById('qt-addons-container').style.display = 'none';
+    document.getElementById('qt-addons-list').innerHTML = '';
+    document.getElementById('qt-price-display').innerHTML = '<span style="color:#888;">Select a service to calculate price</span>';
+    document.getElementById('qt-notes-preview').textContent = '';
+
+    if (!qtAllServices) {
+      try {
+        var res = await fetch('/api/pricing');
+        var data = await res.json();
+        qtAllServices = data.services || [];
+      } catch (e) {
+        document.getElementById('qt-error').textContent = 'Failed to load pricing data.';
+        return;
+      }
+    }
+
+    var sel = document.getElementById('qt-base-service');
+    sel.innerHTML = '<option value="">-- Select a service --</option>';
+    var QT_CAT_LABELS = { 'house':'House Washing','deck':'Deck Cleaning','fence':'Fence Cleaning','rv':'RV Washing','boat':'Boat Cleaning' };
+    var baseServices = qtAllServices.filter(function(s) { return !s.parent_key; });
+    var byCat = {};
+    baseServices.forEach(function(s) { if (!byCat[s.category]) byCat[s.category] = []; byCat[s.category].push(s); });
+    ['house','deck','fence','rv','boat'].forEach(function(cat) {
+      if (!byCat[cat]) return;
+      var grp = document.createElement('optgroup');
+      grp.label = QT_CAT_LABELS[cat] || cat;
+      byCat[cat].forEach(function(s) {
+        var opt = document.createElement('option');
+        opt.value = s.key;
+        opt.textContent = s.label + ' \u2014 $' + s.price;
+        grp.appendChild(opt);
+      });
+      sel.appendChild(grp);
+    });
+    sel.onchange = function() { renderQtAddons(this.value); recalcQt(); };
+  };
+
+  function renderQtAddons(baseKey) {
+    var container = document.getElementById('qt-addons-container');
+    var list = document.getElementById('qt-addons-list');
+    if (!baseKey || !qtAllServices) { container.style.display = 'none'; list.innerHTML = ''; return; }
+    var addons = qtAllServices.filter(function(s) { return s.parent_key === baseKey; });
+    if (!addons.length) { container.style.display = 'none'; list.innerHTML = ''; return; }
+    list.innerHTML = '';
+    addons.forEach(function(addon) {
+      var label = document.createElement('label');
+      label.style.cssText = 'display:flex; align-items:center; gap:8px; margin-bottom:8px; cursor:pointer; font-weight:400;';
+      var cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.className = 'qt-addon-checkbox'; cb.value = addon.key; cb.onchange = recalcQt;
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(addon.label + ' \u2014 $' + addon.price));
+      list.appendChild(label);
+    });
+    container.style.display = 'block';
+  }
+
+  window.recalcQt = function() {
+    var baseKey = document.getElementById('qt-base-service').value;
+    if (!baseKey || !qtAllServices) {
+      document.getElementById('qt-price-display').innerHTML = '<span style="color:#888;">Select a service to calculate price</span>';
+      document.getElementById('qt-notes-preview').textContent = '';
+      return;
+    }
+    var baseService = qtAllServices.find(function(s) { return s.key === baseKey; });
+    if (!baseService) return;
+    var subtotal = baseService.price;
+    var lines = [baseService.label + ': $' + baseService.price];
+    document.querySelectorAll('.qt-addon-checkbox:checked').forEach(function(cb) {
+      var addon = qtAllServices.find(function(s) { return s.key === cb.value; });
+      if (addon) { subtotal += addon.price; lines.push('  + ' + addon.label + ': $' + addon.price); }
+    });
+    var manualPct = 0;
+    if (document.getElementById('qt-disc-cash').checked) manualPct += 10;
+    if (document.getElementById('qt-disc-return').checked) manualPct += 10;
+    var savings = Math.round(subtotal * manualPct / 100);
+    var total = subtotal - savings;
+    var notesLines = lines.slice();
+    if (savings > 0) notesLines.push('Savings: -$' + savings);
+    notesLines.push('Total: $' + total);
+    document.getElementById('qt-notes-preview').textContent = notesLines.join('\n');
+    var priceHtml = '<div style="font-size:1.3em; font-weight:700; color:#2d6a4f;">Estimate: $' + total + '</div>';
+    if (savings > 0) priceHtml += '<div style="color:#888; font-size:0.9em; margin-top:4px;">Subtotal: $' + subtotal + ' &mdash; Savings: -$' + savings + '</div>';
+    document.getElementById('qt-price-display').innerHTML = priceHtml;
+  };
+
+  if (quoteForm) {
+    quoteForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      var errEl = document.getElementById('qt-error');
+      errEl.textContent = '';
+      var email = document.getElementById('qt-email').value.trim();
+      if (!email) { errEl.textContent = 'Customer email is required to send a quote.'; return; }
+      var baseKey = document.getElementById('qt-base-service').value;
+      if (!baseKey) { errEl.textContent = 'Please select a service.'; return; }
+      var baseService = qtAllServices && qtAllServices.find(function(s) { return s.key === baseKey; });
+      var subtotal = baseService ? baseService.price : 0;
+      var serviceLabel = baseService ? baseService.label : '';
+      var lines = baseService ? [baseService.label + ': $' + baseService.price] : [];
+      document.querySelectorAll('.qt-addon-checkbox:checked').forEach(function(cb) {
+        var addon = qtAllServices && qtAllServices.find(function(s) { return s.key === cb.value; });
+        if (addon) { subtotal += addon.price; lines.push('  + ' + addon.label + ': $' + addon.price); serviceLabel += ' + ' + addon.label; }
+      });
+      var manualPct = 0;
+      if (document.getElementById('qt-disc-cash').checked) manualPct += 10;
+      if (document.getElementById('qt-disc-return').checked) manualPct += 10;
+      var savings = Math.round(subtotal * manualPct / 100);
+      var total = subtotal - savings;
+      var notesLines = lines.slice();
+      if (savings > 0) notesLines.push('Savings: -$' + savings);
+      notesLines.push('Total: $' + total);
+      var body = {
+        name: document.getElementById('qt-name').value.trim(),
+        email: email,
+        phone: document.getElementById('qt-phone').value.trim(),
+        address: document.getElementById('qt-address').value.trim(),
+        service: serviceLabel,
+        price: '$' + total,
+        notes: notesLines.join('\n')
+      };
+      try {
+        var res = await fetch('/api/admin/quotes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+          body: JSON.stringify(body)
+        });
+        if (res.status === 401) { handleAuthExpired(); return; }
+        var data = await res.json();
+        if (data.success) {
+          quoteModal.style.display = 'none';
+          showPricingMsg('Quote sent to ' + email + '!', true);
+        } else {
+          errEl.textContent = data.error || 'Failed to send quote.';
+        }
+      } catch (err) {
+        errEl.textContent = 'Error. Please try again.';
+      }
+    });
   }
 
   // --- Add Customer Modal ---
