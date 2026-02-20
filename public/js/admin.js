@@ -23,6 +23,10 @@ document.addEventListener('DOMContentLoaded', function() {
   var currentExpenseYear = new Date().getFullYear();
   var currentExpenseMonth = new Date().getMonth() + 1;
   var currentRevenueYear = new Date().getFullYear();
+  var currentLocYear     = new Date().getFullYear();
+  var currentLocMonth    = new Date().getMonth() + 1;
+  var currentPaymentYear  = new Date().getFullYear();
+  var currentPaymentMonth = new Date().getMonth() + 1;
 
   const today = new Date();
   currentYear = today.getFullYear();
@@ -1265,6 +1269,9 @@ document.addEventListener('DOMContentLoaded', function() {
       if (tab === 'dashboard') loadDashboardTab();
       if (tab === 'expenses') loadExpensesTab();
       if (tab === 'revenue') loadRevenueTab();
+      if (tab === 'payments') loadPaymentsTab();
+      if (tab === 'gallery-admin') loadGalleryAdmin();
+      if (tab === 'loc') loadLocTab();
     });
   });
 
@@ -1274,18 +1281,20 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!container) return;
     container.innerHTML = '<p style="color:#666;">Loading...</p>';
     try {
-      var res = await fetch('/api/admin/revenue-report?year=' + currentRevenueYear, {
-        headers: { 'x-admin-token': adminToken }
-      });
-      if (res.status === 401) { handleAuthExpired(); return; }
-      var data = await res.json();
-      renderRevenueReport(data);
+      const [revRes, settingsRes] = await Promise.all([
+        fetch('/api/admin/revenue-report?year=' + currentRevenueYear, { headers: { 'x-admin-token': adminToken } }),
+        fetch('/api/admin/settings', { headers: { 'x-admin-token': adminToken } })
+      ]);
+      if (revRes.status === 401) { handleAuthExpired(); return; }
+      const data     = await revRes.json();
+      const settings = settingsRes.ok ? await settingsRes.json() : {};
+      renderRevenueReport(data, settings);
     } catch (e) {
       container.innerHTML = '<p style="color:#dc2626;">Failed to load revenue report.</p>';
     }
   }
 
-  function renderRevenueReport(data) {
+  function renderRevenueReport(data, settings) {
     var container = document.getElementById('revenue-admin-container');
     var thisYear = new Date().getFullYear();
 
@@ -1305,11 +1314,36 @@ document.addEventListener('DOMContentLoaded', function() {
     var totalGross = data.monthly.reduce(function(s,m) { return s + m.gross_revenue; }, 0);
     var totalExp = data.monthly.reduce(function(s,m) { return s + m.expenses; }, 0);
     var totalNet = totalGross - totalExp;
+    var taxReserve = totalGross * 0.33;
+    var expReserve = Math.max(0, totalGross * 0.15 - totalExp);
+    var netAfterReserves = totalNet - taxReserve - expReserve;
     html += '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:16px; margin-bottom:28px;">';
     html += '<div style="background:#d1fae5; border-radius:10px; padding:16px; text-align:center;"><div style="font-size:1.6em; font-weight:700; color:#065f46;">$' + totalGross.toFixed(2) + '</div><div style="color:#065f46; font-size:0.85em; margin-top:4px;">' + data.year + ' Gross Revenue</div></div>';
     html += '<div style="background:#fee2e2; border-radius:10px; padding:16px; text-align:center;"><div style="font-size:1.6em; font-weight:700; color:#991b1b;">$' + totalExp.toFixed(2) + '</div><div style="color:#991b1b; font-size:0.85em; margin-top:4px;">' + data.year + ' Expenses</div></div>';
-    html += '<div style="background:' + (totalNet >= 0 ? '#d1fae5' : '#fee2e2') + '; border-radius:10px; padding:16px; text-align:center;"><div style="font-size:1.6em; font-weight:700; color:' + (totalNet >= 0 ? '#065f46' : '#991b1b') + ';">$' + totalNet.toFixed(2) + '</div><div style="font-size:0.85em; margin-top:4px; color:' + (totalNet >= 0 ? '#065f46' : '#991b1b') + ';">' + data.year + ' Net Profit</div></div>';
+    html += '<div style="background:' + (netAfterReserves >= 0 ? '#d1fae5' : '#fee2e2') + '; border-radius:10px; padding:16px; text-align:center;"><div style="font-size:1.6em; font-weight:700; color:' + (netAfterReserves >= 0 ? '#065f46' : '#991b1b') + ';">$' + netAfterReserves.toFixed(2) + '</div><div style="font-size:0.85em; margin-top:4px; color:' + (netAfterReserves >= 0 ? '#065f46' : '#991b1b') + ';">' + data.year + ' Net After Reserves</div></div>';
     html += '<div style="background:#dbeafe; border-radius:10px; padding:16px; text-align:center;"><div style="font-size:1.6em; font-weight:700; color:#1e40af;">' + (data.total_miles||0).toFixed(1) + ' mi</div><div style="color:#1e40af; font-size:0.85em; margin-top:4px;">Miles &bull; ~$' + (data.mileage_deduction||0).toFixed(0) + ' deduction</div></div>';
+    html += '</div>';
+
+    // Financial Cushion Cards
+    var availBal = parseFloat((settings && settings.available_balance) || '0');
+    html += '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:16px; margin-bottom:28px;">';
+    html += '<div style="background:#dbeafe; border-radius:10px; padding:16px; text-align:center;">' +
+      '<div style="display:flex; align-items:center; justify-content:center; gap:2px;">' +
+      '<span style="font-size:1.6em; font-weight:700; color:#1e40af;">$</span>' +
+      '<input type="number" id="avail-balance-input" value="' + availBal.toFixed(2) + '" step="0.01" ' +
+      'style="width:120px; font-size:1.6em; font-weight:700; color:#1e40af; border:none; background:transparent; text-align:center; border-bottom:2px solid #93c5fd; outline:none;">' +
+      '</div>' +
+      '<div style="color:#1e40af; font-size:0.85em; margin-top:4px;">Available Balance</div>' +
+      '<p id="avail-balance-status" style="font-size:0.75em; margin:2px 0 0; min-height:1em; color:#1e40af;"></p>' +
+      '</div>';
+    html += '<div style="background:#ede9fe; border-radius:10px; padding:16px; text-align:center;">' +
+      '<div style="font-size:1.6em; font-weight:700; color:#5b21b6;">$' + taxReserve.toFixed(2) + '</div>' +
+      '<div style="color:#5b21b6; font-size:0.85em; margin-top:4px;">Tax Reserve (33% of ' + data.year + ' Gross)</div>' +
+      '</div>';
+    html += '<div style="background:#fef3c7; border-radius:10px; padding:16px; text-align:center;">' +
+      '<div style="font-size:1.6em; font-weight:700; color:#92400e;">$' + expReserve.toFixed(2) + '</div>' +
+      '<div style="color:#92400e; font-size:0.85em; margin-top:4px;">Expense Reserve (15% Gross &minus; ' + data.year + ' Expenses)</div>' +
+      '</div>';
     html += '</div>';
 
     // Monthly breakdown table
@@ -1373,6 +1407,25 @@ document.addEventListener('DOMContentLoaded', function() {
 
     container.innerHTML = html;
     window._revenueData = data;
+
+    var balInput = document.getElementById('avail-balance-input');
+    if (balInput) {
+      balInput.addEventListener('change', async function() {
+        var statusEl = document.getElementById('avail-balance-status');
+        statusEl.textContent = 'Saving...';
+        try {
+          var saveRes = await fetch('/api/admin/settings', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+            body: JSON.stringify({ key: 'available_balance', value: this.value })
+          });
+          statusEl.textContent = saveRes.ok ? 'Saved.' : 'Save failed.';
+          setTimeout(function() { statusEl.textContent = ''; }, 2000);
+        } catch(e) {
+          statusEl.textContent = 'Error saving.';
+        }
+      });
+    }
   }
 
   window.changeRevenueYear = function(year) {
@@ -1402,6 +1455,130 @@ document.addEventListener('DOMContentLoaded', function() {
     window._revenueData.top_customers.forEach(function(c) { csv += ['"'+c.customer_name+'"',c.job_count,c.total_revenue.toFixed(2)].join(',') + '\n'; });
     var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
     a.download = 'revenue-top-customers-' + window._revenueData.year + '.csv'; a.click();
+  };
+
+  // --- Payments Tab ---
+  async function loadPaymentsTab() {
+    var container = document.getElementById('payments-admin-container');
+    if (!container) return;
+    container.innerHTML = '<p style="color:#666;">Loading...</p>';
+    try {
+      var url = '/api/admin/payments?year=' + currentPaymentYear + '&month=' + currentPaymentMonth;
+      var res = await fetch(url, { headers: { 'x-admin-token': adminToken } });
+      if (res.status === 401) { handleAuthExpired(); return; }
+      var data = await res.json();
+      renderPaymentsTab(data);
+    } catch (e) {
+      container.innerHTML = '<p style="color:#dc2626;">Failed to load payments.</p>';
+    }
+  }
+
+  function renderPaymentsTab(data) {
+    var container = document.getElementById('payments-admin-container');
+    var payments = data.payments || [];
+    var total = data.total || 0;
+    var byMethod = data.byMethod || {};
+    var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    var thisYear = new Date().getFullYear();
+
+    var html = '<h2 style="margin-bottom:20px;">Payments Received</h2>';
+
+    // Filter row
+    var yearOptions = '';
+    for (var y = thisYear; y >= thisYear - 4; y--) {
+      yearOptions += '<option value="' + y + '"' + (y === currentPaymentYear ? ' selected' : '') + '>' + y + '</option>';
+    }
+    var monthOptions = '<option value="0"' + (currentPaymentMonth === 0 ? ' selected' : '') + '>All Year</option>';
+    monthOptions += monthNames.map(function(m, i) {
+      return '<option value="' + (i+1) + '"' + ((i+1) === currentPaymentMonth ? ' selected' : '') + '>' + m + '</option>';
+    }).join('');
+    html += '<div style="display:flex; gap:10px; align-items:center; margin-bottom:24px; flex-wrap:wrap;">' +
+      '<select id="pay-filter-year" style="padding:7px 12px; border:1px solid #ddd; border-radius:6px;">' + yearOptions + '</select>' +
+      '<select id="pay-filter-month" style="padding:7px 12px; border:1px solid #ddd; border-radius:6px;">' + monthOptions + '</select>' +
+      '<button type="button" class="btn btn-secondary" style="padding:7px 16px; font-size:0.9em;" onclick="applyPaymentFilter()">Filter</button>' +
+      '</div>';
+
+    // Summary cards
+    var methodKeys = Object.keys(byMethod);
+    html += '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:16px; margin-bottom:28px;">';
+    html += '<div style="background:#d1fae5; border-radius:10px; padding:16px; text-align:center;">' +
+      '<div style="font-size:1.6em; font-weight:700; color:#065f46;">$' + parseFloat(total).toFixed(2) + '</div>' +
+      '<div style="color:#065f46; font-size:0.85em; margin-top:4px;">Total Received</div></div>';
+    methodKeys.forEach(function(m) {
+      html += '<div style="background:#dbeafe; border-radius:10px; padding:16px; text-align:center;">' +
+        '<div style="font-size:1.6em; font-weight:700; color:#1e40af;">$' + byMethod[m].toFixed(2) + '</div>' +
+        '<div style="color:#1e40af; font-size:0.85em; margin-top:4px;">' + escapeHtml(m) + '</div></div>';
+    });
+    html += '</div>';
+
+    // Transactions table
+    html += '<div class="bookings-table-container" style="margin-bottom:28px;">';
+    html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">';
+    html += '<h3 style="margin:0;">Transactions</h3>';
+    html += '<button type="button" class="btn btn-secondary" style="padding:5px 14px; font-size:0.85em;" onclick="exportPaymentsCsv()">Export CSV</button></div>';
+    if (payments.length === 0) {
+      html += '<p style="color:#666; padding:10px 0;">No payments recorded for this period.</p>';
+    } else {
+      html += '<div style="overflow-x:auto;"><table class="bookings-table"><thead><tr>' +
+        '<th>Date Paid</th><th>Customer</th><th>Service</th><th>Amount</th><th>Method</th><th>View</th>' +
+        '</tr></thead><tbody>';
+      payments.forEach(function(p) {
+        var dateLabel = new Date(p.paid_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        var amt = parseFloat(String(p.price || '').replace(/[$,]/g, '')) || 0;
+        html += '<tr>' +
+          '<td>' + dateLabel + '</td>' +
+          '<td>' + escapeHtml(p.customer_name || '—') + '</td>' +
+          '<td>' + escapeHtml(p.service || '—') + '</td>' +
+          '<td style="font-weight:600; color:#2d6a4f;">$' + amt.toFixed(2) + '</td>' +
+          '<td>' + escapeHtml(p.payment_method || '—') + '</td>' +
+          '<td><button type="button" onclick="openWorkOrderModal(' + p.id + ')" style="padding:3px 10px; font-size:0.8em; background:#1a1a2e; color:#fff; border:none; border-radius:4px; cursor:pointer;">View</button></td>' +
+          '</tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+    html += '</div>';
+
+    container.innerHTML = html;
+    window._paymentsData = data;
+  }
+
+  window.applyLocFilter = function() {
+    currentLocYear  = parseInt(document.getElementById('loc-filter-year').value);
+    currentLocMonth = parseInt(document.getElementById('loc-filter-month').value);
+    loadLocTab();
+  };
+
+  window.applyPaymentFilter = function() {
+    var y = parseInt(document.getElementById('pay-filter-year').value);
+    var m = parseInt(document.getElementById('pay-filter-month').value);
+    currentPaymentYear  = y;
+    currentPaymentMonth = m;
+    loadPaymentsTab();
+  };
+
+  window.exportPaymentsCsv = function() {
+    if (!window._paymentsData || !window._paymentsData.payments.length) {
+      alert('No payments to export.');
+      return;
+    }
+    var csv = 'Date Paid,Customer,Service,Amount,Method\n';
+    window._paymentsData.payments.forEach(function(p) {
+      var dateLabel = new Date(p.paid_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      var amt = parseFloat(String(p.price || '').replace(/[$,]/g, '')) || 0;
+      csv += [
+        '"' + dateLabel + '"',
+        '"' + (p.customer_name || '').replace(/"/g, '""') + '"',
+        '"' + (p.service || '').replace(/"/g, '""') + '"',
+        amt.toFixed(2),
+        '"' + (p.payment_method || '').replace(/"/g, '""') + '"'
+      ].join(',') + '\n';
+    });
+    var blob = new Blob([csv], { type: 'text/csv' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    var monthSuffix = currentPaymentMonth ? String(currentPaymentMonth).padStart(2, '0') : 'all';
+    a.download = 'payments-' + currentPaymentYear + '-' + monthSuffix + '.csv';
+    a.click();
   };
 
   // --- Pricing Admin ---
@@ -1709,6 +1886,354 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   };
 
+  // --- Gallery Admin Tab ---
+  async function loadGalleryAdmin() {
+    var container = document.getElementById('gallery-admin-container');
+    if (!container) return;
+    container.innerHTML = '<p style="color:#666;">Loading...</p>';
+    try {
+      var res = await fetch('/api/admin/gallery', { headers: { 'x-admin-token': adminToken } });
+      if (res.status === 401) { handleAuthExpired(); return; }
+      var items = await res.json();
+      renderGalleryAdmin(items);
+    } catch(e) {
+      container.innerHTML = '<p style="color:#dc2626;">Failed to load gallery.</p>';
+    }
+  }
+
+  function renderGalleryAdmin(items) {
+    var container = document.getElementById('gallery-admin-container');
+    var catOptions = [
+      { value: 'house',    label: 'House Washing' },
+      { value: 'roof',     label: 'Roof Cleaning' },
+      { value: 'concrete', label: 'Concrete' },
+      { value: 'deck',     label: 'Deck & Fence' }
+    ];
+    var catOptHtml = catOptions.map(function(o) {
+      return '<option value="' + o.value + '">' + o.label + '</option>';
+    }).join('');
+    var catLabels = {};
+    catOptions.forEach(function(o) { catLabels[o.value] = o.label; });
+
+    var html = '<h2 style="margin-bottom:20px;">Gallery</h2>';
+
+    // Upload form
+    html += '<div class="bookings-table-container" style="margin-bottom:28px;">';
+    html += '<h3 style="margin:0 0 16px;">Add Before & After Photo</h3>';
+    html += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px;">';
+    html += '<div class="form-group"><label>Title</label><input type="text" id="gal-title" placeholder="e.g. Vinyl Siding Restoration" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"></div>';
+    html += '<div class="form-group"><label>Category</label><select id="gal-category" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;">' + catOptHtml + '</select></div>';
+    html += '<div class="form-group" style="grid-column:1/-1;"><label>Description</label><input type="text" id="gal-desc" placeholder="e.g. Complete house wash removing years of buildup" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"></div>';
+    html += '</div>';
+    html += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px;">';
+    html += '<div class="form-group">';
+    html += '<label>Before Photo</label>';
+    html += '<input type="file" id="gal-before-file" accept="image/*" style="width:100%; padding:6px 0;">';
+    html += '<div id="gal-before-preview" style="margin-top:8px; display:none;"><img id="gal-before-img" style="width:100%; max-height:160px; object-fit:cover; border-radius:6px; border:2px solid #dc2626;"><span style="font-size:0.75em; color:#dc2626; font-weight:600;">BEFORE</span></div>';
+    html += '</div>';
+    html += '<div class="form-group">';
+    html += '<label>After Photo</label>';
+    html += '<input type="file" id="gal-after-file" accept="image/*" style="width:100%; padding:6px 0;">';
+    html += '<div id="gal-after-preview" style="margin-top:8px; display:none;"><img id="gal-after-img" style="width:100%; max-height:160px; object-fit:cover; border-radius:6px; border:2px solid #16a34a;"><span style="font-size:0.75em; color:#16a34a; font-weight:600;">AFTER</span></div>';
+    html += '</div>';
+    html += '</div>';
+    html += '<p id="gal-upload-msg" style="min-height:1.2em; color:#dc2626; margin-bottom:8px;"></p>';
+    html += '<button type="button" id="gal-upload-btn" class="btn btn-primary" style="padding:9px 28px;">Upload Photo</button>';
+    html += '</div>';
+
+    // Existing items
+    html += '<div class="bookings-table-container">';
+    html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">';
+    html += '<h3 style="margin:0;">Uploaded Photos (' + items.length + ')</h3></div>';
+    if (items.length === 0) {
+      html += '<p style="color:#666; padding:10px 0;">No photos uploaded yet. Add your first before & after photo above.</p>';
+    } else {
+      html += '<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:16px;">';
+      items.forEach(function(item) {
+        html += '<div style="border:1px solid #e5e7eb; border-radius:10px; overflow:hidden; background:#fff;">';
+        html += '<div style="display:grid; grid-template-columns:1fr 1fr;">';
+        html += '<div style="position:relative;"><img src="/api/gallery/' + item.id + '/before" style="width:100%; height:120px; object-fit:cover; display:block;" onerror="this.style.background=\'#f3f4f6\';this.style.height=\'120px\';"><span style="position:absolute; bottom:4px; left:4px; background:#dc2626; color:#fff; font-size:0.7em; font-weight:700; padding:1px 6px; border-radius:8px;">BEFORE</span></div>';
+        html += '<div style="position:relative;"><img src="/api/gallery/' + item.id + '/after" style="width:100%; height:120px; object-fit:cover; display:block;" onerror="this.style.background=\'#f3f4f6\';this.style.height=\'120px\';"><span style="position:absolute; bottom:4px; left:4px; background:#16a34a; color:#fff; font-size:0.7em; font-weight:700; padding:1px 6px; border-radius:8px;">AFTER</span></div>';
+        html += '</div>';
+        html += '<div style="padding:10px 12px;">';
+        html += '<div style="font-weight:600; font-size:0.95em; margin-bottom:2px;">' + escapeHtml(item.title || 'Untitled') + '</div>';
+        html += '<div style="font-size:0.8em; color:#666; margin-bottom:8px;">' + escapeHtml(catLabels[item.category] || item.category) + (item.description ? ' — ' + escapeHtml(item.description) : '') + '</div>';
+        html += '<button type="button" class="btn-cancel" onclick="deleteGalleryItem(' + item.id + ')">Delete</button>';
+        html += '</div></div>';
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+
+    container.innerHTML = html;
+
+    // Wire file preview + compression
+    function wirePreview(inputId, previewId, imgId) {
+      var input = document.getElementById(inputId);
+      if (!input) return;
+      input.addEventListener('change', function() {
+        var file = this.files[0];
+        if (!file) return;
+        compressGalleryImage(file, function(dataUrl) {
+          document.getElementById(imgId).src = dataUrl;
+          document.getElementById(previewId).style.display = 'block';
+          input._compressed = dataUrl;
+        });
+      });
+    }
+    wirePreview('gal-before-file', 'gal-before-preview', 'gal-before-img');
+    wirePreview('gal-after-file',  'gal-after-preview',  'gal-after-img');
+
+    // Wire upload button
+    document.getElementById('gal-upload-btn').addEventListener('click', async function() {
+      var msgEl = document.getElementById('gal-upload-msg');
+      var beforeInput = document.getElementById('gal-before-file');
+      var afterInput  = document.getElementById('gal-after-file');
+      if (!beforeInput._compressed) { msgEl.textContent = 'Please select a Before photo.'; return; }
+      if (!afterInput._compressed)  { msgEl.textContent = 'Please select an After photo.'; return; }
+      msgEl.style.color = '#555';
+      msgEl.textContent = 'Uploading...';
+      this.disabled = true;
+      try {
+        var res = await fetch('/api/admin/gallery', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+          body: JSON.stringify({
+            title:        document.getElementById('gal-title').value.trim(),
+            description:  document.getElementById('gal-desc').value.trim(),
+            category:     document.getElementById('gal-category').value,
+            before_image: beforeInput._compressed,
+            after_image:  afterInput._compressed
+          })
+        });
+        if (res.ok) {
+          loadGalleryAdmin();
+        } else {
+          msgEl.style.color = '#dc2626';
+          msgEl.textContent = 'Upload failed. Try again.';
+          this.disabled = false;
+        }
+      } catch(e) {
+        msgEl.style.color = '#dc2626';
+        msgEl.textContent = 'Error uploading.';
+        this.disabled = false;
+      }
+    });
+  }
+
+  function compressGalleryImage(file, callback) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var img = new Image();
+      img.onload = function() {
+        var maxW = 1200;
+        var scale = Math.min(1, maxW / img.width);
+        var canvas = document.createElement('canvas');
+        canvas.width  = Math.round(img.width  * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        callback(canvas.toDataURL('image/jpeg', 0.82));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  window.deleteGalleryItem = async function(id) {
+    if (!confirm('Delete this photo? This cannot be undone.')) return;
+    try {
+      await fetch('/api/admin/gallery/' + id, {
+        method: 'DELETE',
+        headers: { 'x-admin-token': adminToken }
+      });
+      loadGalleryAdmin();
+    } catch(e) { alert('Delete failed.'); }
+  };
+
+  // --- Lines of Credit Tab ---
+  var LOC_CARDS = [
+    { key: 'amex_prime',  label: 'AMEX Prime',         limit: 25000, category: 'AMEX Prime',        bg: '#dbeafe', fg: '#1e40af' },
+    { key: 'amex_blue',   label: 'AMEX Blue',          limit: 25000, category: 'AMEX Blue',         bg: '#ede9fe', fg: '#5b21b6' },
+    { key: 'chase_ink',   label: 'Chase Ink',          limit: 12000, category: 'Chase Ink',         bg: '#d1fae5', fg: '#065f46' },
+    { key: 'cap_one',     label: 'Capital One Spark',  limit: 30000, category: 'Capital One Spark', bg: '#fee2e2', fg: '#991b1b' }
+  ];
+
+  async function loadLocTab() {
+    var container = document.getElementById('loc-admin-container');
+    if (!container) return;
+    container.innerHTML = '<p style="color:#666;">Loading...</p>';
+    try {
+      var [settingsRes, expRes] = await Promise.all([
+        fetch('/api/admin/settings', { headers: { 'x-admin-token': adminToken } }),
+        fetch('/api/admin/expenses?year=' + currentLocYear + '&month=' + currentLocMonth, { headers: { 'x-admin-token': adminToken } })
+      ]);
+      if (settingsRes.status === 401) { handleAuthExpired(); return; }
+      var settings = settingsRes.ok ? await settingsRes.json() : {};
+      var expData  = expRes.ok ? await expRes.json() : {};
+      renderLocTab(settings, expData.expenses || []);
+    } catch(e) {
+      container.innerHTML = '<p style="color:#dc2626;">Failed to load Lines of Credit.</p>';
+    }
+  }
+
+  function renderLocTab(settings, expenses) {
+    var container = document.getElementById('loc-admin-container');
+    var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    var monthName = monthNames[currentLocMonth - 1] + ' ' + currentLocYear;
+    var thisYear = new Date().getFullYear();
+
+    // Sum expenses this month by category
+    var paidByCategory = {};
+    expenses.forEach(function(e) {
+      paidByCategory[e.category] = (paidByCategory[e.category] || 0) + (parseFloat(e.amount) || 0);
+    });
+
+    // Pre-compute card values for EOM totals
+    var eomTotalOwed = 0;
+    var eomTotalAvailable = 0;
+    var cardValues = LOC_CARDS.map(function(card) {
+      var owed         = parseFloat(settings['loc_' + card.key + '_owed'] || '0');
+      var paid         = paidByCategory[card.category] || 0;
+      var remaining    = Math.max(0, owed - paid);
+      var available    = Math.max(0, card.limit - remaining);
+      eomTotalOwed     += remaining;
+      eomTotalAvailable += available;
+      return { owed: owed, paid: paid, remaining: remaining, available: available };
+    });
+    var sofiOwed      = parseFloat(settings['loc_sofi_owed'] || '0');
+    eomTotalOwed     += sofiOwed;
+    var checkingBal   = parseFloat(settings['loc_checking_balance'] || '0');
+    var netPosition   = checkingBal - eomTotalOwed;
+
+    var html = '<h2 style="margin-bottom:20px;">Lines of Credit</h2>';
+
+    // Month / Year filter
+    var yearOpts = '';
+    for (var y = thisYear; y >= thisYear - 4; y--) {
+      yearOpts += '<option value="' + y + '"' + (y === currentLocYear ? ' selected' : '') + '>' + y + '</option>';
+    }
+    var monthOpts = monthNames.map(function(m, i) {
+      return '<option value="' + (i + 1) + '"' + ((i + 1) === currentLocMonth ? ' selected' : '') + '>' + m + '</option>';
+    }).join('');
+    html += '<div style="display:flex; gap:10px; align-items:center; margin-bottom:24px; flex-wrap:wrap;">' +
+      '<label style="font-weight:600; color:#444;">Period:</label>' +
+      '<select id="loc-filter-month" style="padding:7px 12px; border:1px solid #ddd; border-radius:6px;">' + monthOpts + '</select>' +
+      '<select id="loc-filter-year" style="padding:7px 12px; border:1px solid #ddd; border-radius:6px;">' + yearOpts + '</select>' +
+      '<button type="button" class="btn btn-secondary" style="padding:7px 16px; font-size:0.9em;" onclick="applyLocFilter()">Apply</button>' +
+      '</div>';
+
+    // ── Credit card windows ──
+    html += '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:20px; margin-bottom:28px;">';
+    LOC_CARDS.forEach(function(card, i) {
+      var v = cardValues[i];
+      var bg = card.bg; var fg = card.fg;
+      html += '<div style="background:' + bg + '; border-radius:10px; padding:20px;">';
+      html += '<div style="font-size:1em; font-weight:700; color:' + fg + '; margin-bottom:14px; padding-bottom:8px; border-bottom:1px solid ' + fg + '44;">' + card.label + '</div>';
+
+      html += row(fg, 'Credit Limit', '$' + card.limit.toLocaleString('en-US', { minimumFractionDigits: 2 }));
+
+      // Balance Owed — editable
+      html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:9px;">';
+      html += '<span style="color:' + fg + '; font-size:0.88em;">Balance Owed</span>';
+      html += '<span style="display:flex; align-items:center; gap:1px; font-weight:600; color:' + fg + ';">$<input type="number" id="loc-' + card.key + '-owed" value="' + v.owed.toFixed(2) + '" step="0.01" min="0" style="width:90px; text-align:right; font-weight:600; color:' + fg + '; border:none; background:transparent; border-bottom:1px solid ' + fg + '88; outline:none; font-size:1em;"></span>';
+      html += '</div>';
+
+      html += row(fg, 'Paid This Month (' + monthName + ')', '$' + v.paid.toFixed(2));
+      html += row(fg, 'Remaining Balance', '$' + v.remaining.toFixed(2));
+
+      // Credit Available — highlighted
+      html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; padding-top:10px; border-top:1px solid ' + fg + '44;">';
+      html += '<span style="color:' + fg + '; font-size:0.88em; font-weight:700;">Credit Available</span>';
+      html += '<span style="font-size:1.15em; font-weight:700; color:' + fg + ';">$' + v.available.toFixed(2) + '</span>';
+      html += '</div>';
+
+      html += '<p id="loc-' + card.key + '-status" style="font-size:0.75em; min-height:1em; color:' + fg + '; margin:5px 0 0; text-align:right;"></p>';
+      html += '</div>';
+    });
+    html += '</div>';
+
+    // ── SoFi Loan window ──
+    html += '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:20px; margin-bottom:28px;">';
+    html += '<div style="background:#fef3c7; border-radius:10px; padding:20px;">';
+    html += '<div style="font-size:1em; font-weight:700; color:#92400e; margin-bottom:14px; padding-bottom:8px; border-bottom:1px solid #92400e44;">SoFi Loan</div>';
+    html += row('#92400e', 'Loan Amount', '$70,000.00');
+    html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:9px;">';
+    html += '<span style="color:#92400e; font-size:0.88em;">Amount Owed</span>';
+    html += '<span style="display:flex; align-items:center; gap:1px; font-weight:600; color:#92400e;">$<input type="number" id="loc-sofi-owed" value="' + sofiOwed.toFixed(2) + '" step="0.01" min="0" style="width:90px; text-align:right; font-weight:600; color:#92400e; border:none; background:transparent; border-bottom:1px solid #92400e88; outline:none; font-size:1em;"></span>';
+    html += '</div>';
+    html += '<p id="loc-sofi-status" style="font-size:0.75em; min-height:1em; color:#92400e; margin:5px 0 0; text-align:right;"></p>';
+    html += '</div>';
+    html += '</div>';
+
+    // ── EOM Finances window ──
+    html += '<div style="background:#f8fafc; border:2px solid #1a1a2e; border-radius:10px; padding:24px; margin-bottom:28px; max-width:480px;">';
+    html += '<div style="font-size:1em; font-weight:700; color:#1a1a2e; margin-bottom:16px; padding-bottom:8px; border-bottom:1px solid #1a1a2e33;">EOM Finances</div>';
+
+    // Checking Balance — editable
+    html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">';
+    html += '<span style="color:#444; font-size:0.9em;">Checking Balance</span>';
+    html += '<span style="display:flex; align-items:center; gap:1px; font-weight:600; color:#1a1a2e;">$<input type="number" id="loc-checking-balance" value="' + checkingBal.toFixed(2) + '" step="0.01" style="width:110px; text-align:right; font-weight:600; color:#1a1a2e; border:none; background:transparent; border-bottom:1px solid #1a1a2e88; outline:none; font-size:1em;"></span>';
+    html += '</div>';
+
+    html += eomRow('#dc2626', 'Total Credit Owed', '$' + eomTotalOwed.toFixed(2));
+    html += eomRow('#065f46', 'Total Credit Available', '$' + eomTotalAvailable.toFixed(2));
+
+    html += '<div style="border-top:1px solid #1a1a2e33; margin:14px 0;"></div>';
+
+    var netColor = netPosition >= 0 ? '#065f46' : '#dc2626';
+    html += '<div style="display:flex; justify-content:space-between; align-items:center;">';
+    html += '<span style="color:#1a1a2e; font-size:0.95em; font-weight:700;">Total Business Debt</span>';
+    html += '<span style="font-size:1.2em; font-weight:700; color:' + netColor + ';">$' + netPosition.toFixed(2) + '</span>';
+    html += '</div>';
+    html += '<p id="loc-checking-status" style="font-size:0.75em; min-height:1em; color:#666; margin:5px 0 0; text-align:right;"></p>';
+    html += '</div>';
+
+    container.innerHTML = html;
+
+    // Wire save + reload for every editable input
+    function wireSave(settingsKey, inputId, statusId) {
+      var el = document.getElementById(inputId);
+      if (!el) return;
+      el.addEventListener('change', async function() {
+        var st = document.getElementById(statusId);
+        st.textContent = 'Saving...';
+        try {
+          var r = await fetch('/api/admin/settings', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+            body: JSON.stringify({ key: settingsKey, value: this.value })
+          });
+          if (r.ok) {
+            st.textContent = 'Saved.';
+            setTimeout(loadLocTab, 600);
+          } else {
+            st.textContent = 'Save failed.';
+          }
+        } catch(e) { st.textContent = 'Error saving.'; }
+      });
+    }
+
+    LOC_CARDS.forEach(function(card) {
+      wireSave('loc_' + card.key + '_owed', 'loc-' + card.key + '-owed', 'loc-' + card.key + '-status');
+    });
+    wireSave('loc_sofi_owed',        'loc-sofi-owed',        'loc-sofi-status');
+    wireSave('loc_checking_balance', 'loc-checking-balance', 'loc-checking-status');
+  }
+
+  function row(fg, label, value) {
+    return '<div style="display:flex; justify-content:space-between; margin-bottom:9px;">' +
+      '<span style="color:' + fg + '; font-size:0.88em;">' + label + '</span>' +
+      '<span style="font-weight:600; color:' + fg + ';">' + value + '</span>' +
+      '</div>';
+  }
+
+  function eomRow(fg, label, value) {
+    return '<div style="display:flex; justify-content:space-between; margin-bottom:12px;">' +
+      '<span style="color:#444; font-size:0.9em;">' + label + '</span>' +
+      '<span style="font-weight:700; font-size:1.05em; color:' + fg + ';">' + value + '</span>' +
+      '</div>';
+  }
+
   // --- Expenses Tab ---
   async function loadExpensesTab() {
     var container = document.getElementById('expenses-admin-container');
@@ -1731,7 +2256,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var expenses = data.expenses || [];
     var total = data.total || 0;
     var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-    var categories = ['Fuel','Supplies','Equipment','Insurance','Marketing','Vehicle','Other'];
+    var categories = ['Fuel','Supplies','Equipment','Insurance','Marketing','Vehicle','AMEX Prime','AMEX Blue','Chase Ink','Capital One Spark','SoFi','Other'];
 
     var html = '<h2 style="margin-bottom:20px;">Expenses</h2>';
 

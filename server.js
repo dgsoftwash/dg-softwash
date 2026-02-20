@@ -20,8 +20,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- PostgreSQL setup ---
@@ -103,6 +103,7 @@ async function initDb() {
   await pool.query(`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS payment_method TEXT NOT NULL DEFAULT ''`);
   await pool.query(`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS completion_notes TEXT NOT NULL DEFAULT ''`);
   await pool.query(`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS mileage REAL NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ`);
 
   // Expenses table
   await pool.query(`
@@ -160,6 +161,26 @@ async function initDb() {
       new_value TEXT NOT NULL,
       effective_date DATE NOT NULL,
       applied BOOLEAN NOT NULL DEFAULT false,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL DEFAULT ''
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS gallery_items (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL DEFAULT '',
+      description TEXT NOT NULL DEFAULT '',
+      category TEXT NOT NULL DEFAULT 'house',
+      before_image TEXT NOT NULL DEFAULT '',
+      after_image TEXT NOT NULL DEFAULT '',
+      sort_order INTEGER NOT NULL DEFAULT 0,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
@@ -526,6 +547,71 @@ app.get('/pricing', (req, res) => {
 
 app.get('/gallery', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'gallery.html'));
+});
+
+// --- Gallery API (public) ---
+app.get('/api/gallery', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT id, title, description, category FROM gallery_items ORDER BY sort_order, created_at DESC'
+    );
+    res.json(rows);
+  } catch(e) {
+    res.status(500).json({ error: 'Failed to load gallery' });
+  }
+});
+
+app.get('/api/gallery/:id/before', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT before_image FROM gallery_items WHERE id = $1', [req.params.id]);
+    if (!rows[0] || !rows[0].before_image) return res.status(404).send('Not found');
+    const [header, b64] = rows[0].before_image.split(',');
+    const mime = header.match(/:(.*?);/)[1];
+    res.set('Content-Type', mime);
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.send(Buffer.from(b64, 'base64'));
+  } catch(e) { res.status(500).send('Error'); }
+});
+
+app.get('/api/gallery/:id/after', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT after_image FROM gallery_items WHERE id = $1', [req.params.id]);
+    if (!rows[0] || !rows[0].after_image) return res.status(404).send('Not found');
+    const [header, b64] = rows[0].after_image.split(',');
+    const mime = header.match(/:(.*?);/)[1];
+    res.set('Content-Type', mime);
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.send(Buffer.from(b64, 'base64'));
+  } catch(e) { res.status(500).send('Error'); }
+});
+
+// --- Gallery API (admin) ---
+app.get('/api/admin/gallery', requireAdmin, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT id, title, description, category, created_at FROM gallery_items ORDER BY sort_order, created_at DESC'
+    );
+    res.json(rows);
+  } catch(e) { res.status(500).json({ error: 'Failed to load gallery' }); }
+});
+
+app.post('/api/admin/gallery', requireAdmin, async (req, res) => {
+  const { title, description, category, before_image, after_image } = req.body;
+  if (!before_image || !after_image) return res.status(400).json({ error: 'Both images required' });
+  try {
+    const { rows } = await pool.query(
+      'INSERT INTO gallery_items (title, description, category, before_image, after_image) VALUES ($1,$2,$3,$4,$5) RETURNING id',
+      [title || '', description || '', category || 'house', before_image, after_image]
+    );
+    res.json({ success: true, id: rows[0].id });
+  } catch(e) { res.status(500).json({ error: 'Failed to save gallery item' }); }
+});
+
+app.delete('/api/admin/gallery/:id', requireAdmin, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM gallery_items WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: 'Failed to delete' }); }
 });
 
 app.get('/contact', (req, res) => {
@@ -1055,6 +1141,11 @@ app.patch('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
     if (payment_method !== undefined) { updates.push(`payment_method = $${idx++}`); values.push(payment_method); }
     if (completion_notes !== undefined) { updates.push(`completion_notes = $${idx++}`); values.push(completion_notes); }
     if (mileage !== undefined) { updates.push(`mileage = $${idx++}`); values.push(parseFloat(mileage) || 0); }
+    if (status_paid === true && !before.status_paid) {
+      updates.push('paid_at = NOW()');
+    } else if (status_paid === false && before.status_paid) {
+      updates.push('paid_at = NULL');
+    }
     if (updates.length === 0) return res.json({ success: true, email_sent: null });
     values.push(id);
     await pool.query(`UPDATE work_orders SET ${updates.join(', ')} WHERE id = $${idx}`, values);
@@ -1192,9 +1283,9 @@ app.get('/api/admin/dashboard', requireAdmin, async (req, res) => {
       FROM work_orders wo
       LEFT JOIN bookings b ON wo.booking_id = b.id
       LEFT JOIN customers c ON wo.customer_id = c.id
-      WHERE b.date >= DATE_TRUNC('week', CURRENT_DATE)
-        AND b.date < DATE_TRUNC('week', CURRENT_DATE) + INTERVAL '7 days'
-      ORDER BY b.date, b.time
+      WHERE b.date::date >= DATE_TRUNC('week', CURRENT_DATE)::date
+        AND b.date::date < (DATE_TRUNC('week', CURRENT_DATE) + INTERVAL '7 days')::date
+      ORDER BY b.date::date, b.time
     `);
 
     const { rows: outstandingInvoices } = await pool.query(`
@@ -1224,13 +1315,27 @@ app.get('/api/admin/dashboard', requireAdmin, async (req, res) => {
     `);
 
     const { rows: reserviceDue } = await pool.query(`
-      SELECT c.id, c.name, c.email, c.phone, MAX(b.date) as last_service_date
+      SELECT c.id, c.name, c.email, c.phone, MAX(b.date::date) as last_service_date
       FROM customers c
       LEFT JOIN bookings b ON b.customer_id = c.id
       GROUP BY c.id, c.name, c.email, c.phone
-      HAVING MAX(b.date) < CURRENT_DATE - INTERVAL '6 months'
+      HAVING MAX(b.date::date) < CURRENT_DATE - INTERVAL '6 months'
       ORDER BY last_service_date ASC
       LIMIT 15
+    `);
+
+    const { rows: ytdPaid } = await pool.query(`
+      SELECT COALESCE(b.price, wo.price) as price
+      FROM work_orders wo
+      LEFT JOIN bookings b ON wo.booking_id = b.id
+      WHERE wo.status_paid = true
+        AND EXTRACT(YEAR FROM COALESCE(b.date::date, wo.created_at::date)) = EXTRACT(YEAR FROM CURRENT_DATE)
+    `);
+
+    const { rows: ytdExpenseRows } = await pool.query(`
+      SELECT COALESCE(SUM(amount), 0) as total
+      FROM expenses
+      WHERE EXTRACT(YEAR FROM date) = EXTRACT(YEAR FROM CURRENT_DATE)
     `);
 
     const monthlyRevenue = paidThisMonth.reduce((sum, r) => sum + parsePrice(r.price), 0);
@@ -1242,12 +1347,31 @@ app.get('/api/admin/dashboard', requireAdmin, async (req, res) => {
       outstanding_total: outstandingTotal,
       monthly_revenue: monthlyRevenue,
       monthly_expenses: parseFloat(expenseRows[0].total) || 0,
-      reservice_due: reserviceDue
+      reservice_due: reserviceDue,
+      ytd_gross: ytdPaid.reduce((sum, r) => sum + parsePrice(r.price), 0),
+      ytd_expenses: parseFloat(ytdExpenseRows[0].total) || 0
     });
   } catch (e) {
     console.error('Dashboard error:', e.message);
     res.status(500).json({ error: 'Failed to load dashboard' });
   }
+});
+
+app.get('/api/admin/settings', requireAdmin, async (req, res) => {
+  const { rows } = await pool.query('SELECT key, value FROM settings');
+  const out = {};
+  rows.forEach(r => { out[r.key] = r.value; });
+  res.json(out);
+});
+
+app.patch('/api/admin/settings', requireAdmin, async (req, res) => {
+  const { key, value } = req.body;
+  if (!key) return res.status(400).json({ error: 'key required' });
+  await pool.query(
+    'INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = $2',
+    [key, String(value)]
+  );
+  res.json({ success: true });
 });
 
 app.post('/api/admin/quotes', requireAdmin, async (req, res) => {
@@ -1375,6 +1499,49 @@ app.get('/api/admin/revenue-report', requireAdmin, async (req, res) => {
   } catch (e) {
     console.error('Revenue report error:', e.message);
     res.status(500).json({ error: 'Failed to load revenue report' });
+  }
+});
+
+app.get('/api/admin/payments', requireAdmin, async (req, res) => {
+  try {
+    const year  = parseInt(req.query.year)  || new Date().getFullYear();
+    const month = parseInt(req.query.month) || 0; // 0 = all year
+
+    let dateFilter = `EXTRACT(YEAR FROM COALESCE(wo.paid_at, wo.created_at)) = $1`;
+    const values = [year];
+    if (month) {
+      dateFilter += ` AND EXTRACT(MONTH FROM COALESCE(wo.paid_at, wo.created_at)) = $2`;
+      values.push(month);
+    }
+
+    const { rows } = await pool.query(`
+      SELECT
+        wo.id,
+        COALESCE(wo.paid_at, wo.created_at) as paid_date,
+        COALESCE(b.name, c.name, 'Unknown') as customer_name,
+        COALESCE(b.service, wo.service) as service,
+        COALESCE(b.price, wo.price) as price,
+        wo.payment_method
+      FROM work_orders wo
+      LEFT JOIN bookings b ON wo.booking_id = b.id
+      LEFT JOIN customers c ON wo.customer_id = c.id
+      WHERE wo.status_paid = true AND ${dateFilter}
+      ORDER BY COALESCE(wo.paid_at, wo.created_at) DESC
+    `, values);
+
+    const byMethod = {};
+    let total = 0;
+    rows.forEach(r => {
+      const amt = parsePrice(r.price);
+      total += amt;
+      const m = r.payment_method || 'Unspecified';
+      byMethod[m] = (byMethod[m] || 0) + amt;
+    });
+
+    res.json({ payments: rows, total, byMethod, year, month });
+  } catch (e) {
+    console.error('Payments error:', e.message);
+    res.status(500).json({ error: 'Failed to load payments' });
   }
 });
 

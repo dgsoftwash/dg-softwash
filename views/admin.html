@@ -17,11 +17,11 @@
         <span></span>
       </button>
       <ul class="nav-links">
-        <li><a href="/">Home</a></li>
-        <li><a href="/services">Services</a></li>
-        <li><a href="/pricing">Pricing</a></li>
-        <li><a href="/gallery">Gallery</a></li>
-        <li><a href="/contact">Contact</a></li>
+        <li><a href="/" target="_blank" rel="noopener">Home</a></li>
+        <li><a href="/services" target="_blank" rel="noopener">Services</a></li>
+        <li><a href="/pricing" target="_blank" rel="noopener">Pricing</a></li>
+        <li><a href="/gallery" target="_blank" rel="noopener">Gallery</a></li>
+        <li><a href="/contact" target="_blank" rel="noopener">Contact</a></li>
       </ul>
     </div>
   </nav>
@@ -61,6 +61,9 @@
           <button class="admin-tab" data-tab="pricing" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Pricing</button>
           <button class="admin-tab" data-tab="expenses" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Expenses</button>
           <button class="admin-tab" data-tab="revenue" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Revenue</button>
+          <button class="admin-tab" data-tab="payments" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Payments</button>
+          <button class="admin-tab" data-tab="gallery-admin" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Gallery</button>
+          <button class="admin-tab" data-tab="loc" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Lines of Credit</button>
         </div>
 
         <!-- Dashboard Tab -->
@@ -200,6 +203,21 @@
           <div id="revenue-admin-container">
             <p style="color:#666;">Loading revenue report...</p>
           </div>
+        </div>
+
+        <!-- Payments Tab -->
+        <div id="tab-payments" class="tab-panel" style="display:none;">
+          <div id="payments-admin-container"></div>
+        </div>
+
+        <!-- Gallery Admin Tab -->
+        <div id="tab-gallery-admin" class="tab-panel" style="display:none;">
+          <div id="gallery-admin-container"></div>
+        </div>
+
+        <!-- Line of Credit Tab -->
+        <div id="tab-loc" class="tab-panel" style="display:none;">
+          <div id="loc-admin-container"></div>
         </div>
       </div>
 
