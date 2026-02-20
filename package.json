@@ -5,11 +5,18 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "pm2:start": "pm2 start ecosystem.config.js",
+    "pm2:restart": "pm2 restart dg-softwash",
+    "pm2:stop": "pm2 stop dg-softwash",
+    "pm2:logs": "pm2 logs dg-softwash"
   },
   "dependencies": {
     "express": "^4.18.2",
     "nodemailer": "^6.9.8",
     "pg": "^8.18.0"
+  },
+  "devDependencies": {
+    "pm2": "^6.0.14"
   }
 }

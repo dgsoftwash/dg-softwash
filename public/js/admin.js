@@ -1326,12 +1326,17 @@ document.addEventListener('DOMContentLoaded', function() {
     try {
       var res = await fetch('/api/admin/work-orders', { headers: { 'x-admin-token': adminToken } });
       if (res.status === 401) { handleAuthExpired(); return; }
+      if (!res.ok) {
+        container.innerHTML = '<p style="color:#dc2626;">Server error (' + res.status + ') — the server may need to be restarted to pick up recent changes.</p>';
+        return;
+      }
       var data = await res.json();
       allWorkOrders = data.work_orders || [];
       currentWoFilter = 'all';
       renderWorkOrdersList();
     } catch (e) {
-      container.innerHTML = '<p style="color:#dc2626;">Failed to load work orders.</p>';
+      console.error('loadWorkOrdersTab error:', e);
+      container.innerHTML = '<p style="color:#dc2626;">Failed to load work orders: ' + e.message + '</p>';
     }
   }
 
