@@ -16,6 +16,8 @@ document.addEventListener('DOMContentLoaded', function() {
   let selectedDate = null;
   let allBookings = [];
   let allBlocked = [];
+  let currentEmailRecipients = [];
+  let currentWorkOrderId = null;
 
   const today = new Date();
   currentYear = today.getFullYear();
@@ -312,10 +314,33 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
+  function buildBookingRow(b) {
+    var row = document.createElement('tr');
+    var dateObj = new Date(b.date + 'T12:00:00');
+    var dateLabel = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    var dur = b.duration || 1;
+    var woBtn = b.work_order_id
+      ? '<button type="button" class="btn-wo" onclick="openWorkOrderModal(' + b.work_order_id + ')" style="padding:3px 10px; font-size:0.8em; background:#1a1a2e; color:#fff; border:none; border-radius:4px; cursor:pointer;">View WO</button>'
+      : '<span style="color:#aaa; font-size:0.85em;">—</span>';
+    var cancelBtn = '<button type="button" class="btn-cancel" onclick="cancelBookingById(' + b.id + ')">Cancel</button>';
+    row.innerHTML =
+      '<td>' + dateLabel + '</td>' +
+      '<td>' + (SLOT_LABELS[b.time] || b.time) + '</td>' +
+      '<td>' + dur + 'hr' + (dur > 1 ? 's' : '') + '</td>' +
+      '<td>' + escapeHtml(b.name) + '</td>' +
+      '<td>' + escapeHtml(b.service || '-') + '</td>' +
+      '<td>' + escapeHtml(b.phone || '-') + '</td>' +
+      '<td>' + escapeHtml(b.address || '-') + '</td>' +
+      '<td>' + escapeHtml(b.email || '-') + '</td>' +
+      '<td style="max-width:160px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="' + escapeHtml(b.notes || '') + '">' + escapeHtml(b.notes || '-') + '</td>' +
+      '<td>' + woBtn + '</td>' +
+      '<td>' + cancelBtn + '</td>';
+    return row;
+  }
+
   function renderBookingsTable() {
     bookingsBody.innerHTML = '';
 
-    // Filter to upcoming bookings and sort by date
     var todayStr = today.getFullYear() + '-' +
       String(today.getMonth() + 1).padStart(2, '0') + '-' +
       String(today.getDate()).padStart(2, '0');
@@ -330,31 +355,68 @@ document.addEventListener('DOMContentLoaded', function() {
     if (upcoming.length === 0) {
       var row = document.createElement('tr');
       var td = document.createElement('td');
-      td.colSpan = 7;
+      td.colSpan = 11;
       td.className = 'no-bookings';
       td.textContent = 'No upcoming bookings';
       row.appendChild(td);
       bookingsBody.appendChild(row);
-      return;
+    } else {
+      upcoming.forEach(function(b) {
+        bookingsBody.appendChild(buildBookingRow(b));
+      });
     }
 
-    upcoming.forEach(function(b) {
-      var row = document.createElement('tr');
-      var dateObj = new Date(b.date + 'T12:00:00');
-      var dateLabel = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
-      var dur = b.duration || 1;
-      row.innerHTML =
-        '<td>' + dateLabel + '</td>' +
-        '<td>' + (SLOT_LABELS[b.time] || b.time) + '</td>' +
-        '<td>' + dur + 'hr' + (dur > 1 ? 's' : '') + '</td>' +
-        '<td>' + escapeHtml(b.name) + '</td>' +
-        '<td>' + escapeHtml(b.service || '-') + '</td>' +
-        '<td>' + escapeHtml(b.phone || '-') + '</td>' +
-        '<td>' + escapeHtml(b.address || '-') + '</td>';
-      bookingsBody.appendChild(row);
-    });
+    renderPastBookings(todayStr);
   }
+
+  function renderPastBookings(todayStr) {
+    var pastBody = document.getElementById('past-bookings-body');
+    var pastCount = document.getElementById('past-bookings-count');
+    if (!pastBody) return;
+    if (!todayStr) {
+      todayStr = today.getFullYear() + '-' +
+        String(today.getMonth() + 1).padStart(2, '0') + '-' +
+        String(today.getDate()).padStart(2, '0');
+    }
+
+    var past = allBookings
+      .filter(function(b) { return b.date < todayStr; })
+      .sort(function(a, b) {
+        if (a.date !== b.date) return a.date > b.date ? -1 : 1;
+        return a.time > b.time ? -1 : 1;
+      });
+
+    pastCount.textContent = '(' + past.length + ')';
+    pastBody.innerHTML = '';
+
+    if (past.length === 0) {
+      var row = document.createElement('tr');
+      var td = document.createElement('td');
+      td.colSpan = 11;
+      td.className = 'no-bookings';
+      td.textContent = 'No past bookings';
+      row.appendChild(td);
+      pastBody.appendChild(row);
+    } else {
+      past.forEach(function(b) {
+        pastBody.appendChild(buildBookingRow(b));
+      });
+    }
+  }
+
+  window.cancelBookingById = async function(id) {
+    if (!confirm('Cancel this booking?')) return;
+    try {
+      var res = await fetch('/api/admin/bookings/' + id, {
+        method: 'DELETE',
+        headers: { 'x-admin-token': adminToken }
+      });
+      if (res.status === 401) { handleAuthExpired(); return; }
+      await loadAdminData();
+    } catch (err) {
+      console.error('Cancel booking failed:', err);
+    }
+  };
 
   function escapeHtml(str) {
     if (!str) return '';
@@ -411,6 +473,487 @@ document.addEventListener('DOMContentLoaded', function() {
     printWindow.document.close();
   }
 
+  function handleAuthExpired() {
+    adminToken = null;
+    sessionStorage.removeItem('adminToken');
+    dashboard.classList.remove('active');
+    loginSection.style.display = 'block';
+    loginError.textContent = 'Session expired. Please log in again.';
+  }
+
+  // Past bookings toggle
+  var pastToggle = document.getElementById('past-bookings-toggle');
+  var pastContent = document.getElementById('past-bookings-content');
+  var pastArrow = document.getElementById('past-bookings-arrow');
+  if (pastToggle) {
+    pastToggle.addEventListener('click', function() {
+      var visible = pastContent.style.display !== 'none';
+      pastContent.style.display = visible ? 'none' : 'block';
+      pastArrow.innerHTML = visible ? '&#9654;' : '&#9660;';
+    });
+  }
+
+  // --- Manual Booking Modal ---
+  var addBookingBtn = document.getElementById('add-booking-btn');
+  var manualBookingModal = document.getElementById('manual-booking-modal');
+  var closeManualBookingModal = document.getElementById('close-manual-booking-modal');
+  var manualBookingForm = document.getElementById('manual-booking-form');
+
+  if (addBookingBtn) {
+    addBookingBtn.addEventListener('click', function() {
+      manualBookingModal.style.display = 'block';
+      document.getElementById('mb-error').textContent = '';
+      manualBookingForm.reset();
+    });
+  }
+  if (closeManualBookingModal) {
+    closeManualBookingModal.addEventListener('click', function() {
+      manualBookingModal.style.display = 'none';
+    });
+  }
+  manualBookingModal && manualBookingModal.addEventListener('click', function(e) {
+    if (e.target === manualBookingModal) manualBookingModal.style.display = 'none';
+  });
+
+  if (manualBookingForm) {
+    manualBookingForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      var errEl = document.getElementById('mb-error');
+      errEl.textContent = '';
+      var body = {
+        name: document.getElementById('mb-name').value.trim(),
+        email: document.getElementById('mb-email').value.trim(),
+        phone: document.getElementById('mb-phone').value.trim(),
+        address: document.getElementById('mb-address').value.trim(),
+        service: document.getElementById('mb-service').value.trim(),
+        date: document.getElementById('mb-date').value,
+        time: document.getElementById('mb-time').value,
+        duration: document.getElementById('mb-duration').value,
+        price: document.getElementById('mb-price').value.trim(),
+        notes: document.getElementById('mb-notes').value.trim()
+      };
+      if (!body.name || !body.date || !body.time) {
+        errEl.textContent = 'Name, Date, and Time are required.';
+        return;
+      }
+      try {
+        var res = await fetch('/api/admin/bookings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+          body: JSON.stringify(body)
+        });
+        if (res.status === 401) { handleAuthExpired(); return; }
+        var data = await res.json();
+        if (data.success) {
+          manualBookingModal.style.display = 'none';
+          await loadAdminData();
+          showPricingMsg('Booking added!', true);
+        } else {
+          errEl.textContent = data.error || 'Failed to add booking.';
+        }
+      } catch (err) {
+        errEl.textContent = 'Error. Please try again.';
+      }
+    });
+  }
+
+  // --- Work Order Modal ---
+  var workOrderModal = document.getElementById('work-order-modal');
+  var closeWorkOrderModalBtn = document.getElementById('close-work-order-modal');
+  var woPrintBtn = document.getElementById('wo-print-btn');
+
+  if (closeWorkOrderModalBtn) {
+    closeWorkOrderModalBtn.addEventListener('click', function() {
+      workOrderModal.style.display = 'none';
+      currentWorkOrderId = null;
+    });
+  }
+  workOrderModal && workOrderModal.addEventListener('click', function(e) {
+    if (e.target === workOrderModal) { workOrderModal.style.display = 'none'; currentWorkOrderId = null; }
+  });
+
+  window.openWorkOrderModal = async function(woId) {
+    currentWorkOrderId = woId;
+    workOrderModal.style.display = 'block';
+    var content = document.getElementById('wo-modal-content');
+    content.innerHTML = '<p style="color:#666;">Loading...</p>';
+    document.getElementById('wo-modal-title').textContent = 'Work Order #' + woId;
+    try {
+      var res = await fetch('/api/admin/work-orders/' + woId, {
+        headers: { 'x-admin-token': adminToken }
+      });
+      if (res.status === 401) { handleAuthExpired(); return; }
+      var wo = await res.json();
+      renderWorkOrderModal(wo);
+    } catch (err) {
+      content.innerHTML = '<p style="color:#dc2626;">Failed to load work order.</p>';
+    }
+  };
+
+  function renderWorkOrderModal(wo) {
+    var content = document.getElementById('wo-modal-content');
+    var dateLabel = wo.date ? new Date(wo.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : '—';
+    var timeLabel = wo.time ? (SLOT_LABELS[wo.time] || wo.time) : '—';
+    var dur = wo.duration || 1;
+
+    var infoHtml =
+      '<table style="width:100%; border-collapse:collapse; font-size:0.95em; margin-bottom:18px;">' +
+        '<tr><td style="padding:5px 8px; color:#555; width:110px;">Customer</td><td style="padding:5px 8px; font-weight:600;">' + escapeHtml(wo.booking_name || wo.customer_name || '—') + '</td></tr>' +
+        '<tr><td style="padding:5px 8px; color:#555;">Date</td><td style="padding:5px 8px;">' + dateLabel + ' &middot; ' + timeLabel + ' &middot; ' + dur + ' hr' + (dur > 1 ? 's' : '') + '</td></tr>' +
+        '<tr><td style="padding:5px 8px; color:#555;">Service</td><td style="padding:5px 8px;">' + escapeHtml(wo.service || '—') + '</td></tr>' +
+        '<tr><td style="padding:5px 8px; color:#555;">Phone</td><td style="padding:5px 8px;">' + escapeHtml(wo.booking_phone || '—') + '</td></tr>' +
+        '<tr><td style="padding:5px 8px; color:#555;">Email</td><td style="padding:5px 8px;">' + escapeHtml(wo.booking_email || '—') + '</td></tr>' +
+        '<tr><td style="padding:5px 8px; color:#555;">Address</td><td style="padding:5px 8px;">' + escapeHtml(wo.booking_address || '—') + '</td></tr>' +
+        '<tr><td style="padding:5px 8px; color:#555;">Price</td><td style="padding:5px 8px; font-weight:600; color:#2d6a4f;">' + escapeHtml(wo.price || '—') + '</td></tr>' +
+        (wo.booking_notes ? '<tr><td style="padding:5px 8px; color:#555;">Notes</td><td style="padding:5px 8px;">' + escapeHtml(wo.booking_notes) + '</td></tr>' : '') +
+      '</table>';
+
+    var statusHtml = '<div style="margin-bottom:18px; padding:14px; background:#f8f9fa; border-radius:8px;">' +
+      '<div style="font-weight:600; margin-bottom:10px; color:#1a1a2e;">Status</div>' +
+      '<div style="display:flex; gap:8px; flex-wrap:wrap;">' +
+        renderStatusToggle(wo.id, 'status_job_complete', wo.status_job_complete, 'Job Complete') +
+        renderStatusToggle(wo.id, 'status_invoiced', wo.status_invoiced, 'Invoiced') +
+        renderStatusToggle(wo.id, 'status_invoice_paid', wo.status_invoice_paid, 'Invoice Paid') +
+        renderStatusToggle(wo.id, 'status_paid', wo.status_paid, 'Paid') +
+      '</div></div>';
+
+    var notesHtml = '<div>' +
+      '<div style="font-weight:600; margin-bottom:8px; color:#1a1a2e;">D&amp;G Soft Wash Comments</div>' +
+      '<textarea id="wo-admin-notes" rows="4" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box; resize:vertical; font-family:inherit;" placeholder="Internal notes...">' + escapeHtml(wo.admin_notes || '') + '</textarea>' +
+      '<p id="wo-notes-status" style="margin-top:4px; font-size:0.85em; color:#888;"></p>' +
+      '</div>';
+
+    content.innerHTML = infoHtml + statusHtml + notesHtml;
+
+    document.getElementById('wo-admin-notes').addEventListener('blur', async function() {
+      var notesStatus = document.getElementById('wo-notes-status');
+      notesStatus.textContent = 'Saving...';
+      try {
+        var res = await fetch('/api/admin/work-orders/' + wo.id, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+          body: JSON.stringify({ admin_notes: this.value })
+        });
+        notesStatus.textContent = res.ok ? 'Saved.' : 'Save failed.';
+        notesStatus.style.color = res.ok ? '#2d6a4f' : '#dc2626';
+        setTimeout(function() { notesStatus.textContent = ''; }, 2500);
+      } catch (e) {
+        notesStatus.textContent = 'Error saving.';
+        notesStatus.style.color = '#dc2626';
+      }
+    });
+
+    if (woPrintBtn) {
+      woPrintBtn.onclick = function() { printWorkOrder(wo); };
+    }
+  }
+
+  function renderStatusToggle(woId, field, active, label) {
+    var style = active
+      ? 'padding:7px 14px; border:none; border-radius:20px; cursor:pointer; font-size:0.88em; font-weight:600; background:#2d6a4f; color:#fff;'
+      : 'padding:7px 14px; border:2px solid #ddd; border-radius:20px; cursor:pointer; font-size:0.88em; font-weight:600; background:#fff; color:#555;';
+    return '<button type="button" style="' + style + '" onclick="toggleWorkOrderStatus(' + woId + ', \'' + field + '\', ' + !active + ')">' +
+      (active ? '&#10003; ' : '') + label + '</button>';
+  }
+
+  window.toggleWorkOrderStatus = async function(woId, field, newVal) {
+    try {
+      var body = {};
+      body[field] = newVal;
+      var res = await fetch('/api/admin/work-orders/' + woId, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+        body: JSON.stringify(body)
+      });
+      if (res.status === 401) { handleAuthExpired(); return; }
+      // Re-open modal to refresh
+      await openWorkOrderModal(woId);
+    } catch (err) {
+      console.error('Toggle WO status failed:', err);
+    }
+  };
+
+  function printWorkOrder(wo) {
+    var dateLabel = wo.date ? new Date(wo.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : '—';
+    var timeLabel = wo.time ? (SLOT_LABELS[wo.time] || wo.time) : '—';
+    var dur = wo.duration || 1;
+    var statusList = [];
+    if (wo.status_job_complete) statusList.push('Job Complete');
+    if (wo.status_invoiced) statusList.push('Invoiced');
+    if (wo.status_invoice_paid) statusList.push('Invoice Paid');
+    if (wo.status_paid) statusList.push('Paid');
+
+    var printWindow = window.open('', '_blank');
+    printWindow.document.write('<!DOCTYPE html><html><head><title>Work Order #' + wo.id + ' - D&amp;G Soft Wash</title>' +
+      '<style>body{font-family:Arial,sans-serif;margin:30px;color:#1a1a2e;} h1{margin:0;font-size:1.6em;} .header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1a1a2e;padding-bottom:12px;margin-bottom:24px;} table{width:100%;border-collapse:collapse;} td{padding:6px 8px;} .label{color:#555;width:130px;} .section{background:#f8f9fa;border-radius:8px;padding:14px;margin:16px 0;} @media print{button{display:none;}}</style>' +
+      '</head><body>' +
+      '<div class="header"><div><h1>D&amp;G Soft Wash</h1><div style="color:#555;">Integrity You Can See &mdash; Veteran Owned &amp; Operated</div></div>' +
+      '<div style="text-align:right;"><strong>Work Order #' + wo.id + '</strong><br>' + dateLabel + '</div></div>' +
+      '<table><tr><td class="label">Customer</td><td><strong>' + escapeHtml(wo.booking_name || wo.customer_name || '—') + '</strong></td><td class="label">Phone</td><td>' + escapeHtml(wo.booking_phone || '—') + '</td></tr>' +
+      '<tr><td class="label">Email</td><td colspan="3">' + escapeHtml(wo.booking_email || '—') + '</td></tr>' +
+      '<tr><td class="label">Address</td><td colspan="3">' + escapeHtml(wo.booking_address || '—') + '</td></tr>' +
+      '<tr><td class="label">Service</td><td>' + escapeHtml(wo.service || '—') + '</td><td class="label">Duration</td><td>' + dur + ' hr' + (dur !== 1 ? 's' : '') + '</td></tr>' +
+      '<tr><td class="label">Time</td><td>' + timeLabel + '</td><td class="label">Price</td><td><strong style="color:#2d6a4f;">' + escapeHtml(wo.price || '—') + '</strong></td></tr>' +
+      (wo.booking_notes ? '<tr><td class="label">Notes</td><td colspan="3">' + escapeHtml(wo.booking_notes) + '</td></tr>' : '') +
+      '</table>' +
+      (statusList.length ? '<div class="section"><strong>Status:</strong> ' + statusList.join(' &bull; ') + '</div>' : '') +
+      (wo.admin_notes ? '<div class="section"><strong>D&amp;G Comments:</strong><br><span style="white-space:pre-line;">' + escapeHtml(wo.admin_notes) + '</span></div>' : '') +
+      '<div style="text-align:center; margin-top:40px; color:#aaa; font-size:0.85em;">D&amp;G Soft Wash &mdash; (757) 525-9508 &mdash; dgsoftwash@yahoo.com</div>' +
+      '<div style="text-align:center; margin-top:16px;"><button onclick="window.print()" style="padding:10px 30px; font-size:1em; cursor:pointer;">Print</button></div>' +
+      '</body></html>');
+    printWindow.document.close();
+  }
+
+  // --- Customers Tab ---
+  async function loadCustomersTab() {
+    var container = document.getElementById('customers-admin-container');
+    container.innerHTML = '<p style="color:#666;">Loading...</p>';
+    try {
+      var res = await fetch('/api/admin/customers', { headers: { 'x-admin-token': adminToken } });
+      if (res.status === 401) { handleAuthExpired(); return; }
+      var data = await res.json();
+      renderCustomersList(data.customers || []);
+    } catch (e) {
+      container.innerHTML = '<p style="color:#dc2626;">Failed to load customers.</p>';
+    }
+  }
+
+  function renderCustomersList(customers) {
+    var container = document.getElementById('customers-admin-container');
+    var html = '<h2 style="margin-bottom:16px;">Customers</h2>';
+
+    html += '<div style="display:flex; gap:10px; margin-bottom:16px; align-items:center; flex-wrap:wrap;">' +
+      '<button type="button" class="btn btn-primary" style="padding:7px 16px; font-size:0.9em;" onclick="emailSelectedCustomers()">Email Selected</button>' +
+      '<button type="button" class="btn btn-secondary" style="padding:7px 16px; font-size:0.9em;" onclick="emailAllCustomers()">Email All</button>' +
+      '<span id="customers-selected-count" style="color:#666; font-size:0.9em;"></span>' +
+      '</div>';
+
+    if (customers.length === 0) {
+      html += '<p style="color:#666; padding:20px 0;">No customers yet.</p>';
+      container.innerHTML = html;
+      return;
+    }
+
+    html += '<div style="overflow-x:auto;">' +
+      '<table class="bookings-table">' +
+      '<thead><tr>' +
+        '<th style="width:36px;"><input type="checkbox" id="select-all-customers" onchange="toggleAllCustomers(this.checked)"></th>' +
+        '<th>Name</th><th>Email</th><th>Phone</th><th>Address</th><th>Total Jobs</th><th>Last Service</th><th>Actions</th>' +
+      '</tr></thead><tbody>';
+
+    customers.forEach(function(c) {
+      var lastSvc = c.last_service_date
+        ? new Date(c.last_service_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        : '—';
+      html += '<tr>' +
+        '<td><input type="checkbox" class="customer-checkbox" data-id="' + c.id + '" data-name="' + escapeHtml(c.name) + '" data-email="' + escapeHtml(c.email) + '" onchange="updateCustomerSelectedCount()"></td>' +
+        '<td><a href="#" onclick="openCustomerDetail(' + c.id + '); return false;" style="color:#1a1a2e; font-weight:600;">' + escapeHtml(c.name || '—') + '</a></td>' +
+        '<td>' + escapeHtml(c.email || '—') + '</td>' +
+        '<td>' + escapeHtml(c.phone || '—') + '</td>' +
+        '<td>' + escapeHtml(c.address || '—') + '</td>' +
+        '<td style="text-align:center;">' + (c.booking_count || 0) + '</td>' +
+        '<td>' + lastSvc + '</td>' +
+        '<td style="white-space:nowrap;">' +
+          '<button type="button" class="btn btn-secondary" style="padding:4px 10px; font-size:0.82em; margin-right:4px;" onclick="openCustomerDetail(' + c.id + ')">View</button>' +
+          '<button type="button" class="btn btn-primary" style="padding:4px 10px; font-size:0.82em;" onclick="emailOneCustomer(\'' + escapeHtml(c.name) + '\', \'' + escapeHtml(c.email) + '\')">Email</button>' +
+        '</td>' +
+      '</tr>';
+    });
+
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+  }
+
+  window.toggleAllCustomers = function(checked) {
+    document.querySelectorAll('.customer-checkbox').forEach(function(cb) { cb.checked = checked; });
+    updateCustomerSelectedCount();
+  };
+
+  window.updateCustomerSelectedCount = function() {
+    var count = document.querySelectorAll('.customer-checkbox:checked').length;
+    var el = document.getElementById('customers-selected-count');
+    if (el) el.textContent = count > 0 ? count + ' selected' : '';
+    var selectAll = document.getElementById('select-all-customers');
+    var total = document.querySelectorAll('.customer-checkbox').length;
+    if (selectAll) selectAll.checked = count > 0 && count === total;
+  };
+
+  window.emailSelectedCustomers = function() {
+    var selected = [];
+    document.querySelectorAll('.customer-checkbox:checked').forEach(function(cb) {
+      selected.push({ name: cb.dataset.name, email: cb.dataset.email });
+    });
+    if (selected.length === 0) { alert('Please select at least one customer.'); return; }
+    openEmailModal(selected);
+  };
+
+  window.emailAllCustomers = function() {
+    var all = [];
+    document.querySelectorAll('.customer-checkbox').forEach(function(cb) {
+      all.push({ name: cb.dataset.name, email: cb.dataset.email });
+    });
+    if (all.length === 0) { alert('No customers to email.'); return; }
+    openEmailModal(all);
+  };
+
+  window.emailOneCustomer = function(name, email) {
+    openEmailModal([{ name: name, email: email }]);
+  };
+
+  window.openCustomerDetail = async function(customerId) {
+    var modal = document.getElementById('customer-detail-modal');
+    var content = document.getElementById('customer-detail-content');
+    modal.style.display = 'block';
+    content.innerHTML = '<p style="color:#666;">Loading...</p>';
+    try {
+      var res = await fetch('/api/admin/customers/' + customerId, { headers: { 'x-admin-token': adminToken } });
+      if (res.status === 401) { handleAuthExpired(); return; }
+      var data = await res.json();
+      renderCustomerDetail(data);
+    } catch (e) {
+      content.innerHTML = '<p style="color:#dc2626;">Failed to load customer.</p>';
+    }
+  };
+
+  function renderCustomerDetail(data) {
+    var c = data.customer;
+    var bookings = data.bookings || [];
+    var content = document.getElementById('customer-detail-content');
+
+    var html = '<h2 style="margin-top:0; margin-bottom:6px;">' + escapeHtml(c.name || '—') + '</h2>' +
+      '<p style="color:#555; margin:0 0 16px;">' +
+        (c.email ? '<a href="mailto:' + escapeHtml(c.email) + '" style="color:#1a1a2e;">' + escapeHtml(c.email) + '</a>' : '—') + ' &nbsp;&bull;&nbsp; ' +
+        escapeHtml(c.phone || '—') +
+      '</p>' +
+      (c.address ? '<p style="margin:0 0 16px; color:#444;">' + escapeHtml(c.address) + '</p>' : '') +
+
+      '<div style="margin-bottom:20px;">' +
+        '<label style="font-weight:600; display:block; margin-bottom:6px;">Admin Notes</label>' +
+        '<textarea id="cust-notes-' + c.id + '" rows="3" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box; resize:vertical;">' + escapeHtml(c.notes || '') + '</textarea>' +
+        '<div style="display:flex; gap:8px; margin-top:8px;">' +
+          '<button type="button" class="btn btn-primary" style="padding:5px 16px; font-size:0.88em;" onclick="saveCustomerNotes(' + c.id + ')">Save Notes</button>' +
+          '<button type="button" class="btn btn-secondary" style="padding:5px 16px; font-size:0.88em;" onclick="emailOneCustomer(\'' + escapeHtml(c.name) + '\', \'' + escapeHtml(c.email) + '\')">Email Customer</button>' +
+        '</div>' +
+        '<p id="cust-notes-status-' + c.id + '" style="font-size:0.85em; color:#888; margin-top:4px;"></p>' +
+      '</div>';
+
+    html += '<h3 style="margin-bottom:10px;">Booking History (' + bookings.length + ')</h3>';
+    if (bookings.length === 0) {
+      html += '<p style="color:#666;">No bookings on file.</p>';
+    } else {
+      html += '<div style="overflow-x:auto;"><table class="bookings-table"><thead><tr>' +
+        '<th>Date</th><th>Service</th><th>Price</th><th>Status</th><th>Work Order</th>' +
+        '</tr></thead><tbody>';
+      bookings.forEach(function(b) {
+        var dateLabel = new Date(b.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        var todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+        var statusBadge = b.date >= todayStr
+          ? '<span style="background:#dbeafe; color:#1e40af; padding:2px 8px; border-radius:10px; font-size:0.82em;">Upcoming</span>'
+          : '<span style="background:#d1fae5; color:#065f46; padding:2px 8px; border-radius:10px; font-size:0.82em;">Past</span>';
+        var woBtn = b.work_order_id
+          ? '<button type="button" style="padding:3px 10px; font-size:0.8em; background:#1a1a2e; color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick="openWorkOrderModal(' + b.work_order_id + ')">View WO</button>'
+          : '—';
+        html += '<tr>' +
+          '<td>' + dateLabel + '</td>' +
+          '<td>' + escapeHtml(b.service || '—') + '</td>' +
+          '<td>' + escapeHtml(b.price || '—') + '</td>' +
+          '<td>' + statusBadge + '</td>' +
+          '<td>' + woBtn + '</td>' +
+          '</tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+
+    content.innerHTML = html;
+  }
+
+  window.saveCustomerNotes = async function(customerId) {
+    var notes = document.getElementById('cust-notes-' + customerId).value;
+    var statusEl = document.getElementById('cust-notes-status-' + customerId);
+    statusEl.textContent = 'Saving...';
+    try {
+      var res = await fetch('/api/admin/customers/' + customerId, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+        body: JSON.stringify({ notes: notes })
+      });
+      statusEl.textContent = res.ok ? 'Saved.' : 'Save failed.';
+      statusEl.style.color = res.ok ? '#2d6a4f' : '#dc2626';
+      setTimeout(function() { statusEl.textContent = ''; }, 2500);
+    } catch (e) {
+      statusEl.textContent = 'Error saving.';
+      statusEl.style.color = '#dc2626';
+    }
+  };
+
+  var customerDetailModal = document.getElementById('customer-detail-modal');
+  var closeCustomerDetailBtn = document.getElementById('close-customer-detail-modal');
+  if (closeCustomerDetailBtn) {
+    closeCustomerDetailBtn.addEventListener('click', function() { customerDetailModal.style.display = 'none'; });
+  }
+  customerDetailModal && customerDetailModal.addEventListener('click', function(e) {
+    if (e.target === customerDetailModal) customerDetailModal.style.display = 'none';
+  });
+
+  // --- Email Modal ---
+  var emailModal = document.getElementById('email-modal');
+  var closeEmailModalBtn = document.getElementById('close-email-modal');
+  var sendEmailBtn = document.getElementById('send-email-btn');
+
+  function openEmailModal(recipients) {
+    currentEmailRecipients = recipients;
+    document.getElementById('email-recipients-label').textContent =
+      'Sending to ' + recipients.length + ' recipient' + (recipients.length !== 1 ? 's' : '') + ': ' +
+      recipients.map(function(r) { return r.name || r.email; }).join(', ');
+    document.getElementById('email-subject').value = '';
+    document.getElementById('email-message').value = '';
+    document.getElementById('email-modal-msg').textContent = '';
+    emailModal.style.display = 'block';
+  }
+
+  if (closeEmailModalBtn) {
+    closeEmailModalBtn.addEventListener('click', function() { emailModal.style.display = 'none'; });
+  }
+  emailModal && emailModal.addEventListener('click', function(e) {
+    if (e.target === emailModal) emailModal.style.display = 'none';
+  });
+
+  if (sendEmailBtn) {
+    sendEmailBtn.addEventListener('click', async function() {
+      var subject = document.getElementById('email-subject').value.trim();
+      var message = document.getElementById('email-message').value.trim();
+      var msgEl = document.getElementById('email-modal-msg');
+      if (!subject || !message) {
+        msgEl.style.color = '#dc2626';
+        msgEl.textContent = 'Subject and message are required.';
+        return;
+      }
+      msgEl.style.color = '#666';
+      msgEl.textContent = 'Sending...';
+      sendEmailBtn.disabled = true;
+      try {
+        var res = await fetch('/api/admin/email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+          body: JSON.stringify({ to: currentEmailRecipients, subject: subject, message: message })
+        });
+        var data = await res.json();
+        if (data.success) {
+          msgEl.style.color = '#2d6a4f';
+          msgEl.textContent = 'Email sent successfully!';
+          setTimeout(function() { emailModal.style.display = 'none'; }, 1800);
+        } else {
+          msgEl.style.color = '#dc2626';
+          msgEl.textContent = data.error || 'Failed to send email.';
+        }
+      } catch (e) {
+        msgEl.style.color = '#dc2626';
+        msgEl.textContent = 'Error. Please try again.';
+      }
+      sendEmailBtn.disabled = false;
+    });
+  }
+
   // Print Today's Bookings
   document.getElementById('print-today-btn').addEventListener('click', function() {
     var todayStr = today.getFullYear() + '-' +
@@ -436,6 +979,7 @@ document.addEventListener('DOMContentLoaded', function() {
       document.getElementById('tab-' + tab).style.display = 'block';
 
       if (tab === 'pricing') loadPricingAdmin();
+      if (tab === 'customers') loadCustomersTab();
     });
   });
 

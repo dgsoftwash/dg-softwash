@@ -54,6 +54,39 @@ async function initDb() {
     ALTER TABLE bookings ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT ''
   `);
 
+  // Customers table
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS customers (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL DEFAULT '',
+      email TEXT NOT NULL DEFAULT '',
+      phone TEXT NOT NULL DEFAULT '',
+      address TEXT NOT NULL DEFAULT '',
+      notes TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  // Work orders table
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS work_orders (
+      id SERIAL PRIMARY KEY,
+      booking_id INTEGER REFERENCES bookings(id) ON DELETE SET NULL,
+      customer_id INTEGER REFERENCES customers(id),
+      status_job_complete BOOLEAN NOT NULL DEFAULT false,
+      status_invoiced BOOLEAN NOT NULL DEFAULT false,
+      status_invoice_paid BOOLEAN NOT NULL DEFAULT false,
+      status_paid BOOLEAN NOT NULL DEFAULT false,
+      admin_notes TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  // Migration: add customer_id to bookings
+  await pool.query(`
+    ALTER TABLE bookings ADD COLUMN IF NOT EXISTS customer_id INTEGER
+  `);
+
   // Services table for dynamic pricing
   await pool.query(`
     CREATE TABLE IF NOT EXISTS services (
@@ -227,6 +260,26 @@ async function getServiceDuration(serviceKey) {
     if (rows.length > 0) return Math.ceil(parseFloat(rows[0].duration));
   } catch (e) {}
   return SERVICE_DURATIONS[serviceKey] || 1;
+}
+
+async function upsertCustomer(name, email, phone, address) {
+  let customer = null;
+  if (email) {
+    const { rows } = await pool.query('SELECT * FROM customers WHERE email = $1', [email]);
+    if (rows.length > 0) customer = rows[0];
+  }
+  if (!customer && phone) {
+    const { rows } = await pool.query('SELECT * FROM customers WHERE phone = $1', [phone]);
+    if (rows.length > 0) customer = rows[0];
+  }
+  if (!customer) {
+    const { rows } = await pool.query(
+      'INSERT INTO customers (name, email, phone, address) VALUES ($1,$2,$3,$4) RETURNING *',
+      [name || '', email || '', phone || '', address || '']
+    );
+    customer = rows[0];
+  }
+  return customer;
 }
 
 const SERVICE_LABELS = {
@@ -525,17 +578,28 @@ app.post('/api/contact', async (req, res) => {
       }
     }
 
+    // Upsert customer record
+    const customer = await upsertCustomer(name, email, phone, address);
+
     // Save Day 1 booking
+    const { rows: [day1Booking] } = await pool.query(
+      'INSERT INTO bookings (date, time, duration, name, email, phone, address, service, price, notes, customer_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id',
+      [appointmentDate, day1Time, day1Duration, name || '', email || '', phone || '', address || '', service || '', bookingPrice || '', bookingNotes || '', customer.id]
+    );
     await pool.query(
-      'INSERT INTO bookings (date, time, duration, name, email, phone, address, service, price, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
-      [appointmentDate, day1Time, day1Duration, name || '', email || '', phone || '', address || '', service || '', bookingPrice || '', bookingNotes || '']
+      'INSERT INTO work_orders (booking_id, customer_id) VALUES ($1,$2)',
+      [day1Booking.id, customer.id]
     );
 
     // Save Day 2 booking if multi-day
     if (isMultiDay) {
+      const { rows: [day2Booking] } = await pool.query(
+        'INSERT INTO bookings (date, time, duration, name, email, phone, address, service, price, notes, customer_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id',
+        [day2Date, day2StartTime, day2Duration, name || '', email || '', phone || '', address || '', service || '', '', '(Day 2 continued from ' + appointmentDate + ') ' + (bookingNotes || ''), customer.id]
+      );
       await pool.query(
-        'INSERT INTO bookings (date, time, duration, name, email, phone, address, service, price, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
-        [day2Date, day2StartTime, day2Duration, name || '', email || '', phone || '', address || '', service || '', '', '(Day 2 continued from ' + appointmentDate + ') ' + (bookingNotes || '')]
+        'INSERT INTO work_orders (booking_id, customer_id) VALUES ($1,$2)',
+        [day2Booking.id, customer.id]
       );
     }
   }
@@ -604,7 +668,14 @@ app.post('/api/admin/login', (req, res) => {
 
 // GET /api/admin/bookings
 app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
-  const { rows: bookings } = await pool.query('SELECT date, time, duration, name, email, phone, address, service, price, notes, created_at FROM bookings ORDER BY date, time');
+  const { rows: bookings } = await pool.query(`
+    SELECT b.id, b.date, b.time, b.duration, b.name, b.email, b.phone, b.address,
+           b.service, b.price, b.notes, b.customer_id, b.created_at,
+           wo.id as work_order_id
+    FROM bookings b
+    LEFT JOIN work_orders wo ON wo.booking_id = b.id
+    ORDER BY b.date, b.time
+  `);
   const { rows: blocked } = await pool.query('SELECT date, time, reason FROM blocked ORDER BY date, time');
   res.json({ bookings, blocked });
 });
@@ -702,6 +773,145 @@ app.post('/api/admin/pricing/schedule', requireAdmin, async (req, res) => {
 app.delete('/api/admin/pricing/schedule/:id', requireAdmin, async (req, res) => {
   await pool.query('DELETE FROM pricing_schedule WHERE id = $1 AND applied = false', [req.params.id]);
   res.json({ success: true });
+});
+
+// DELETE /api/admin/bookings/:id — cancel booking by id
+app.delete('/api/admin/bookings/:id', requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id);
+  await pool.query('DELETE FROM bookings WHERE id = $1', [id]);
+  res.json({ success: true });
+});
+
+// POST /api/admin/bookings — admin manual booking (no availability check)
+app.post('/api/admin/bookings', requireAdmin, async (req, res) => {
+  const { name, email, phone, address, service, date, time, duration, price, notes } = req.body;
+  try {
+    const customer = await upsertCustomer(name, email, phone, address);
+    const { rows: [booking] } = await pool.query(
+      'INSERT INTO bookings (date, time, duration, name, email, phone, address, service, price, notes, customer_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id',
+      [date, time, parseInt(duration) || 1, name || '', email || '', phone || '', address || '', service || '', price || '', notes || '', customer.id]
+    );
+    await pool.query(
+      'INSERT INTO work_orders (booking_id, customer_id) VALUES ($1,$2)',
+      [booking.id, customer.id]
+    );
+    res.json({ success: true, booking_id: booking.id });
+  } catch (e) {
+    console.error('Manual booking error:', e.message);
+    res.status(500).json({ error: 'Failed to create booking' });
+  }
+});
+
+// GET /api/admin/customers — list all customers with booking count + last service date
+app.get('/api/admin/customers', requireAdmin, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT c.*, COUNT(b.id)::integer as booking_count, MAX(b.date) as last_service_date
+      FROM customers c
+      LEFT JOIN bookings b ON b.customer_id = c.id
+      GROUP BY c.id
+      ORDER BY c.name
+    `);
+    res.json({ customers: rows });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load customers' });
+  }
+});
+
+// GET /api/admin/customers/:id — customer detail with bookings
+app.get('/api/admin/customers/:id', requireAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { rows: customers } = await pool.query('SELECT * FROM customers WHERE id = $1', [id]);
+    if (!customers.length) return res.status(404).json({ error: 'Not found' });
+    const customer = customers[0];
+    const { rows: bookings } = await pool.query(
+      'SELECT b.*, wo.id as work_order_id FROM bookings b LEFT JOIN work_orders wo ON wo.booking_id = b.id WHERE b.customer_id = $1 ORDER BY b.date DESC',
+      [id]
+    );
+    res.json({ customer, bookings });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load customer' });
+  }
+});
+
+// PATCH /api/admin/customers/:id — update customer notes
+app.patch('/api/admin/customers/:id', requireAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { notes } = req.body;
+    await pool.query('UPDATE customers SET notes = $1 WHERE id = $2', [notes || '', id]);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to update customer' });
+  }
+});
+
+// GET /api/admin/work-orders/:id — get work order with booking + customer info
+app.get('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { rows } = await pool.query(`
+      SELECT wo.*,
+        b.date, b.time, b.duration,
+        b.name as booking_name, b.email as booking_email, b.phone as booking_phone,
+        b.address as booking_address, b.service, b.price, b.notes as booking_notes,
+        c.name as customer_name, c.notes as customer_notes
+      FROM work_orders wo
+      LEFT JOIN bookings b ON wo.booking_id = b.id
+      LEFT JOIN customers c ON wo.customer_id = c.id
+      WHERE wo.id = $1
+    `, [id]);
+    if (!rows.length) return res.status(404).json({ error: 'Not found' });
+    res.json(rows[0]);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load work order' });
+  }
+});
+
+// PATCH /api/admin/work-orders/:id — update status flags and/or admin_notes
+app.patch('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { status_job_complete, status_invoiced, status_invoice_paid, status_paid, admin_notes } = req.body;
+    const updates = [];
+    const values = [];
+    let idx = 1;
+    if (status_job_complete !== undefined) { updates.push(`status_job_complete = $${idx++}`); values.push(status_job_complete); }
+    if (status_invoiced !== undefined) { updates.push(`status_invoiced = $${idx++}`); values.push(status_invoiced); }
+    if (status_invoice_paid !== undefined) { updates.push(`status_invoice_paid = $${idx++}`); values.push(status_invoice_paid); }
+    if (status_paid !== undefined) { updates.push(`status_paid = $${idx++}`); values.push(status_paid); }
+    if (admin_notes !== undefined) { updates.push(`admin_notes = $${idx++}`); values.push(admin_notes); }
+    if (updates.length === 0) return res.json({ success: true });
+    values.push(id);
+    await pool.query(`UPDATE work_orders SET ${updates.join(', ')} WHERE id = $${idx}`, values);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to update work order' });
+  }
+});
+
+// POST /api/admin/email — send email to one or more customers
+app.post('/api/admin/email', requireAdmin, async (req, res) => {
+  const { to, subject, message } = req.body;
+  if (!to || !to.length || !subject || !message) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+  try {
+    for (const recipient of to) {
+      if (!recipient.email) continue;
+      await transporter.sendMail({
+        from: 'dgsoftwash@yahoo.com',
+        to: recipient.email,
+        subject: subject,
+        text: message
+      });
+    }
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Admin email failed:', e.message);
+    res.status(500).json({ error: 'Failed to send email' });
+  }
 });
 
 // --- Start server ---
