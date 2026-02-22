@@ -27,6 +27,13 @@ document.addEventListener('DOMContentLoaded', function() {
   var currentLocMonth    = new Date().getMonth() + 1;
   var currentPaymentYear  = new Date().getFullYear();
   var currentPaymentMonth = new Date().getMonth() + 1;
+  var currentAnalyticsYear = new Date().getFullYear();
+  var chartRevExp = null;
+  var chartNetProfit = null;
+  var chartByService = null;
+  var chartJobsMonth = null;
+  var chartReferrals = null;
+  var chartAvgDuration = null;
 
   const today = new Date();
   currentYear = today.getFullYear();
@@ -218,6 +225,53 @@ document.addEventListener('DOMContentLoaded', function() {
         slotBookingMap[SLOTS[startIdx + i]] = b;
       }
     });
+
+    // Route View section
+    var routeSection = document.getElementById('route-view-section');
+    if (routeSection) routeSection.remove();
+    var dayBookingsForRoute = allBookings.filter(function(b) { return b.date === dateStr; });
+    if (dayBookingsForRoute.length > 0) {
+      var routeDiv = document.createElement('div');
+      routeDiv.id = 'route-view-section';
+      routeDiv.style.cssText = 'margin-top:16px; border-top:1px solid #e5e7eb; padding-top:14px;';
+      var routeBtn = document.createElement('button');
+      routeBtn.type = 'button';
+      routeBtn.className = 'btn btn-secondary';
+      routeBtn.style.cssText = 'padding:5px 14px; font-size:0.85em; margin-bottom:10px;';
+      routeBtn.textContent = 'Route View';
+      var routeContent = document.createElement('div');
+      routeContent.style.display = 'none';
+      routeBtn.addEventListener('click', function() {
+        routeContent.style.display = routeContent.style.display === 'none' ? 'block' : 'none';
+        routeBtn.textContent = routeContent.style.display === 'none' ? 'Route View' : 'Hide Route View';
+        if (routeContent.style.display !== 'none') {
+          var sorted = dayBookingsForRoute.slice().sort(function(a, b) { return SLOTS.indexOf(a.time) - SLOTS.indexOf(b.time); });
+          var rHtml = '<div style="font-weight:600; margin-bottom:8px; color:#1a1a2e;">Route — ' + dateStr + '</div>';
+          rHtml += '<ol style="margin:0 0 12px; padding-left:20px;">';
+          sorted.forEach(function(b) {
+            var addr = b.address || '';
+            var timeLabel = SLOT_LABELS[b.time] || b.time;
+            var mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(addr);
+            rHtml += '<li style="margin-bottom:6px; font-size:0.9em;">' +
+              '<strong>' + timeLabel + '</strong> — ' + escapeHtml(b.name) +
+              ' | ' + escapeHtml(b.service || '') +
+              (addr ? ' | ' + escapeHtml(addr) : '') +
+              (addr ? ' <a href="' + mapsUrl + '" target="_blank" rel="noopener" style="color:#2563eb; font-size:0.85em;">Directions ↗</a>' : '') +
+              '</li>';
+          });
+          rHtml += '</ol>';
+          if (sorted.filter(function(b) { return b.address; }).length > 1) {
+            var addrs = sorted.filter(function(b) { return b.address; }).map(function(b) { return encodeURIComponent(b.address); });
+            var fullRouteUrl = 'https://www.google.com/maps/dir/' + addrs.join('/');
+            rHtml += '<a href="' + fullRouteUrl + '" target="_blank" rel="noopener" class="btn btn-primary" style="font-size:0.85em; padding:6px 14px; text-decoration:none; display:inline-block;">Build Full Route in Google Maps</a>';
+          }
+          routeContent.innerHTML = rHtml;
+        }
+      });
+      routeDiv.appendChild(routeBtn);
+      routeDiv.appendChild(routeContent);
+      daySlots.parentNode.appendChild(routeDiv);
+    }
 
     SLOTS.forEach(function(slot) {
       var booking = slotBookingMap[slot] || null;
@@ -642,6 +696,17 @@ document.addEventListener('DOMContentLoaded', function() {
           '</select></td></tr>' +
         '<tr><td style="padding:5px 8px; color:#555;">Mileage</td><td style="padding:5px 8px;">' +
           '<input type="number" id="wo-mileage" value="' + (wo.mileage || 0) + '" min="0" step="0.1" style="width:80px; padding:4px 6px; border:1px solid #ddd; border-radius:4px;"> mi</td></tr>' +
+        '<tr><td style="padding:5px 8px; color:#555;">Actual Start</td><td style="padding:5px 8px;">' +
+          '<input type="time" id="wo-actual-start" value="' + escapeHtml(wo.actual_start || '') + '" style="padding:4px 6px; border:1px solid #ddd; border-radius:4px;"></td></tr>' +
+        '<tr><td style="padding:5px 8px; color:#555;">Actual End</td><td style="padding:5px 8px;">' +
+          '<input type="time" id="wo-actual-end" value="' + escapeHtml(wo.actual_end || '') + '" style="padding:4px 6px; border:1px solid #ddd; border-radius:4px;">' +
+          (wo.actual_start && wo.actual_end ? (function() {
+            var s = wo.actual_start.split(':'), e = wo.actual_end.split(':');
+            var mins = (parseInt(e[0]) * 60 + parseInt(e[1])) - (parseInt(s[0]) * 60 + parseInt(s[1]));
+            if (mins > 0) { var h = Math.floor(mins/60), m = mins % 60; return ' <span style="color:#555; font-size:0.85em;">(' + h + 'h ' + m + 'm)</span>'; }
+            return '';
+          })() : '') +
+          '<p id="wo-time-status" style="margin:2px 0 0; font-size:0.8em; color:#888;"></p></td></tr>' +
       '</table>';
 
     var addonsHtml = wo.booking_notes
@@ -689,7 +754,10 @@ document.addEventListener('DOMContentLoaded', function() {
         '</div>';
     }
 
-    content.innerHTML = infoHtml + addonsHtml + statusHtml + notesHtml + completionNotesHtml + actionsHtml;
+    var deleteHtml = '<div style="margin-top:24px; padding-top:16px; border-top:1px solid #fecaca; text-align:right;">' +
+      '<button type="button" id="wo-delete-btn" style="padding:7px 18px; background:#fff; color:#dc2626; border:1.5px solid #dc2626; border-radius:6px; font-size:0.88em; font-weight:600; cursor:pointer;">Delete Work Order</button>' +
+      '</div>';
+    content.innerHTML = infoHtml + addonsHtml + statusHtml + notesHtml + completionNotesHtml + actionsHtml + deleteHtml;
 
     document.getElementById('wo-admin-notes').addEventListener('blur', async function() {
       var notesStatus = document.getElementById('wo-notes-status');
@@ -734,6 +802,34 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch(e) {}
       });
     }
+
+    function saveActualTimes() {
+      var startEl = document.getElementById('wo-actual-start');
+      var endEl = document.getElementById('wo-actual-end');
+      var statusEl = document.getElementById('wo-time-status');
+      if (!startEl || !endEl) return;
+      var startVal = startEl.value;
+      var endVal = endEl.value;
+      // Update duration display
+      if (startVal && endVal) {
+        var s = startVal.split(':'), e = endVal.split(':');
+        var mins = (parseInt(e[0]) * 60 + parseInt(e[1])) - (parseInt(s[0]) * 60 + parseInt(s[1]));
+        if (mins > 0 && statusEl) {
+          var h = Math.floor(mins/60), m = mins % 60;
+          statusEl.textContent = 'Duration: ' + h + 'h ' + m + 'm';
+          statusEl.style.color = '#2d6a4f';
+        }
+      }
+      fetch('/api/admin/work-orders/' + wo.id, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+        body: JSON.stringify({ actual_start: startVal, actual_end: endVal })
+      }).catch(function() {});
+    }
+    var actualStartEl = document.getElementById('wo-actual-start');
+    var actualEndEl = document.getElementById('wo-actual-end');
+    if (actualStartEl) actualStartEl.addEventListener('blur', saveActualTimes);
+    if (actualEndEl) actualEndEl.addEventListener('blur', saveActualTimes);
 
     var completionNotesEl = document.getElementById('wo-completion-notes');
     if (completionNotesEl) {
@@ -814,6 +910,31 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (woPrintBtn) {
       woPrintBtn.onclick = function() { printWorkOrder(wo); };
+    }
+
+    var woDeleteBtn = document.getElementById('wo-delete-btn');
+    if (woDeleteBtn) {
+      woDeleteBtn.addEventListener('click', async function() {
+        if (!confirm('Delete Work Order #' + wo.id + ' for ' + (wo.customer_name || 'this customer') + '? This cannot be undone.')) return;
+        try {
+          var res = await fetch('/api/admin/work-orders/' + wo.id, {
+            method: 'DELETE',
+            headers: { 'x-admin-token': adminToken }
+          });
+          if (res.status === 401) { handleAuthExpired(); return; }
+          var data = await res.json();
+          if (data.success) {
+            document.getElementById('work-order-modal').style.display = 'none';
+            // Refresh whatever tab is active
+            var activeTab = document.querySelector('.admin-tab[style*="border-bottom:3px solid #1a1a2e"]');
+            if (activeTab) activeTab.click();
+          } else {
+            alert('Failed to delete work order.');
+          }
+        } catch(e) {
+          alert('Error deleting work order.');
+        }
+      });
     }
   }
 
@@ -914,7 +1035,23 @@ document.addEventListener('DOMContentLoaded', function() {
     html += '<div style="background:#fef3c7; border-radius:10px; padding:20px; text-align:center;">' +
       '<div style="font-size:2em; font-weight:700; color:#92400e;">$' + ((data.monthly_expenses||0).toFixed(2)) + '</div>' +
       '<div style="color:#92400e; font-size:0.9em; margin-top:4px;">' + monthName + ' Expenses</div></div>';
+    var recurringDue = data.recurring_due || [];
+    if (recurringDue.length > 0) {
+      html += '<div style="background:#ede9fe; border-radius:10px; padding:20px; text-align:center; cursor:pointer;" onclick="toggleRecurringDueList()">' +
+        '<div style="font-size:2em; font-weight:700; color:#5b21b6;">' + recurringDue.length + '</div>' +
+        '<div style="color:#5b21b6; font-size:0.9em; margin-top:4px;">Recurring Due (7 days)</div></div>';
+    }
     html += '</div>';
+    if (recurringDue.length > 0) {
+      html += '<div id="recurring-due-list" style="display:none; background:#f5f3ff; border-radius:8px; padding:14px; margin-bottom:24px;">';
+      html += '<div style="font-weight:600; color:#5b21b6; margin-bottom:10px;">Recurring Services Due Within 7 Days</div>';
+      html += '<table class="bookings-table" style="font-size:0.88em;"><thead><tr><th>Customer</th><th>Service</th><th>Interval</th><th>Due</th></tr></thead><tbody>';
+      recurringDue.forEach(function(r) {
+        var due = r.next_due_date ? new Date(r.next_due_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+        html += '<tr><td>' + escapeHtml(r.customer_name) + '</td><td>' + escapeHtml(r.service) + '</td><td>' + escapeHtml(r.interval) + '</td><td style="font-weight:600; color:#5b21b6;">' + due + '</td></tr>';
+      });
+      html += '</tbody></table></div>';
+    }
 
     // Net profit line
     var net = (data.monthly_revenue||0) - (data.monthly_expenses||0);
@@ -983,6 +1120,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     container.innerHTML = html;
   }
+
+  window.toggleRecurringDueList = function() {
+    var el = document.getElementById('recurring-due-list');
+    if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  };
 
   // --- Customers Tab ---
   async function loadCustomersTab() {
@@ -1091,9 +1233,14 @@ document.addEventListener('DOMContentLoaded', function() {
     modal.style.display = 'block';
     content.innerHTML = '<p style="color:#666;">Loading...</p>';
     try {
-      var res = await fetch('/api/admin/customers/' + customerId, { headers: { 'x-admin-token': adminToken } });
-      if (res.status === 401) { handleAuthExpired(); return; }
-      var data = await res.json();
+      var [custRes, recRes] = await Promise.all([
+        fetch('/api/admin/customers/' + customerId, { headers: { 'x-admin-token': adminToken } }),
+        fetch('/api/admin/recurring', { headers: { 'x-admin-token': adminToken } })
+      ]);
+      if (custRes.status === 401) { handleAuthExpired(); return; }
+      var data = await custRes.json();
+      var recData = recRes.ok ? await recRes.json() : [];
+      data.recurring = recData.filter(function(r) { return r.customer_id === customerId; });
       renderCustomerDetail(data);
     } catch (e) {
       content.innerHTML = '<p style="color:#dc2626;">Failed to load customer.</p>';
@@ -1103,7 +1250,9 @@ document.addEventListener('DOMContentLoaded', function() {
   function renderCustomerDetail(data) {
     var c = data.customer;
     var bookings = data.bookings || [];
+    var recurring = data.recurring || [];
     var content = document.getElementById('customer-detail-content');
+    var REFERRAL_OPTIONS = ['', 'Google Search', 'Google Maps', 'Facebook/Instagram', 'Customer Referral', 'Door Hanger', 'Yard Sign', 'Vehicle Wrap', 'Repeat Customer', 'Other'];
 
     var html = '<h2 style="margin-top:0; margin-bottom:6px;">' + escapeHtml(c.name || '—') + '</h2>' +
       '<p style="color:#555; margin:0 0 16px;">' +
@@ -1121,6 +1270,59 @@ document.addEventListener('DOMContentLoaded', function() {
         '</div>' +
         '<p id="cust-notes-status-' + c.id + '" style="font-size:0.85em; color:#888; margin-top:4px;"></p>' +
       '</div>';
+
+    // Referral Source
+    var refOpts = REFERRAL_OPTIONS.map(function(opt) {
+      return '<option value="' + escapeHtml(opt) + '"' + (c.referral_source === opt ? ' selected' : '') + '>' + (opt || '-- Select Source --') + '</option>';
+    }).join('');
+    html += '<div style="margin-bottom:20px;">' +
+      '<label style="font-weight:600; display:block; margin-bottom:6px;">Referral Source</label>' +
+      '<div style="display:flex; gap:8px; align-items:center;">' +
+        '<select id="cust-referral-' + c.id + '" style="padding:7px 10px; border:1px solid #ddd; border-radius:6px; flex:1;">' + refOpts + '</select>' +
+        '<button type="button" class="btn btn-secondary" style="padding:5px 14px; font-size:0.88em;" onclick="saveCustomerReferral(' + c.id + ')">Save</button>' +
+      '</div>' +
+      '<p id="cust-referral-status-' + c.id + '" style="font-size:0.85em; color:#888; margin-top:4px;"></p>' +
+    '</div>';
+
+    // Recurring Services
+    html += '<div style="margin-bottom:20px; padding:16px; background:#f8f9fa; border-radius:8px;">' +
+      '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">' +
+        '<h3 style="margin:0; font-size:1em; color:#1a1a2e;">Recurring Services</h3>' +
+        '<button type="button" class="btn btn-secondary" style="padding:4px 12px; font-size:0.83em;" onclick="showAddRecurringForm(' + c.id + ')">+ Add</button>' +
+      '</div>' +
+      '<div id="recurring-form-' + c.id + '" style="display:none; margin-bottom:14px; background:#fff; border:1px solid #e5e7eb; border-radius:6px; padding:14px;">' +
+        '<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">' +
+          '<div><label style="font-size:0.85em; display:block; margin-bottom:4px;">Service *</label><input type="text" id="rec-service-' + c.id + '" placeholder="e.g. House Wash" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></div>' +
+          '<div><label style="font-size:0.85em; display:block; margin-bottom:4px;">Interval</label><select id="rec-interval-' + c.id + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px;"><option value="monthly">Monthly</option><option value="quarterly" selected>Quarterly</option><option value="biannual">Biannual</option><option value="annual">Annual</option></select></div>' +
+          '<div><label style="font-size:0.85em; display:block; margin-bottom:4px;">Last Service Date</label><input type="date" id="rec-last-' + c.id + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></div>' +
+          '<div><label style="font-size:0.85em; display:block; margin-bottom:4px;">Notes</label><input type="text" id="rec-notes-' + c.id + '" placeholder="Optional" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></div>' +
+        '</div>' +
+        '<div style="display:flex; gap:8px;">' +
+          '<button type="button" class="btn btn-primary" style="padding:5px 14px; font-size:0.85em;" onclick="saveNewRecurring(' + c.id + ')">Save</button>' +
+          '<button type="button" class="btn btn-secondary" style="padding:5px 14px; font-size:0.85em;" onclick="document.getElementById(\'recurring-form-' + c.id + '\').style.display=\'none\'">Cancel</button>' +
+        '</div>' +
+        '<p id="rec-form-status-' + c.id + '" style="font-size:0.85em; color:#888; margin-top:6px;"></p>' +
+      '</div>';
+
+    if (recurring.length === 0) {
+      html += '<p style="color:#888; font-size:0.9em; margin:0;">No recurring services.</p>';
+    } else {
+      html += '<table class="bookings-table" style="font-size:0.88em;"><thead><tr><th>Service</th><th>Interval</th><th>Next Due</th><th>Actions</th></tr></thead><tbody>';
+      recurring.forEach(function(r) {
+        var nextDue = r.next_due_date ? new Date(r.next_due_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+        var isPast = r.next_due_date && r.next_due_date <= new Date().toISOString().split('T')[0];
+        html += '<tr>' +
+          '<td>' + escapeHtml(r.service) + '</td>' +
+          '<td>' + escapeHtml(r.interval) + '</td>' +
+          '<td style="' + (isPast ? 'color:#dc2626; font-weight:600;' : '') + '">' + nextDue + '</td>' +
+          '<td style="white-space:nowrap;">' +
+            '<button type="button" class="btn btn-primary" style="padding:3px 8px; font-size:0.78em; margin-right:4px;" onclick="markRecurringServiced(' + r.id + ', ' + c.id + ')">Mark Serviced</button>' +
+            '<button type="button" class="btn btn-secondary" style="padding:3px 8px; font-size:0.78em; color:#dc2626;" onclick="removeRecurring(' + r.id + ', ' + c.id + ')">Remove</button>' +
+          '</td></tr>';
+      });
+      html += '</tbody></table>';
+    }
+    html += '</div>';
 
     html += '<h3 style="margin-bottom:10px;">Booking History (' + bookings.length + ')</h3>';
     if (bookings.length === 0) {
@@ -1151,6 +1353,73 @@ document.addEventListener('DOMContentLoaded', function() {
 
     content.innerHTML = html;
   }
+
+  window.saveCustomerReferral = async function(customerId) {
+    var sel = document.getElementById('cust-referral-' + customerId);
+    var statusEl = document.getElementById('cust-referral-status-' + customerId);
+    if (!sel) return;
+    statusEl.textContent = 'Saving...';
+    try {
+      var res = await fetch('/api/admin/customers/' + customerId, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+        body: JSON.stringify({ referral_source: sel.value })
+      });
+      statusEl.textContent = res.ok ? 'Saved.' : 'Save failed.';
+      statusEl.style.color = res.ok ? '#2d6a4f' : '#dc2626';
+      setTimeout(function() { statusEl.textContent = ''; }, 2500);
+    } catch (e) {
+      statusEl.textContent = 'Error saving.';
+      statusEl.style.color = '#dc2626';
+    }
+  };
+
+  window.showAddRecurringForm = function(customerId) {
+    var formEl = document.getElementById('recurring-form-' + customerId);
+    if (formEl) formEl.style.display = formEl.style.display === 'none' ? 'block' : 'none';
+  };
+
+  window.saveNewRecurring = async function(customerId) {
+    var service = document.getElementById('rec-service-' + customerId).value.trim();
+    var interval = document.getElementById('rec-interval-' + customerId).value;
+    var last = document.getElementById('rec-last-' + customerId).value;
+    var notes = document.getElementById('rec-notes-' + customerId).value;
+    var statusEl = document.getElementById('rec-form-status-' + customerId);
+    if (!service) { statusEl.textContent = 'Service is required.'; statusEl.style.color = '#dc2626'; return; }
+    statusEl.textContent = 'Saving...'; statusEl.style.color = '#888';
+    try {
+      var res = await fetch('/api/admin/recurring', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+        body: JSON.stringify({ customer_id: customerId, service: service, interval: interval, last_service_date: last || null, notes: notes })
+      });
+      if (res.ok) {
+        window.openCustomerDetail(customerId);
+      } else {
+        statusEl.textContent = 'Save failed.'; statusEl.style.color = '#dc2626';
+      }
+    } catch (e) {
+      statusEl.textContent = 'Error saving.'; statusEl.style.color = '#dc2626';
+    }
+  };
+
+  window.markRecurringServiced = async function(recurringId, customerId) {
+    try {
+      await fetch('/api/admin/recurring/' + recurringId, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+        body: JSON.stringify({ mark_serviced: true })
+      });
+      window.openCustomerDetail(customerId);
+    } catch (e) {}
+  };
+
+  window.removeRecurring = async function(recurringId, customerId) {
+    try {
+      await fetch('/api/admin/recurring/' + recurringId, { method: 'DELETE', headers: { 'x-admin-token': adminToken } });
+      window.openCustomerDetail(customerId);
+    } catch (e) {}
+  };
 
   window.saveCustomerNotes = async function(customerId) {
     var notes = document.getElementById('cust-notes-' + customerId).value;
@@ -1272,6 +1541,7 @@ document.addEventListener('DOMContentLoaded', function() {
       if (tab === 'payments') loadPaymentsTab();
       if (tab === 'gallery-admin') loadGalleryAdmin();
       if (tab === 'loc') loadLocTab();
+      if (tab === 'analytics') loadAnalyticsTab();
     });
   });
 
@@ -1281,20 +1551,23 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!container) return;
     container.innerHTML = '<p style="color:#666;">Loading...</p>';
     try {
-      const [revRes, settingsRes] = await Promise.all([
+      const [revRes, settingsRes, timeRes] = await Promise.all([
         fetch('/api/admin/revenue-report?year=' + currentRevenueYear, { headers: { 'x-admin-token': adminToken } }),
-        fetch('/api/admin/settings', { headers: { 'x-admin-token': adminToken } })
+        fetch('/api/admin/settings', { headers: { 'x-admin-token': adminToken } }),
+        fetch('/api/admin/analytics/time-tracking', { headers: { 'x-admin-token': adminToken } })
       ]);
       if (revRes.status === 401) { handleAuthExpired(); return; }
       const data     = await revRes.json();
       const settings = settingsRes.ok ? await settingsRes.json() : {};
-      renderRevenueReport(data, settings);
+      const timeData = timeRes.ok ? await timeRes.json() : { tracked_jobs: [], by_service: [] };
+      renderRevenueReport(data, settings, timeData);
     } catch (e) {
       container.innerHTML = '<p style="color:#dc2626;">Failed to load revenue report.</p>';
     }
   }
 
-  function renderRevenueReport(data, settings) {
+  function renderRevenueReport(data, settings, timeData) {
+    timeData = timeData || { tracked_jobs: [], by_service: [] };
     var container = document.getElementById('revenue-admin-container');
     var thisYear = new Date().getFullYear();
 
@@ -1404,6 +1677,44 @@ document.addEventListener('DOMContentLoaded', function() {
         '<p style="color:#888; font-size:0.85em; margin-top:8px;">Consult your tax professional for actual deduction eligibility.</p>' +
         '</div>';
     }
+
+    // Job Time Tracking section
+    html += '<div class="bookings-table-container" style="margin-bottom:28px;">';
+    html += '<h3 style="margin-bottom:12px;">Job Time Tracking</h3>';
+    if (timeData.tracked_jobs && timeData.tracked_jobs.length > 0) {
+      var totalMin = timeData.tracked_jobs.reduce(function(s, j) { return s + j.duration_min; }, 0);
+      var avgMin = Math.round(totalMin / timeData.tracked_jobs.length);
+      html += '<div style="display:flex; gap:16px; margin-bottom:14px; flex-wrap:wrap;">';
+      html += '<div style="background:#dbeafe; border-radius:8px; padding:12px 20px; text-align:center;">' +
+        '<div style="font-size:1.3em; font-weight:700; color:#1e40af;">' + timeData.tracked_jobs.length + '</div>' +
+        '<div style="color:#1e40af; font-size:0.8em; margin-top:2px;">Jobs Tracked</div></div>';
+      html += '<div style="background:#ede9fe; border-radius:8px; padding:12px 20px; text-align:center;">' +
+        '<div style="font-size:1.3em; font-weight:700; color:#5b21b6;">' + Math.floor(avgMin/60) + 'h ' + (avgMin%60) + 'm</div>' +
+        '<div style="color:#5b21b6; font-size:0.8em; margin-top:2px;">Avg Duration</div></div>';
+      html += '<div style="background:#d1fae5; border-radius:8px; padding:12px 20px; text-align:center;">' +
+        '<div style="font-size:1.3em; font-weight:700; color:#065f46;">' + Math.floor(totalMin/60) + 'h ' + (totalMin%60) + 'm</div>' +
+        '<div style="color:#065f46; font-size:0.8em; margin-top:2px;">Total Hours Logged</div></div>';
+      html += '</div>';
+      html += '<div style="overflow-x:auto;"><table class="bookings-table"><thead><tr><th>WO#</th><th>Date</th><th>Customer</th><th>Service</th><th>Start</th><th>End</th><th>Duration</th></tr></thead><tbody>';
+      timeData.tracked_jobs.forEach(function(j) {
+        var h = Math.floor(j.duration_min / 60);
+        var m = j.duration_min % 60;
+        var dur = (h > 0 ? h + 'h ' : '') + m + 'm';
+        html += '<tr>' +
+          '<td>#' + j.id + '</td>' +
+          '<td>' + escapeHtml(j.date || '') + '</td>' +
+          '<td>' + escapeHtml(j.customer_name) + '</td>' +
+          '<td>' + escapeHtml(j.service || '—') + '</td>' +
+          '<td>' + escapeHtml(j.actual_start) + '</td>' +
+          '<td>' + escapeHtml(j.actual_end) + '</td>' +
+          '<td style="font-weight:600; color:#1e40af;">' + dur + '</td>' +
+          '</tr>';
+      });
+      html += '</tbody></table></div>';
+    } else {
+      html += '<p style="color:#888; padding:10px 0;">No time tracking data yet. Enter Actual Start &amp; End times on work orders to track job duration.</p>';
+    }
+    html += '</div>';
 
     container.innerHTML = html;
     window._revenueData = data;
@@ -2240,18 +2551,20 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!container) return;
     container.innerHTML = '<p style="color:#666;">Loading...</p>';
     try {
-      var res = await fetch('/api/admin/expenses?year=' + currentExpenseYear + '&month=' + currentExpenseMonth, {
-        headers: { 'x-admin-token': adminToken }
-      });
-      if (res.status === 401) { handleAuthExpired(); return; }
-      var data = await res.json();
-      renderExpensesTab(data);
+      var [expRes, poRes] = await Promise.all([
+        fetch('/api/admin/expenses?year=' + currentExpenseYear + '&month=' + currentExpenseMonth, { headers: { 'x-admin-token': adminToken } }),
+        fetch('/api/admin/purchase-orders', { headers: { 'x-admin-token': adminToken } })
+      ]);
+      if (expRes.status === 401) { handleAuthExpired(); return; }
+      var data = await expRes.json();
+      var pos = poRes.ok ? await poRes.json() : [];
+      renderExpensesTab(data, pos);
     } catch (e) {
       container.innerHTML = '<p style="color:#dc2626;">Failed to load expenses.</p>';
     }
   }
 
-  function renderExpensesTab(data) {
+  function renderExpensesTab(data, pos) {
     var container = document.getElementById('expenses-admin-container');
     var expenses = data.expenses || [];
     var total = data.total || 0;
@@ -2309,7 +2622,42 @@ document.addEventListener('DOMContentLoaded', function() {
       html += '</tbody></table></div>';
     }
 
+    // Purchase Orders section
+    html += '<div class="bookings-table-container" style="margin-top:32px;">';
+    html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">';
+    html += '<h3 style="margin:0;">Purchase Orders</h3>';
+    html += '<button type="button" class="btn btn-primary" style="padding:6px 16px; font-size:0.88em;" id="btn-create-po">+ Create PO</button>';
+    html += '</div>';
+    pos = pos || [];
+    if (pos.length === 0) {
+      html += '<p style="color:#666; padding:10px 0;">No purchase orders yet.</p>';
+    } else {
+      var statusColors = { draft: '#888', ordered: '#1e40af', received: '#065f46' };
+      html += '<div style="overflow-x:auto;"><table class="bookings-table"><thead><tr><th>PO#</th><th>Date</th><th>Vendor</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
+      pos.forEach(function(p) {
+        var dateLabel = p.date ? new Date(p.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+        var color = statusColors[p.status] || '#888';
+        html += '<tr>' +
+          '<td style="font-weight:600;">' + escapeHtml(p.po_number) + '</td>' +
+          '<td>' + dateLabel + '</td>' +
+          '<td>' + escapeHtml(p.vendor || '—') + '</td>' +
+          '<td style="font-weight:600; color:#2d6a4f;">$' + parseFloat(p.total || 0).toFixed(2) + '</td>' +
+          '<td><span style="background:' + color + '22; color:' + color + '; padding:2px 8px; border-radius:10px; font-size:0.8em; font-weight:600; text-transform:capitalize;">' + escapeHtml(p.status) + '</span></td>' +
+          '<td><button type="button" style="padding:3px 10px; font-size:0.8em; background:#1a1a2e; color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick="openPoModal(' + p.id + ')">View</button>' +
+          ' <button type="button" style="padding:3px 10px; font-size:0.8em; background:#dc2626; color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick="deletePo(' + p.id + ')">Delete</button></td>' +
+          '</tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+    html += '</div>';
+
     container.innerHTML = html;
+
+    // Wire create PO button
+    var createPoBtn = document.getElementById('btn-create-po');
+    if (createPoBtn) {
+      createPoBtn.addEventListener('click', function() { openPoModal(null); });
+    }
 
     // Wire add expense form
     var expForm = document.getElementById('add-expense-form');
@@ -2363,6 +2711,231 @@ document.addEventListener('DOMContentLoaded', function() {
       if (res.status === 401) { handleAuthExpired(); return; }
       loadExpensesTab();
       showPricingMsg('Expense deleted.', true);
+    } catch(e) {}
+  };
+
+  window.deletePo = async function(id) {
+    if (!confirm('Delete this purchase order?')) return;
+    try {
+      await fetch('/api/admin/purchase-orders/' + id, { method: 'DELETE', headers: { 'x-admin-token': adminToken } });
+      loadExpensesTab();
+    } catch(e) {}
+  };
+
+  // --- PO Modal ---
+  var currentPoId = null;
+  var poItems = [];
+
+  window.openPoModal = async function(poId) {
+    currentPoId = poId;
+    var modal = document.getElementById('work-order-modal');
+    var titleEl = document.getElementById('wo-modal-title');
+    var content = document.getElementById('wo-modal-content');
+    modal.style.display = 'block';
+    titleEl.textContent = poId ? 'Purchase Order' : 'New Purchase Order';
+    content.innerHTML = '<p style="color:#666;">Loading...</p>';
+    document.getElementById('wo-print-btn').style.display = 'none';
+
+    var po = null;
+    if (poId) {
+      try {
+        var res = await fetch('/api/admin/purchase-orders/' + poId, { headers: { 'x-admin-token': adminToken } });
+        if (res.ok) po = await res.json();
+      } catch(e) {}
+    }
+    poItems = po ? (typeof po.items === 'string' ? JSON.parse(po.items) : po.items) || [] : [];
+    renderPoModal(po);
+  };
+
+  function renderPoModal(po) {
+    var content = document.getElementById('wo-modal-content');
+    var todayStr = new Date().toISOString().split('T')[0];
+    var statusOpts = ['draft','ordered','received'].map(function(s) {
+      return '<option value="' + s + '"' + ((po && po.status === s) ? ' selected' : '') + '>' + s.charAt(0).toUpperCase() + s.slice(1) + '</option>';
+    }).join('');
+
+    var html = '<table style="width:100%; border-collapse:collapse; font-size:0.95em; margin-bottom:16px;">' +
+      '<tr><td style="padding:5px 8px; color:#555; width:100px;">PO Number</td><td style="padding:5px 8px; font-weight:600;">' + (po ? escapeHtml(po.po_number) : 'Auto-assigned') + '</td></tr>' +
+      '<tr><td style="padding:5px 8px; color:#555;">Date</td><td style="padding:5px 8px;"><input type="date" id="po-date" value="' + (po ? po.date : todayStr) + '" style="padding:4px 6px; border:1px solid #ddd; border-radius:4px;"></td></tr>' +
+      '<tr><td style="padding:5px 8px; color:#555;">Vendor</td><td style="padding:5px 8px;"><input type="text" id="po-vendor" value="' + escapeHtml(po ? (po.vendor || '') : '') + '" placeholder="Vendor name" style="width:100%; padding:4px 6px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></td></tr>' +
+      '<tr><td style="padding:5px 8px; color:#555;">Status</td><td style="padding:5px 8px;"><select id="po-status" style="padding:4px 8px; border:1px solid #ddd; border-radius:4px;">' + statusOpts + '</select></td></tr>' +
+      '<tr><td style="padding:5px 8px; color:#555;">Notes</td><td style="padding:5px 8px;"><input type="text" id="po-notes" value="' + escapeHtml(po ? (po.notes || '') : '') + '" placeholder="Optional notes" style="width:100%; padding:4px 6px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></td></tr>' +
+      '</table>';
+
+    html += '<div style="margin-bottom:14px;">' +
+      '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">' +
+        '<strong style="font-size:0.95em;">Line Items</strong>' +
+        '<button type="button" class="btn btn-secondary" style="padding:4px 10px; font-size:0.82em;" onclick="addPoLineItem()">+ Add Item</button>' +
+      '</div>' +
+      '<div id="po-items-list">' + renderPoItemsList() + '</div>' +
+      '<div style="text-align:right; font-weight:700; color:#2d6a4f; margin-top:8px;">Total: $<span id="po-total">' + calcPoTotal().toFixed(2) + '</span></div>' +
+    '</div>';
+
+    html += '<div style="display:flex; gap:8px; margin-top:8px;">';
+    if (currentPoId) {
+      html += '<button type="button" class="btn btn-primary" style="padding:7px 18px; font-size:0.9em;" onclick="savePo()">Save Changes</button>';
+      if (!po.expense_id) {
+        html += '<button type="button" class="btn btn-secondary" style="padding:7px 18px; font-size:0.9em;" onclick="markPoReceived()">Mark Received & Create Expense</button>';
+      } else {
+        html += '<button type="button" class="btn btn-secondary" style="padding:7px 18px; font-size:0.9em;" onclick="markPoStatusReceived()">Mark as Received</button>';
+      }
+    } else {
+      html += '<button type="button" class="btn btn-primary" style="padding:7px 18px; font-size:0.9em;" onclick="createPo()">Create PO</button>';
+    }
+    html += '</div>';
+    html += '<p id="po-save-status" style="font-size:0.85em; color:#888; margin-top:6px;"></p>';
+
+    content.innerHTML = html;
+  }
+
+  function renderPoItemsList() {
+    if (poItems.length === 0) return '<p style="color:#888; font-size:0.88em;">No items yet.</p>';
+    var html = '<table style="width:100%; border-collapse:collapse; font-size:0.88em; margin-bottom:4px;">';
+    html += '<thead><tr style="background:#f8f9fa;"><th style="padding:4px 6px; text-align:left;">Description</th><th style="padding:4px 6px; text-align:center; width:60px;">Qty</th><th style="padding:4px 6px; text-align:right; width:90px;">Unit Price</th><th style="padding:4px 6px; text-align:right; width:90px;">Total</th><th style="padding:4px 6px; width:30px;"></th></tr></thead><tbody>';
+    poItems.forEach(function(item, i) {
+      var lineTotal = (parseFloat(item.qty) || 0) * (parseFloat(item.unit_price) || 0);
+      html += '<tr>' +
+        '<td style="padding:4px 6px;"><input type="text" value="' + escapeHtml(item.desc || '') + '" onchange="updatePoItem(' + i + ',\'desc\',this.value)" style="width:100%; border:1px solid #eee; border-radius:3px; padding:3px 5px; box-sizing:border-box;"></td>' +
+        '<td style="padding:4px 6px;"><input type="number" value="' + (item.qty || 1) + '" min="1" step="1" onchange="updatePoItem(' + i + ',\'qty\',this.value)" style="width:55px; border:1px solid #eee; border-radius:3px; padding:3px 5px; text-align:center;"></td>' +
+        '<td style="padding:4px 6px;"><input type="number" value="' + (item.unit_price || 0) + '" min="0" step="0.01" onchange="updatePoItem(' + i + ',\'unit_price\',this.value)" style="width:85px; border:1px solid #eee; border-radius:3px; padding:3px 5px; text-align:right;"></td>' +
+        '<td style="padding:4px 6px; text-align:right; font-weight:600;">$' + lineTotal.toFixed(2) + '</td>' +
+        '<td style="padding:4px 6px;"><button type="button" style="background:#dc2626; color:#fff; border:none; border-radius:3px; padding:2px 6px; cursor:pointer; font-size:0.85em;" onclick="removePoItem(' + i + ')">×</button></td>' +
+        '</tr>';
+    });
+    html += '</tbody></table>';
+    return html;
+  }
+
+  function calcPoTotal() {
+    return poItems.reduce(function(sum, item) {
+      return sum + (parseFloat(item.qty) || 0) * (parseFloat(item.unit_price) || 0);
+    }, 0);
+  }
+
+  window.addPoLineItem = function() {
+    poItems.push({ desc: '', qty: 1, unit_price: 0 });
+    document.getElementById('po-items-list').innerHTML = renderPoItemsList();
+    document.getElementById('po-total').textContent = calcPoTotal().toFixed(2);
+  };
+
+  window.updatePoItem = function(i, field, val) {
+    poItems[i][field] = field === 'desc' ? val : parseFloat(val) || 0;
+    document.getElementById('po-items-list').innerHTML = renderPoItemsList();
+    document.getElementById('po-total').textContent = calcPoTotal().toFixed(2);
+  };
+
+  window.removePoItem = function(i) {
+    poItems.splice(i, 1);
+    document.getElementById('po-items-list').innerHTML = renderPoItemsList();
+    document.getElementById('po-total').textContent = calcPoTotal().toFixed(2);
+  };
+
+  function getPoFormData() {
+    return {
+      date: document.getElementById('po-date').value,
+      vendor: document.getElementById('po-vendor').value.trim(),
+      status: document.getElementById('po-status').value,
+      notes: document.getElementById('po-notes').value.trim(),
+      items: poItems,
+      total: calcPoTotal()
+    };
+  }
+
+  window.savePo = async function() {
+    if (!currentPoId) return;
+    var statusEl = document.getElementById('po-save-status');
+    statusEl.textContent = 'Saving...'; statusEl.style.color = '#888';
+    try {
+      var res = await fetch('/api/admin/purchase-orders/' + currentPoId, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+        body: JSON.stringify(getPoFormData())
+      });
+      if (res.ok) {
+        statusEl.textContent = 'Saved.'; statusEl.style.color = '#2d6a4f';
+        setTimeout(function() { statusEl.textContent = ''; }, 2000);
+        loadExpensesTab();
+      } else {
+        statusEl.textContent = 'Save failed.'; statusEl.style.color = '#dc2626';
+      }
+    } catch(e) {
+      statusEl.textContent = 'Error saving.'; statusEl.style.color = '#dc2626';
+    }
+  };
+
+  window.createPo = async function() {
+    var statusEl = document.getElementById('po-save-status');
+    statusEl.textContent = 'Creating...'; statusEl.style.color = '#888';
+    try {
+      var res = await fetch('/api/admin/purchase-orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+        body: JSON.stringify(getPoFormData())
+      });
+      var data = await res.json();
+      if (data.success) {
+        currentPoId = data.po.id;
+        document.getElementById('wo-modal-title').textContent = 'Purchase Order — ' + data.po.po_number;
+        statusEl.textContent = 'PO created: ' + data.po.po_number; statusEl.style.color = '#2d6a4f';
+        var po = data.po;
+        po.items = poItems;
+        renderPoModal(po);
+        loadExpensesTab();
+      } else {
+        statusEl.textContent = data.error || 'Failed.'; statusEl.style.color = '#dc2626';
+      }
+    } catch(e) {
+      statusEl.textContent = 'Error.'; statusEl.style.color = '#dc2626';
+    }
+  };
+
+  window.markPoReceived = async function() {
+    var total = calcPoTotal();
+    if (!confirm('Mark as received and create an expense entry for $' + total.toFixed(2) + '?')) return;
+    var formData = getPoFormData();
+    formData.status = 'received';
+    // Update PO status
+    try {
+      await fetch('/api/admin/purchase-orders/' + currentPoId, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+        body: JSON.stringify(formData)
+      });
+      // Create expense entry
+      var vendor = document.getElementById('po-vendor').value.trim() || 'Unknown';
+      var expRes = await fetch('/api/admin/expenses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+        body: JSON.stringify({
+          date: formData.date,
+          category: 'Supplies',
+          amount: total,
+          notes: 'PO from ' + vendor
+        })
+      });
+      var expData = await expRes.json();
+      if (expData.success) {
+        await fetch('/api/admin/purchase-orders/' + currentPoId, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+          body: JSON.stringify({ expense_id: expData.expense.id })
+        });
+      }
+      document.getElementById('work-order-modal').style.display = 'none';
+      loadExpensesTab();
+      showPricingMsg('PO marked received and expense created!', true);
+    } catch(e) {}
+  };
+
+  window.markPoStatusReceived = async function() {
+    try {
+      await fetch('/api/admin/purchase-orders/' + currentPoId, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+        body: JSON.stringify({ status: 'received' })
+      });
+      document.getElementById('work-order-modal').style.display = 'none';
+      loadExpensesTab();
     } catch(e) {}
   };
 
@@ -2914,6 +3487,227 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
   }
+
+  // --- Analytics Tab ---
+  async function loadAnalyticsTab() {
+    var container = document.getElementById('analytics-container');
+    if (!container) return;
+    container.innerHTML = '<p style="color:#666;">Loading analytics...</p>';
+    try {
+      var [revRes, arRes, refRes, timeRes] = await Promise.all([
+        fetch('/api/admin/revenue-report?year=' + currentAnalyticsYear, { headers: { 'x-admin-token': adminToken } }),
+        fetch('/api/admin/analytics/ar-aging', { headers: { 'x-admin-token': adminToken } }),
+        fetch('/api/admin/analytics/referrals', { headers: { 'x-admin-token': adminToken } }),
+        fetch('/api/admin/analytics/time-tracking', { headers: { 'x-admin-token': adminToken } })
+      ]);
+      if (revRes.status === 401) { handleAuthExpired(); return; }
+      var revenueData = await revRes.json();
+      var arData = arRes.ok ? await arRes.json() : { current: [], late: [], pastdue: [] };
+      var referralData = refRes.ok ? await refRes.json() : [];
+      var timeData = timeRes.ok ? await timeRes.json() : { tracked_jobs: [], by_service: [] };
+      renderAnalyticsTab(revenueData, arData, referralData, timeData);
+    } catch (e) {
+      container.innerHTML = '<p style="color:#dc2626;">Failed to load analytics.</p>';
+    }
+  }
+
+  function renderAnalyticsTab(revenueData, arData, referralData, timeData) {
+    timeData = timeData || { tracked_jobs: [], by_service: [] };
+    var container = document.getElementById('analytics-container');
+    var thisYear = new Date().getFullYear();
+    var monthLabels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    var yearOpts = '';
+    for (var y = thisYear; y >= thisYear - 4; y--) {
+      yearOpts += '<option value="' + y + '"' + (y === currentAnalyticsYear ? ' selected' : '') + '>' + y + '</option>';
+    }
+
+    var html = '<h2 style="margin-bottom:16px;">Analytics</h2>';
+    html += '<div style="display:flex; align-items:center; gap:10px; margin-bottom:24px;">' +
+      '<label style="font-weight:600;">Year:</label>' +
+      '<select id="analytics-year-sel" style="padding:7px 12px; border:1px solid #ddd; border-radius:6px;" onchange="changeAnalyticsYear(this.value)">' + yearOpts + '</select>' +
+      '</div>';
+
+    // Charts grid
+    html += '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:24px; margin-bottom:32px;">';
+    html += '<div style="background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:16px;"><canvas id="chart-rev-exp" height="200"></canvas></div>';
+    html += '<div style="background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:16px;"><canvas id="chart-net-profit" height="200"></canvas></div>';
+    html += '<div style="background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:16px;"><canvas id="chart-by-service" height="200"></canvas></div>';
+    html += '<div style="background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:16px;"><canvas id="chart-jobs-month" height="200"></canvas></div>';
+    html += '<div style="background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:16px;"><canvas id="chart-referrals" height="200"></canvas></div>';
+    html += '<div style="background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:16px;"><canvas id="chart-avg-duration" height="200"></canvas></div>';
+    html += '</div>';
+
+    // AR Aging section
+    html += '<div class="bookings-table-container" style="margin-bottom:28px;">';
+    html += '<h3 style="margin-bottom:12px;">Accounts Receivable Aging</h3>';
+    var arBuckets = [
+      { label: '0–30 Days (Current)', data: arData.current || [], color: '#d1fae5', textColor: '#065f46' },
+      { label: '31–60 Days (Late)', data: arData.late || [], color: '#fef3c7', textColor: '#92400e' },
+      { label: '60+ Days (Past Due)', data: arData.pastdue || [], color: '#fee2e2', textColor: '#991b1b' }
+    ];
+    arBuckets.forEach(function(bucket) {
+      if (bucket.data.length === 0) return;
+      var bucketTotal = bucket.data.reduce(function(s, r) { return s + (parseFloat(String(r.price || '').replace(/[$,]/g,'')) || 0); }, 0);
+      html += '<div style="margin-bottom:16px;">';
+      html += '<div style="background:' + bucket.color + '; color:' + bucket.textColor + '; padding:8px 14px; border-radius:6px; font-weight:600; margin-bottom:8px;">' + bucket.label + ' — ' + bucket.data.length + ' invoice' + (bucket.data.length !== 1 ? 's' : '') + ' — Total: $' + bucketTotal.toFixed(2) + '</div>';
+      html += '<div style="overflow-x:auto;"><table class="bookings-table" style="font-size:0.88em;"><thead><tr><th>WO#</th><th>Customer</th><th>Service</th><th>Amount</th><th>Days Out</th></tr></thead><tbody>';
+      bucket.data.forEach(function(r) {
+        var amt = parseFloat(String(r.price || '').replace(/[$,]/g,'')) || 0;
+        html += '<tr><td>#' + r.id + '</td><td>' + escapeHtml(r.customer_name) + '</td><td>' + escapeHtml(r.service || '—') + '</td><td style="font-weight:600; color:#dc2626;">$' + amt.toFixed(2) + '</td><td>' + r.days_outstanding + '</td></tr>';
+      });
+      html += '</tbody></table></div></div>';
+    });
+    var allArItems = (arData.current||[]).concat(arData.late||[]).concat(arData.pastdue||[]);
+    if (allArItems.length === 0) {
+      html += '<p style="color:#666; padding:10px 0;">No outstanding invoices.</p>';
+    }
+    html += '</div>';
+
+    container.innerHTML = html;
+
+    // Build chart data
+    var grossRevByMonth = revenueData.monthly.map(function(m) { return m.gross_revenue; });
+    var expByMonth = revenueData.monthly.map(function(m) { return m.expenses; });
+    var netByMonth = revenueData.monthly.map(function(m) { return m.gross_revenue - m.expenses; });
+    var jobCountByMonth = revenueData.monthly.map(function(m) { return m.job_count; });
+
+    // Destroy existing charts
+    if (chartRevExp) { chartRevExp.destroy(); chartRevExp = null; }
+    if (chartNetProfit) { chartNetProfit.destroy(); chartNetProfit = null; }
+    if (chartByService) { chartByService.destroy(); chartByService = null; }
+    if (chartJobsMonth) { chartJobsMonth.destroy(); chartJobsMonth = null; }
+    if (chartReferrals) { chartReferrals.destroy(); chartReferrals = null; }
+    if (chartAvgDuration) { chartAvgDuration.destroy(); chartAvgDuration = null; }
+
+    if (typeof Chart === 'undefined') return;
+
+    // Chart 1: Revenue vs Expenses
+    var ctx1 = document.getElementById('chart-rev-exp');
+    if (ctx1) {
+      chartRevExp = new Chart(ctx1, {
+        type: 'line',
+        data: {
+          labels: monthLabels,
+          datasets: [
+            { label: 'Revenue', data: grossRevByMonth, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.08)', fill: false, tension: 0.3 },
+            { label: 'Expenses', data: expByMonth, borderColor: '#dc2626', backgroundColor: 'rgba(220,38,38,0.08)', fill: false, tension: 0.3 }
+          ]
+        },
+        options: { responsive: true, plugins: { title: { display: true, text: 'Revenue vs. Expenses (' + currentAnalyticsYear + ')' } } }
+      });
+    }
+
+    // Chart 2: Net Profit trend
+    var ctx2 = document.getElementById('chart-net-profit');
+    if (ctx2) {
+      chartNetProfit = new Chart(ctx2, {
+        type: 'line',
+        data: {
+          labels: monthLabels,
+          datasets: [{ label: 'Net Profit', data: netByMonth, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.1)', fill: 'origin', tension: 0.3 }]
+        },
+        options: { responsive: true, plugins: { title: { display: true, text: 'Net Profit (' + currentAnalyticsYear + ')' } } }
+      });
+    }
+
+    // Chart 3: Revenue by Service
+    var byService = revenueData.by_service || [];
+    var ctx3 = document.getElementById('chart-by-service');
+    if (ctx3 && byService.length > 0) {
+      chartByService = new Chart(ctx3, {
+        type: 'bar',
+        data: {
+          labels: byService.map(function(s) { return s.service; }),
+          datasets: [{ label: 'Revenue', data: byService.map(function(s) { return s.revenue; }), backgroundColor: '#1a1a2e' }]
+        },
+        options: { indexAxis: 'y', responsive: true, plugins: { title: { display: true, text: 'Revenue by Service' }, legend: { display: false } } }
+      });
+    } else if (ctx3) {
+      ctx3.parentNode.innerHTML = '<div style="display:flex; align-items:center; justify-content:center; height:150px; color:#888; font-size:0.9em;">No service data yet</div>';
+    }
+
+    // Chart 4: Jobs by Month
+    var ctx4 = document.getElementById('chart-jobs-month');
+    if (ctx4) {
+      chartJobsMonth = new Chart(ctx4, {
+        type: 'bar',
+        data: {
+          labels: monthLabels,
+          datasets: [{ label: 'Jobs', data: jobCountByMonth, backgroundColor: '#16a34a' }]
+        },
+        options: { responsive: true, plugins: { title: { display: true, text: 'Jobs by Month' }, legend: { display: false } } }
+      });
+    }
+
+    // Chart 5: Referral Sources
+    var ctx5 = document.getElementById('chart-referrals');
+    if (ctx5) {
+      if (referralData.length > 0) {
+        chartReferrals = new Chart(ctx5, {
+          type: 'doughnut',
+          data: {
+            labels: referralData.map(function(r) { return r.source; }),
+            datasets: [{ data: referralData.map(function(r) { return r.count; }), backgroundColor: ['#1a1a2e','#16a34a','#2563eb','#dc2626','#92400e','#5b21b6','#065f46','#1e40af'] }]
+          },
+          options: { responsive: true, plugins: { title: { display: true, text: 'Referral Sources' } } }
+        });
+      } else {
+        ctx5.parentNode.innerHTML = '<div style="display:flex; align-items:center; justify-content:center; height:150px; color:#888; font-size:0.9em;">No referral data yet</div>';
+      }
+    }
+
+    // Chart 6: Avg Job Duration by Service
+    var ctx6 = document.getElementById('chart-avg-duration');
+    if (ctx6) {
+      var durByService = timeData.by_service || [];
+      if (durByService.length > 0) {
+        chartAvgDuration = new Chart(ctx6, {
+          type: 'bar',
+          data: {
+            labels: durByService.map(function(s) { return s.service; }),
+            datasets: [{
+              label: 'Avg Duration (min)',
+              data: durByService.map(function(s) { return s.avg_minutes; }),
+              backgroundColor: '#5b21b6'
+            }]
+          },
+          options: {
+            indexAxis: 'y',
+            responsive: true,
+            plugins: {
+              title: { display: true, text: 'Avg Job Duration by Service' },
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: function(ctx) {
+                    var m = ctx.raw;
+                    return Math.floor(m/60) + 'h ' + (m%60) + 'm (' + durByService[ctx.dataIndex].count + ' jobs)';
+                  }
+                }
+              }
+            },
+            scales: {
+              x: {
+                ticks: {
+                  callback: function(val) {
+                    return Math.floor(val/60) + 'h ' + (val%60) + 'm';
+                  }
+                }
+              }
+            }
+          }
+        });
+      } else {
+        ctx6.parentNode.innerHTML = '<div style="display:flex; align-items:center; justify-content:center; height:150px; color:#888; font-size:0.9em;">No time tracking data yet</div>';
+      }
+    }
+  }
+
+  window.changeAnalyticsYear = function(year) {
+    currentAnalyticsYear = parseInt(year);
+    loadAnalyticsTab();
+  };
 
   // Check if already logged in
   if (adminToken) {

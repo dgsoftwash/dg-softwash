@@ -634,6 +634,44 @@ body {
   border-radius: 4px;
 }
 
+.gallery-portfolio-notice {
+  margin-bottom: 30px;
+  padding: 18px 22px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-left: 4px solid #3b82f6;
+  border-radius: 8px;
+}
+
+.gallery-portfolio-notice strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 1rem;
+  color: #1e40af;
+}
+
+.gallery-portfolio-notice p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #374151;
+}
+
+.example-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  z-index: 15;
+}
+
 /* Contact Section */
 .contact-section {
   padding: 60px 20px;

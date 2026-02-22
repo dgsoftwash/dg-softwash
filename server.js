@@ -105,6 +105,28 @@ async function initDb() {
   await pool.query(`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS mileage REAL NOT NULL DEFAULT 0`);
   await pool.query(`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ`);
 
+  // Migration: job time tracking
+  await pool.query(`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS actual_start TEXT NOT NULL DEFAULT ''`);
+  await pool.query(`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS actual_end TEXT NOT NULL DEFAULT ''`);
+
+  // Migration: referral source on customers
+  await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS referral_source TEXT NOT NULL DEFAULT ''`);
+
+  // Recurring services table
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS recurring_services (
+      id SERIAL PRIMARY KEY,
+      customer_id INTEGER REFERENCES customers(id) ON DELETE CASCADE,
+      service TEXT NOT NULL DEFAULT '',
+      interval TEXT NOT NULL DEFAULT 'quarterly',
+      last_service_date DATE,
+      next_due_date DATE,
+      notes TEXT NOT NULL DEFAULT '',
+      active BOOLEAN NOT NULL DEFAULT true,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
   // Expenses table
   await pool.query(`
     CREATE TABLE IF NOT EXISTS expenses (
@@ -113,6 +135,22 @@ async function initDb() {
       category TEXT NOT NULL DEFAULT '',
       amount NUMERIC(10,2) NOT NULL DEFAULT 0,
       notes TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  // Purchase orders table (after expenses so FK works)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS purchase_orders (
+      id SERIAL PRIMARY KEY,
+      po_number TEXT NOT NULL DEFAULT '',
+      date DATE NOT NULL DEFAULT CURRENT_DATE,
+      vendor TEXT NOT NULL DEFAULT '',
+      items JSONB NOT NULL DEFAULT '[]',
+      total NUMERIC(10,2) NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'draft',
+      notes TEXT NOT NULL DEFAULT '',
+      expense_id INTEGER REFERENCES expenses(id) ON DELETE SET NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
@@ -1072,12 +1110,19 @@ app.get('/api/admin/customers/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// PATCH /api/admin/customers/:id — update customer notes
+// PATCH /api/admin/customers/:id — update customer notes and/or referral_source
 app.patch('/api/admin/customers/:id', requireAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const { notes } = req.body;
-    await pool.query('UPDATE customers SET notes = $1 WHERE id = $2', [notes || '', id]);
+    const { notes, referral_source } = req.body;
+    const updates = [];
+    const values = [];
+    let idx = 1;
+    if (notes !== undefined) { updates.push(`notes = $${idx++}`); values.push(notes || ''); }
+    if (referral_source !== undefined) { updates.push(`referral_source = $${idx++}`); values.push(referral_source || ''); }
+    if (updates.length === 0) return res.json({ success: true });
+    values.push(id);
+    await pool.query(`UPDATE customers SET ${updates.join(', ')} WHERE id = $${idx}`, values);
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: 'Failed to update customer' });
@@ -1123,7 +1168,7 @@ app.get('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
 app.patch('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const { status_job_complete, status_invoiced, status_invoice_paid, status_paid, admin_notes, payment_method, completion_notes, mileage } = req.body;
+    const { status_job_complete, status_invoiced, status_invoice_paid, status_paid, admin_notes, payment_method, completion_notes, mileage, actual_start, actual_end } = req.body;
 
     // Fetch current state before update
     const { rows: current } = await pool.query('SELECT * FROM work_orders WHERE id = $1', [id]);
@@ -1141,6 +1186,8 @@ app.patch('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
     if (payment_method !== undefined) { updates.push(`payment_method = $${idx++}`); values.push(payment_method); }
     if (completion_notes !== undefined) { updates.push(`completion_notes = $${idx++}`); values.push(completion_notes); }
     if (mileage !== undefined) { updates.push(`mileage = $${idx++}`); values.push(parseFloat(mileage) || 0); }
+    if (actual_start !== undefined) { updates.push(`actual_start = $${idx++}`); values.push(actual_start || ''); }
+    if (actual_end !== undefined) { updates.push(`actual_end = $${idx++}`); values.push(actual_end || ''); }
     if (status_paid === true && !before.status_paid) {
       updates.push('paid_at = NOW()');
     } else if (status_paid === false && before.status_paid) {
@@ -1234,6 +1281,18 @@ app.post('/api/admin/email', requireAdmin, async (req, res) => {
   } catch (e) {
     console.error('Admin email failed:', e.message);
     res.status(500).json({ error: 'Failed to send email' });
+  }
+});
+
+// DELETE /api/admin/work-orders/:id
+app.delete('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { rowCount } = await pool.query('DELETE FROM work_orders WHERE id = $1', [id]);
+    if (rowCount === 0) return res.status(404).json({ error: 'Work order not found' });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to delete work order' });
   }
 });
 
@@ -1338,6 +1397,16 @@ app.get('/api/admin/dashboard', requireAdmin, async (req, res) => {
       WHERE EXTRACT(YEAR FROM date) = EXTRACT(YEAR FROM CURRENT_DATE)
     `);
 
+    const { rows: recurringDueRows } = await pool.query(`
+      SELECT rs.id, rs.service, rs.next_due_date, rs.interval,
+        c.name as customer_name, c.phone as customer_phone
+      FROM recurring_services rs
+      JOIN customers c ON rs.customer_id = c.id
+      WHERE rs.active = true AND rs.next_due_date <= CURRENT_DATE + 7
+      ORDER BY rs.next_due_date ASC
+      LIMIT 20
+    `);
+
     const monthlyRevenue = paidThisMonth.reduce((sum, r) => sum + parsePrice(r.price), 0);
     const outstandingTotal = outstandingInvoices.reduce((sum, r) => sum + parsePrice(r.price), 0);
 
@@ -1349,7 +1418,8 @@ app.get('/api/admin/dashboard', requireAdmin, async (req, res) => {
       monthly_expenses: parseFloat(expenseRows[0].total) || 0,
       reservice_due: reserviceDue,
       ytd_gross: ytdPaid.reduce((sum, r) => sum + parsePrice(r.price), 0),
-      ytd_expenses: parseFloat(ytdExpenseRows[0].total) || 0
+      ytd_expenses: parseFloat(ytdExpenseRows[0].total) || 0,
+      recurring_due: recurringDueRows
     });
   } catch (e) {
     console.error('Dashboard error:', e.message);
@@ -1612,6 +1682,269 @@ app.post('/api/admin/work-orders/:id/sms-reminder', requireAdmin, async (req, re
   } catch (e) {
     console.error('SMS error:', e.message);
     res.status(500).json({ error: 'Failed to send SMS: ' + e.message });
+  }
+});
+
+// --- Analytics Routes ---
+
+// GET /api/admin/analytics/ar-aging
+app.get('/api/admin/analytics/ar-aging', requireAdmin, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT wo.id, wo.created_at,
+        COALESCE(b.price, wo.price) as price,
+        COALESCE(b.service, wo.service) as service,
+        COALESCE(b.name, c.name, 'Unknown') as customer_name,
+        COALESCE(b.date::text, TO_CHAR(wo.created_at, 'YYYY-MM-DD')) as invoice_date
+      FROM work_orders wo
+      LEFT JOIN bookings b ON wo.booking_id = b.id
+      LEFT JOIN customers c ON wo.customer_id = c.id
+      WHERE wo.status_invoiced = true
+        AND wo.status_invoice_paid = false
+        AND wo.status_paid = false
+      ORDER BY invoice_date ASC
+    `);
+
+    const now = new Date();
+    const current = [], late = [], pastdue = [];
+    rows.forEach(r => {
+      const d = r.invoice_date ? new Date(r.invoice_date + 'T12:00:00') : new Date(r.created_at);
+      const days = Math.floor((now - d) / (1000 * 60 * 60 * 24));
+      const entry = { id: r.id, customer_name: r.customer_name, service: r.service, price: r.price, days_outstanding: days, date: r.invoice_date };
+      if (days <= 30) current.push(entry);
+      else if (days <= 60) late.push(entry);
+      else pastdue.push(entry);
+    });
+    res.json({ current, late, pastdue });
+  } catch (e) {
+    console.error('AR aging error:', e.message);
+    res.status(500).json({ error: 'Failed to load AR aging' });
+  }
+});
+
+// GET /api/admin/analytics/referrals
+app.get('/api/admin/analytics/referrals', requireAdmin, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT referral_source as source, COUNT(*)::integer as count
+      FROM customers
+      WHERE referral_source != ''
+      GROUP BY referral_source
+      ORDER BY count DESC
+    `);
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load referral data' });
+  }
+});
+
+// GET /api/admin/analytics/time-tracking
+app.get('/api/admin/analytics/time-tracking', requireAdmin, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT wo.id, wo.actual_start, wo.actual_end,
+             COALESCE(b.service, wo.service) AS service,
+             b.date,
+             c.name AS customer_name
+      FROM work_orders wo
+      LEFT JOIN bookings b ON wo.booking_id = b.id
+      LEFT JOIN customers c ON wo.customer_id = c.id
+      WHERE wo.actual_start != '' AND wo.actual_end != ''
+      ORDER BY b.date DESC NULLS LAST
+    `);
+
+    const tracked = rows.map(r => {
+      const [sh, sm] = r.actual_start.split(':').map(Number);
+      const [eh, em] = r.actual_end.split(':').map(Number);
+      const duration_min = (eh * 60 + em) - (sh * 60 + sm);
+      return {
+        id: r.id,
+        customer_name: r.customer_name,
+        service: r.service,
+        date: r.date ? r.date.toISOString().split('T')[0] : '',
+        actual_start: r.actual_start,
+        actual_end: r.actual_end,
+        duration_min: duration_min > 0 ? duration_min : null
+      };
+    }).filter(r => r.duration_min !== null);
+
+    const serviceMap = {};
+    tracked.forEach(r => {
+      if (!serviceMap[r.service]) serviceMap[r.service] = { count: 0, total: 0 };
+      serviceMap[r.service].count++;
+      serviceMap[r.service].total += r.duration_min;
+    });
+    const by_service = Object.entries(serviceMap)
+      .map(([service, v]) => ({ service, count: v.count, avg_minutes: Math.round(v.total / v.count) }))
+      .sort((a, b) => b.avg_minutes - a.avg_minutes);
+
+    res.json({ tracked_jobs: tracked, by_service });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load time tracking data' });
+  }
+});
+
+// --- Recurring Services Routes ---
+
+function calcNextDue(lastDate, interval) {
+  if (!lastDate) return null;
+  const d = new Date(lastDate + 'T12:00:00');
+  const months = { monthly: 1, quarterly: 3, biannual: 6, annual: 12 };
+  d.setMonth(d.getMonth() + (months[interval] || 3));
+  return d.toISOString().split('T')[0];
+}
+
+// GET /api/admin/recurring
+app.get('/api/admin/recurring', requireAdmin, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT rs.*, c.name as customer_name, c.email as customer_email, c.phone as customer_phone,
+        (rs.next_due_date - CURRENT_DATE)::integer as days_until_due
+      FROM recurring_services rs
+      JOIN customers c ON rs.customer_id = c.id
+      WHERE rs.active = true
+      ORDER BY rs.next_due_date ASC NULLS LAST
+    `);
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load recurring services' });
+  }
+});
+
+// POST /api/admin/recurring
+app.post('/api/admin/recurring', requireAdmin, async (req, res) => {
+  try {
+    const { customer_id, service, interval, last_service_date, notes } = req.body;
+    if (!customer_id || !service) return res.status(400).json({ error: 'customer_id and service are required' });
+    const next_due_date = calcNextDue(last_service_date, interval);
+    const { rows: [rec] } = await pool.query(
+      'INSERT INTO recurring_services (customer_id, service, interval, last_service_date, next_due_date, notes) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
+      [customer_id, service, interval || 'quarterly', last_service_date || null, next_due_date, notes || '']
+    );
+    res.json({ success: true, recurring: rec });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to create recurring service' });
+  }
+});
+
+// PATCH /api/admin/recurring/:id
+app.patch('/api/admin/recurring/:id', requireAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { active, notes, interval, service, mark_serviced } = req.body;
+    const updates = [];
+    const values = [];
+    let idx = 1;
+    if (active !== undefined) { updates.push(`active = $${idx++}`); values.push(active); }
+    if (notes !== undefined) { updates.push(`notes = $${idx++}`); values.push(notes); }
+    if (interval !== undefined) { updates.push(`interval = $${idx++}`); values.push(interval); }
+    if (service !== undefined) { updates.push(`service = $${idx++}`); values.push(service); }
+    if (mark_serviced) {
+      const today = new Date().toISOString().split('T')[0];
+      const { rows: cur } = await pool.query('SELECT interval FROM recurring_services WHERE id = $1', [id]);
+      const iv = cur.length ? cur[0].interval : 'quarterly';
+      const nextDue = calcNextDue(today, iv);
+      updates.push(`last_service_date = $${idx++}`); values.push(today);
+      updates.push(`next_due_date = $${idx++}`); values.push(nextDue);
+    }
+    if (updates.length === 0) return res.json({ success: true });
+    values.push(id);
+    await pool.query(`UPDATE recurring_services SET ${updates.join(', ')} WHERE id = $${idx}`, values);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to update recurring service' });
+  }
+});
+
+// DELETE /api/admin/recurring/:id (soft delete)
+app.delete('/api/admin/recurring/:id', requireAdmin, async (req, res) => {
+  try {
+    await pool.query('UPDATE recurring_services SET active = false WHERE id = $1', [parseInt(req.params.id)]);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to delete recurring service' });
+  }
+});
+
+// --- Purchase Orders Routes ---
+
+// GET /api/admin/purchase-orders
+app.get('/api/admin/purchase-orders', requireAdmin, async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT id, po_number, date, vendor, total, status, notes, expense_id, created_at FROM purchase_orders ORDER BY date DESC, created_at DESC');
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load purchase orders' });
+  }
+});
+
+// POST /api/admin/purchase-orders
+app.post('/api/admin/purchase-orders', requireAdmin, async (req, res) => {
+  try {
+    const { date, vendor, items, total, status, notes } = req.body;
+    const year = (date || new Date().toISOString().split('T')[0]).substring(0, 4);
+    const { rows: countRow } = await pool.query(
+      "SELECT COALESCE(MAX(CAST(SUBSTRING(po_number FROM 9) AS INTEGER)), 0) + 1 AS next_seq FROM purchase_orders WHERE po_number LIKE $1",
+      [`PO-${year}-%`]
+    );
+    const seq = String(countRow[0].next_seq || 1).padStart(3, '0');
+    const po_number = `PO-${year}-${seq}`;
+    const itemsJson = typeof items === 'string' ? items : JSON.stringify(items || []);
+    const { rows: [po] } = await pool.query(
+      'INSERT INTO purchase_orders (po_number, date, vendor, items, total, status, notes) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *',
+      [po_number, date || new Date().toISOString().split('T')[0], vendor || '', itemsJson, parseFloat(total) || 0, status || 'draft', notes || '']
+    );
+    res.json({ success: true, po });
+  } catch (e) {
+    console.error('PO create error:', e.message);
+    res.status(500).json({ error: 'Failed to create purchase order' });
+  }
+});
+
+// GET /api/admin/purchase-orders/:id
+app.get('/api/admin/purchase-orders/:id', requireAdmin, async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM purchase_orders WHERE id = $1', [parseInt(req.params.id)]);
+    if (!rows.length) return res.status(404).json({ error: 'Not found' });
+    res.json(rows[0]);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load purchase order' });
+  }
+});
+
+// PATCH /api/admin/purchase-orders/:id
+app.patch('/api/admin/purchase-orders/:id', requireAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { status, notes, vendor, items, total, expense_id } = req.body;
+    const updates = [];
+    const values = [];
+    let idx = 1;
+    if (status !== undefined) { updates.push(`status = $${idx++}`); values.push(status); }
+    if (notes !== undefined) { updates.push(`notes = $${idx++}`); values.push(notes); }
+    if (vendor !== undefined) { updates.push(`vendor = $${idx++}`); values.push(vendor); }
+    if (items !== undefined) {
+      const itemsJson = typeof items === 'string' ? items : JSON.stringify(items);
+      updates.push(`items = $${idx++}`); values.push(itemsJson);
+    }
+    if (total !== undefined) { updates.push(`total = $${idx++}`); values.push(parseFloat(total) || 0); }
+    if (expense_id !== undefined) { updates.push(`expense_id = $${idx++}`); values.push(expense_id || null); }
+    if (updates.length === 0) return res.json({ success: true });
+    values.push(id);
+    await pool.query(`UPDATE purchase_orders SET ${updates.join(', ')} WHERE id = $${idx}`, values);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to update purchase order' });
+  }
+});
+
+// DELETE /api/admin/purchase-orders/:id
+app.delete('/api/admin/purchase-orders/:id', requireAdmin, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM purchase_orders WHERE id = $1', [parseInt(req.params.id)]);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to delete purchase order' });
   }
 });
 

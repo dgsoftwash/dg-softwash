@@ -1,0 +1,225 @@
+# D&G Soft Wash — Manual Test Checklist
+
+Run this after any significant code change. Each section tests a feature end-to-end including the automated behaviors tied to it.
+
+---
+
+## 0. Setup
+
+- [ ] Server is running (`npx pm2 status` shows `online`)
+- [ ] Open `http://localhost:3000/admin` in browser
+- [ ] Log in with admin password
+- [ ] Hard refresh the page (`Cmd+Shift+R`) to clear JS cache
+
+---
+
+## 1. Analytics Tab
+
+**Access**
+- [ ] "Analytics" tab appears in the nav bar with underline when active
+- [ ] Clicking Analytics loads the tab without JS errors (open DevTools Console)
+
+**Charts (6 total)**
+- [ ] Revenue vs. Expenses chart renders (may be empty/zero if no data)
+- [ ] Net Profit chart renders
+- [ ] Jobs by Month chart renders
+- [ ] Revenue by Service shows "No service data yet" if no paid jobs exist, OR renders bars
+- [ ] Referral Sources shows "No referral data yet" if no referral sources exist, OR renders doughnut
+- [ ] **Avg Job Duration by Service** shows "No time tracking data yet" if no times logged, OR renders horizontal bars
+  - [ ] Tooltip on hover shows `Xh Ym (N jobs)` format
+  - [ ] X-axis labels show hours/minutes (e.g. `1h 30m`) not raw minutes
+
+**Year selector**
+- [ ] Changing the year dropdown reloads all 6 charts with that year's data
+- [ ] Charts re-render without duplicating (old chart destroyed before new one drawn)
+
+**AR Aging table**
+- [ ] If there are invoiced-but-unpaid work orders, they appear in the correct bucket (0-30 / 31-60 / 60+ days)
+- [ ] Each bucket shows item count and total dollar amount in the header
+- [ ] "No outstanding invoices" appears when all are paid
+
+---
+
+## 2. Route View (Schedule Tab)
+
+**Setup:** There must be at least one booking on a day.
+
+- [ ] Go to Schedule tab
+- [ ] Click a day that has bookings on the calendar
+- [ ] "Route View" button appears below the day slot list
+- [ ] Clicking "Route View" expands the panel; clicking again collapses it
+
+**Panel content**
+- [ ] Each booking appears numbered with: time, customer name, service, address
+- [ ] Each row has a "Directions ↗" link that opens Google Maps search for that address in a new tab
+- [ ] "Build Full Route in Google Maps" button appears when 2+ bookings have addresses
+- [ ] Clicking the route button opens Google Maps directions with all addresses in sequence
+
+**Edge case**
+- [ ] Clicking a day with NO bookings does NOT show the Route View button
+
+---
+
+## 3. Job Time Tracking (Work Order Modal)
+
+**Setup:** Open any work order.
+
+- [ ] "Actual Start" time input appears below Mileage
+- [ ] "Actual End" time input appears below Actual Start
+
+**Save on blur**
+- [ ] Enter `09:00` in Actual Start, click away → no error
+- [ ] Enter `11:30` in Actual End, click away → "Duration: 2h 30m" appears next to the field
+- [ ] Close and reopen the same work order → `09:00` and `11:30` are still there (persisted)
+
+**Duration calculation**
+- [ ] If end time is before start time, no duration label appears (no crash)
+- [ ] If only one field is filled, no duration label appears
+
+**Revenue Report display**
+- [ ] Go to Revenue tab → scroll to bottom → "Job Time Tracking" section appears
+- [ ] Summary cards show: Jobs Tracked count, Avg Duration, Total Hours Logged
+- [ ] Table shows WO#, Date, Customer, Service, Start, End, Duration for each tracked job
+- [ ] **Auto behavior:** Manually-created work orders (no booking) appear in the table (LEFT JOIN fix)
+- [ ] If no times have been logged, section shows the "No time tracking data yet" message
+
+**Analytics chart**
+- [ ] Go to Analytics tab → "Avg Job Duration by Service" chart shows bars for the tracked service
+- [ ] Hovering a bar shows `Xh Ym (N jobs)`
+
+**Cleanup:** Clear both fields and blur to reset.
+
+---
+
+## 4. Work Order — Delete
+
+**Setup:** Open any work order modal.
+
+- [ ] "Delete Work Order" button appears at the bottom of the modal in red outline style
+- [ ] Clicking it shows a confirmation dialog naming the WO# and customer
+- [ ] Clicking Cancel → nothing changes, modal stays open
+- [ ] Clicking OK → modal closes
+- [ ] **Auto behavior:** The work order no longer appears in any list (Work Orders tab, Dashboard, etc.)
+- [ ] Opening the Work Orders tab after delete → the deleted WO is gone
+- [ ] No related booking is deleted (Schedule tab still shows the appointment if one existed)
+
+---
+
+## 5. Recurring Services (Customer Detail)
+
+**Setup:** Open Customers tab → click any customer's name or View button.
+
+**Section presence**
+- [ ] "Recurring Services" section appears inside the customer detail modal
+- [ ] "+ Add" button is visible in the section header
+
+**Add a recurring service**
+- [ ] Click "+ Add" → inline form appears (Service, Interval, Last Service Date, Notes)
+- [ ] Leave Service blank, click Save → error message appears
+- [ ] Fill in Service = "House Wash", Interval = Quarterly, Last Service Date = today
+- [ ] Click Save → form disappears, new row appears in the table
+- [ ] **Auto behavior:** Next Due date is approximately 3 months from today
+
+**Mark Serviced**
+- [ ] Click "Mark Serviced" on the new row
+- [ ] Modal reloads; Next Due date updates to ~3 months from today (today becomes new Last Service Date)
+
+**Remove**
+- [ ] Click "Remove" on the row → it disappears from the list
+- [ ] Reopen the customer detail → row is still gone (soft delete persisted)
+
+**Dashboard card**
+- [ ] Go to Dashboard tab
+- [ ] Add a recurring service with Last Service Date set to 3 months ago (so next_due is today or past)
+- [ ] Refresh dashboard → purple "Recurring Due" card appears with count ≥ 1
+- [ ] Clicking the card reveals the mini-list with customer name, service, interval, due date
+
+---
+
+## 6. Referral Source (Customer Detail)
+
+**Setup:** Open any customer detail.
+
+- [ ] "Referral Source" dropdown appears below Admin Notes
+- [ ] Dropdown includes: Google Search, Google Maps, Facebook/Instagram, Customer Referral, Door Hanger, Yard Sign, Vehicle Wrap, Repeat Customer, Other
+- [ ] Select "Google Maps", click Save → "Saved." confirmation appears
+- [ ] Close and reopen the same customer → "Google Maps" is pre-selected
+- [ ] Select blank option, click Save → source cleared
+
+**Analytics tie-in**
+- [ ] After saving a referral source, go to Analytics tab → Referral Sources doughnut chart now shows that source
+- [ ] Add referral sources for 3+ customers → all sources appear in chart
+
+---
+
+## 7. Purchase Orders (Expenses Tab)
+
+**Access**
+- [ ] Go to Expenses tab
+- [ ] Scroll to bottom → "Purchase Orders" section with "+ Create PO" button visible
+
+**Create a PO**
+- [ ] Click "+ Create PO" → modal opens titled "New Purchase Order"
+- [ ] Fields: Date (pre-filled today), Vendor, Status (draft/ordered/received), Notes
+- [ ] Click "+ Add Item" → a new row appears (Description, Qty, Unit Price, Total)
+- [ ] Fill in: Desc="Soft wash solution", Qty=2, Unit Price=45.00 → Line Total shows $90.00
+- [ ] Add a second item: Desc="Nozzle", Qty=1, Unit Price=12.50 → Grand Total shows $102.50
+- [ ] Click "×" on a line item → row removed, total updates
+- [ ] Fill in Vendor = "Supply Co", click "Create PO"
+- [ ] **Auto behavior:** PO number assigned in format `PO-YYYY-NNN` (e.g. `PO-2026-001`)
+- [ ] Modal header updates to show PO number
+- [ ] PO appears in the list in the Expenses tab
+
+**View & edit an existing PO**
+- [ ] Click "View" on the PO → modal opens with all saved data
+- [ ] Change status to "Ordered", click "Save Changes" → status badge updates in the list
+
+**Mark Received & create expense**
+- [ ] Click "View" on a PO that has no linked expense
+- [ ] Click "Mark Received & Create Expense"
+- [ ] Confirm dialog shows the total amount
+- [ ] After confirming: modal closes, PO status shows "received" in the list
+- [ ] Scroll to the expenses table → a new expense entry appeared for the PO total
+- [ ] Go to Revenue Report → that expense appears in the correct month
+
+**Mark Received (already has expense)**
+- [ ] On a PO that already has expense_id linked, "Mark Received & Create Expense" is replaced by "Mark as Received" (no duplicate expense prompt)
+
+**Delete a PO**
+- [ ] Click "Delete" next to a PO in the list → confirmation prompt
+- [ ] After confirming → PO removed from list
+
+**PO number sequencing**
+- [ ] Create 2 POs in the same year → numbers are `PO-YYYY-00X` and `PO-YYYY-00Y` where Y = X+1
+
+---
+
+## 8. Regression — Existing Features Still Work
+
+After all the above, verify nothing broke:
+
+- [ ] Add a manual booking (Schedule tab → "+ Add Booking")
+- [ ] Open a work order, toggle "Job Complete" status → saves correctly
+- [ ] Toggle "Invoiced" → invoice email prompt (or sends if email configured)
+- [ ] Add an expense via the Add Expense form (not PO) → appears in table
+- [ ] Revenue Report year selector still changes data
+- [ ] Payments tab still loads
+- [ ] Gallery tab still loads
+- [ ] Lines of Credit tab still loads and saves values
+
+---
+
+## Notes on Automated Behaviors to Verify
+
+| Behavior | Trigger | Expected Result |
+|---|---|---|
+| `next_due_date` calc | POST/PATCH recurring | monthly→+1mo, quarterly→+3mo, biannual→+6mo, annual→+12mo |
+| PO number format | POST purchase-orders | `PO-YYYY-NNN`, sequential per year |
+| Duration label | Both actual_start + actual_end set | Shows `Xh Ym` next to Actual End field |
+| Expense auto-create | Mark PO received (no prior expense) | Expense appears with PO date, vendor name, Supplies category |
+| Recurring Due card | Dashboard load | Only appears if next_due_date ≤ today + 7 days |
+| AR aging buckets | Analytics load | Days since invoice_date: ≤30→current, 31-60→late, 60+→pastdue |
+| Referral chart | Analytics load | Only shows sources that exist in customers table |
+| Time tracking revenue section | Revenue tab load | Shows all WOs with actual_start+actual_end, including booking-less WOs |
+| Avg Duration chart | Analytics load | Groups by service, shows `Xh Ym` on axis and tooltip |
+| WO delete | DELETE /api/admin/work-orders/:id | WO removed from all lists; linked booking unaffected |

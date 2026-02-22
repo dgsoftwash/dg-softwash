@@ -4,6 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Dashboard - D&G Soft Wash</title>
+  <link rel="manifest" href="/manifest-admin.json">
+  <link rel="apple-touch-icon" href="/images/logo.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="D&G Admin">
+  <meta name="theme-color" content="#1a1a2e">
   <link rel="stylesheet" href="/css/styles.css">
   <link rel="stylesheet" href="/css/calendar.css">
 </head>
@@ -53,7 +58,7 @@
         <div style="clear:both;margin-bottom:0;"></div>
 
         <!-- Tab Navigation -->
-        <div class="admin-tabs" style="display:flex; gap:8px; margin-bottom:20px; border-bottom:2px solid #e5e7eb; padding-bottom:0;">
+        <div class="admin-tabs" style="display:flex; flex-wrap:wrap; gap:4px 8px; margin-bottom:20px; border-bottom:2px solid #e5e7eb; padding-bottom:0;">
           <button class="admin-tab active" data-tab="dashboard" style="padding:10px 22px; border:none; border-bottom:3px solid #1a1a2e; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#1a1a2e; margin-bottom:-2px;">Dashboard</button>
           <button class="admin-tab" data-tab="schedule" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Schedule</button>
           <button class="admin-tab" data-tab="customers" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Customers</button>
@@ -64,6 +69,7 @@
           <button class="admin-tab" data-tab="payments" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Payments</button>
           <button class="admin-tab" data-tab="gallery-admin" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Gallery</button>
           <button class="admin-tab" data-tab="loc" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Lines of Credit</button>
+          <button class="admin-tab" data-tab="analytics" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Analytics</button>
         </div>
 
         <!-- Dashboard Tab -->
@@ -218,6 +224,11 @@
         <!-- Line of Credit Tab -->
         <div id="tab-loc" class="tab-panel" style="display:none;">
           <div id="loc-admin-container"></div>
+        </div>
+
+        <!-- Analytics Tab -->
+        <div id="tab-analytics" class="tab-panel" style="display:none;">
+          <div id="analytics-container"></div>
         </div>
       </div>
 
@@ -438,7 +449,9 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="/js/main.js"></script>
   <script src="/js/admin.js"></script>
+  <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js');</script>
 </body>
 </html>

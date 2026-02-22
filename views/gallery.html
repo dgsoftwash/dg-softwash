@@ -4,6 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gallery - D&G Soft Wash</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/images/logo.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="D&G Soft Wash">
+  <meta name="theme-color" content="#1a1a2e">
   <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
@@ -30,6 +35,14 @@
     <p>See the D&G Soft Wash difference</p>
   </header>
 
+  <!-- Portfolio notice: remove once real job photos are added -->
+  <div style="max-width:1100px;margin:0 auto;padding:0 20px;">
+    <div class="gallery-portfolio-notice">
+      <strong>Building Our Portfolio</strong>
+      <p>D&amp;G Soft Wash is a new company and we're just getting started. The photos below are stock example images showing the <em>types</em> of exterior cleaning services we specialize in — they are not photos of our actual completed jobs. We are actively taking on new clients and will be adding real before-and-after photos from our work very soon. Thank you for your patience and support!</p>
+    </div>
+  </div>
+
   <section class="gallery-section">
     <div class="container">
       <div class="gallery-filters">
@@ -40,8 +53,108 @@
         <button class="filter-btn" data-filter="deck">Deck & Fence</button>
       </div>
 
+      <div id="gallery-loading" style="text-align:center;padding:8px 0 20px;color:#888;font-size:0.875em;">Checking for latest photos...</div>
+
       <div id="gallery-grid" class="gallery-grid">
-        <p style="color:#666; grid-column:1/-1; text-align:center; padding:40px 0;">Loading photos...</p>
+
+        <!-- Example: Deck & Stair Pressure Wash -->
+        <div class="gallery-item" data-category="deck" data-example="true">
+          <span class="example-badge">Example</span>
+          <img src="https://media.istockphoto.com/id/1414036771/photo/close-up-view-of-using-pressure-washer-to-clean-impregnated-wood-terrace-stairs-outdoors-in.jpg?s=612x612&w=0&k=20&c=KnNJvlhkcSxUVckWw2Jsf1bS0a1vfyYOU-twPTC0Ax4=" alt="Pressure washing wood deck stairs" loading="lazy">
+          <div class="gallery-overlay"><h3>Deck &amp; Stair Pressure Wash</h3><p>Wood deck restoration using high-pressure cleaning</p></div>
+        </div>
+
+        <!-- Example: Patio Before & After -->
+        <div class="gallery-item" data-category="concrete" data-example="true">
+          <span class="example-badge">Example</span>
+          <img src="https://media.istockphoto.com/id/1199467355/photo/before-and-after-jet-washing-a-patio-with-an-effective-result.jpg?s=612x612&w=0&k=20&c=EtXyfOEmrZtUPisjxWRkbEQstjpdavvHlmdjBweWElY=" alt="Before and after patio jet washing" loading="lazy">
+          <div class="gallery-overlay"><h3>Patio Cleaning — Before &amp; After</h3><p>Concrete patio restored with professional jet washing</p></div>
+        </div>
+
+        <!-- Example: House Siding Soft Wash -->
+        <div class="gallery-item" data-category="house" data-example="true">
+          <span class="example-badge">Example</span>
+          <img src="https://media.istockphoto.com/id/1461400300/photo/senior-man-up-on-ladder-diy-power-washing-house-siding.jpg?s=612x612&w=0&k=20&c=SU3jGKMB4Me_6vFHYrE3kMoFPfk9G8JV_B-6FX6-uT8=" alt="Power washing house siding" loading="lazy">
+          <div class="gallery-overlay"><h3>House Siding Soft Wash</h3><p>Removing dirt, mold, and mildew from exterior siding</p></div>
+        </div>
+
+        <!-- Example: Smoke & Soot Exterior Cleanup -->
+        <div class="gallery-item" data-category="house" data-example="true">
+          <span class="example-badge">Example</span>
+          <img src="https://media.istockphoto.com/id/2165291835/photo/fire-damaged-home-fairfax-virginia.jpg?s=612x612&w=0&k=20&c=3wV95-owAfUINNUFx7Sm6XQB0sPJ5zH07a2-dSuZfq8=" alt="Fire damaged home exterior before cleaning" loading="lazy">
+          <div class="gallery-overlay"><h3>Smoke &amp; Soot Exterior Cleaning</h3><p>Post-fire exterior surface cleanup and restoration</p></div>
+        </div>
+
+        <!-- Example: Home Exterior Restoration -->
+        <div class="gallery-item" data-category="house" data-example="true">
+          <span class="example-badge">Example</span>
+          <img src="https://media.istockphoto.com/id/2259871195/photo/old-house-before-and-after-the-renovation.jpg?s=612x612&w=0&k=20&c=SoarXWyjLgP568OahT7qplYSCXQSfnCrQjXuvnLa9wI=" alt="Old house before and after exterior renovation" loading="lazy">
+          <div class="gallery-overlay"><h3>Full Home Exterior Restoration</h3><p>Complete exterior transformation with professional cleaning</p></div>
+        </div>
+
+        <!-- Example: Residential Exterior Before & After -->
+        <div class="gallery-item" data-category="house" data-example="true">
+          <span class="example-badge">Example</span>
+          <img src="https://media.istockphoto.com/id/2216019634/vector/country-house-before-or-after-renovation-residential-building-repair-architecture.jpg?s=612x612&w=0&k=20&c=RtWJvkJkTjOY9zhqWNYs3i9PqMgsCllIYQ6j0Pkkz-E=" alt="Country house before and after exterior cleaning" loading="lazy">
+          <div class="gallery-overlay"><h3>Residential Exterior Before &amp; After</h3><p>The D&amp;G Soft Wash difference — side by side</p></div>
+        </div>
+
+        <!-- Example: Mold & Mildew Removal -->
+        <div class="gallery-item" data-category="house" data-example="true">
+          <span class="example-badge">Example</span>
+          <img src="https://media.istockphoto.com/id/937598662/photo/house-with-moldy-vinyl-siding-soffit-fascia-and-a-damaged-roof.jpg?s=612x612&w=0&k=20&c=E4j9iqmXYujEna9mLw5KtLjPa4biX20QluWIRDuhjek=" alt="House with mold and mildew on vinyl siding" loading="lazy">
+          <div class="gallery-overlay"><h3>Mold &amp; Mildew Removal</h3><p>Vinyl siding, soffit, and fascia mold remediation</p></div>
+        </div>
+
+        <!-- Example: Full House Exterior Wash -->
+        <div class="gallery-item" data-category="house" data-example="true">
+          <span class="example-badge">Example</span>
+          <img src="https://media.istockphoto.com/id/182886651/photo/man-powerwashing-a-house.jpg?s=612x612&w=0&k=20&c=5X8ktrw4j9UohQvxWiIm5jU2z2A-kElkZZQDHTBbqOw=" alt="Man power washing a house exterior" loading="lazy">
+          <div class="gallery-overlay"><h3>Full House Exterior Wash</h3><p>Professional soft wash for a fresh, clean exterior</p></div>
+        </div>
+
+        <!-- Example: Vehicle Exterior Wash -->
+        <div class="gallery-item" data-category="vehicle" data-example="true">
+          <span class="example-badge">Example</span>
+          <img src="https://media.istockphoto.com/id/1952620709/photo/woman-cleaning-the-car-in-a-car-wash.jpg?s=612x612&w=0&k=20&c=vgDCXc6geF6ANsBpxXp0NsHAY3UkvxWD7838Se4UJ7U=" alt="Woman cleaning a car exterior" loading="lazy">
+          <div class="gallery-overlay"><h3>Vehicle Exterior Wash</h3><p>Thorough exterior vehicle cleaning service</p></div>
+        </div>
+
+        <!-- Example: Automotive Detail Cleaning -->
+        <div class="gallery-item" data-category="vehicle" data-example="true">
+          <span class="example-badge">Example</span>
+          <img src="https://media.istockphoto.com/id/2161852881/photo/wash-me-a-very-dirty-car-close-up-of-car-dust-with-inscription-wash-me-word-on-a-dirty-glass.jpg?s=612x612&w=0&k=20&c=CW3NMEh0uzlcnzdPHWrLcdzuAJ0ya7PEuglLs_bTGaA=" alt="Very dirty car needing a wash" loading="lazy">
+          <div class="gallery-overlay"><h3>Automotive Detail Cleaning</h3><p>No vehicle too dirty — we can handle it</p></div>
+        </div>
+
+        <!-- Example: Marine Vessel Wash -->
+        <div class="gallery-item" data-category="marine" data-example="true">
+          <span class="example-badge">Example</span>
+          <img src="https://media.istockphoto.com/id/2221483857/photo/detailed-view-of-a-yacht-docked-in-turquoise-waters.jpg?s=612x612&w=0&k=20&c=Vepe8D5v3SoIn0UlDwxGEgz7IvDkOz2j7uFyAEJE1Bk=" alt="Yacht docked in turquoise water" loading="lazy">
+          <div class="gallery-overlay"><h3>Marine Vessel Detail Wash</h3><p>Boat and yacht exterior cleaning and detailing</p></div>
+        </div>
+
+        <!-- Example: Heavy Equipment Pressure Wash -->
+        <div class="gallery-item" data-category="equipment" data-example="true">
+          <span class="example-badge">Example</span>
+          <img src="https://media.istockphoto.com/id/629447152/photo/pressure-washing-skid-loader.jpg?s=612x612&w=0&k=20&c=HgjhKdRu0C1kF93GPGTx_qFO9AVIfyk4DNbNy0KhIQM=" alt="Pressure washing a skid loader" loading="lazy">
+          <div class="gallery-overlay"><h3>Heavy Equipment Pressure Wash</h3><p>Construction and farm equipment cleaning</p></div>
+        </div>
+
+        <!-- Example: Equipment Track Cleaning -->
+        <div class="gallery-item" data-category="equipment" data-example="true">
+          <span class="example-badge">Example</span>
+          <img src="https://media.istockphoto.com/id/2219664583/photo/crawler-tracks.jpg?s=612x612&w=0&k=20&c=K2BnbCJEECs6Ky_9UgkhDZ0w_FrpU19I7XzTkMdvr_k=" alt="Crawler tracks on construction equipment" loading="lazy">
+          <div class="gallery-overlay"><h3>Equipment Track Cleaning</h3><p>Deep cleaning of crawler tracks and undercarriage</p></div>
+        </div>
+
+        <!-- Example: Construction Equipment Wash -->
+        <div class="gallery-item" data-category="equipment" data-example="true">
+          <span class="example-badge">Example</span>
+          <img src="https://media.istockphoto.com/id/2245564498/photo/small-excavator-with-rubber-tracks-used-in-construction-and-landscaping-work-symbolizing.jpg?s=612x612&w=0&k=20&c=rF_4jfssrl0t-cVpLNKKpEP8p-hTJhC4bV4g73yEDn0=" alt="Small excavator with rubber tracks" loading="lazy">
+          <div class="gallery-overlay"><h3>Construction Equipment Wash</h3><p>Excavator and machinery exterior cleaning</p></div>
+        </div>
+
       </div>
     </div>
   </section>
@@ -88,15 +201,24 @@
   <script>
     (function() {
       var grid = document.getElementById('gallery-grid');
+      var loadingEl = document.getElementById('gallery-loading');
       var filterBtns = document.querySelectorAll('.filter-btn');
       var activeFilter = 'all';
 
-      function renderItems(items) {
+      function applyFilter() {
+        var items = grid.querySelectorAll('.gallery-item');
+        items.forEach(function(el) {
+          el.style.display = (activeFilter === 'all' || el.dataset.category === activeFilter) ? 'block' : 'none';
+        });
+      }
+
+      function prependRealPhotos(items) {
+        loadingEl.style.display = 'none';
         if (!items || items.length === 0) {
-          grid.innerHTML = '<p style="color:#888; grid-column:1/-1; text-align:center; padding:60px 0; font-size:1.05em;">Photos coming soon — check back after our next job!</p>';
+          applyFilter();
           return;
         }
-        grid.innerHTML = items.map(function(item) {
+        var html = items.map(function(item) {
           return '<div class="gallery-item before-after" data-category="' + item.category + '">' +
             '<div class="ba-container">' +
               '<div class="ba-image before">' +
@@ -114,14 +236,8 @@
             '</div>' +
           '</div>';
         }).join('');
+        grid.insertAdjacentHTML('afterbegin', html);
         applyFilter();
-      }
-
-      function applyFilter() {
-        var items = grid.querySelectorAll('.gallery-item');
-        items.forEach(function(el) {
-          el.style.display = (activeFilter === 'all' || el.dataset.category === activeFilter) ? 'block' : 'none';
-        });
       }
 
       filterBtns.forEach(function(btn) {
@@ -133,11 +249,14 @@
         });
       });
 
+      // Apply filter to the static example items on page load
+      applyFilter();
+
       fetch('/api/gallery')
         .then(function(r) { return r.json(); })
-        .then(renderItems)
+        .then(prependRealPhotos)
         .catch(function() {
-          grid.innerHTML = '<p style="color:#888; grid-column:1/-1; text-align:center; padding:40px 0;">Unable to load photos right now.</p>';
+          loadingEl.style.display = 'none';
         });
     })();
   </script>
