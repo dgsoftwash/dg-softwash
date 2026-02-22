@@ -2551,20 +2551,23 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!container) return;
     container.innerHTML = '<p style="color:#666;">Loading...</p>';
     try {
-      var [expRes, poRes] = await Promise.all([
+      var [expRes, poRes, recExpRes] = await Promise.all([
         fetch('/api/admin/expenses?year=' + currentExpenseYear + '&month=' + currentExpenseMonth, { headers: { 'x-admin-token': adminToken } }),
-        fetch('/api/admin/purchase-orders', { headers: { 'x-admin-token': adminToken } })
+        fetch('/api/admin/purchase-orders', { headers: { 'x-admin-token': adminToken } }),
+        fetch('/api/admin/recurring-expenses', { headers: { 'x-admin-token': adminToken } })
       ]);
       if (expRes.status === 401) { handleAuthExpired(); return; }
       var data = await expRes.json();
       var pos = poRes.ok ? await poRes.json() : [];
-      renderExpensesTab(data, pos);
+      var recExps = recExpRes.ok ? await recExpRes.json() : [];
+      renderExpensesTab(data, pos, recExps);
     } catch (e) {
       container.innerHTML = '<p style="color:#dc2626;">Failed to load expenses.</p>';
     }
   }
 
-  function renderExpensesTab(data, pos) {
+  function renderExpensesTab(data, pos, recExps) {
+    recExps = recExps || [];
     var container = document.getElementById('expenses-admin-container');
     var expenses = data.expenses || [];
     var total = data.total || 0;
@@ -2622,6 +2625,39 @@ document.addEventListener('DOMContentLoaded', function() {
       html += '</tbody></table></div>';
     }
 
+    // Recurring Expenses section
+    html += '<div class="bookings-table-container" style="margin-top:32px;">';
+    html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">';
+    html += '<h3 style="margin:0;">Recurring Expenses</h3>';
+    html += '<button type="button" class="btn btn-primary" style="padding:6px 16px; font-size:0.88em;" id="btn-add-rec-exp">+ Add Recurring</button>';
+    html += '</div>';
+    html += '<div id="rec-exp-form-container"></div>';
+    if (recExps.length === 0) {
+      html += '<p style="color:#666; padding:10px 0;">No recurring expenses set up yet.</p>';
+    } else {
+      var ordinals = ['','1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th','11th','12th','13th','14th','15th','16th','17th','18th','19th','20th','21st','22nd','23rd','24th','25th','26th','27th','28th'];
+      html += '<div style="overflow-x:auto;"><table class="bookings-table"><thead><tr><th>Description</th><th>Amount</th><th>Category</th><th>Day</th><th>Last Generated</th><th>Status</th><th></th></tr></thead><tbody>';
+      recExps.forEach(function(r) {
+        var lastGen = r.last_generated ? new Date(r.last_generated).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Never';
+        var statusBadge = r.active
+          ? '<span style="background:#d1fae5; color:#065f46; padding:2px 8px; border-radius:10px; font-size:0.8em; font-weight:600;">Active</span>'
+          : '<span style="background:#fee2e2; color:#991b1b; padding:2px 8px; border-radius:10px; font-size:0.8em; font-weight:600;">Paused</span>';
+        html += '<tr>' +
+          '<td>' + escapeHtml(r.description) + '</td>' +
+          '<td style="font-weight:600; color:#dc2626;">$' + parseFloat(r.amount).toFixed(2) + '</td>' +
+          '<td>' + escapeHtml(r.category) + '</td>' +
+          '<td>' + (ordinals[r.day_of_month] || r.day_of_month) + ' of month</td>' +
+          '<td style="color:#666; font-size:0.9em;">' + lastGen + '</td>' +
+          '<td>' + statusBadge + '</td>' +
+          '<td style="white-space:nowrap;">' +
+            '<button type="button" style="padding:3px 10px; font-size:0.8em; background:#1a1a2e; color:#fff; border:none; border-radius:4px; cursor:pointer; margin-right:4px;" onclick="toggleRecExp(' + r.id + ',' + !r.active + ')">' + (r.active ? 'Pause' : 'Resume') + '</button>' +
+            '<button type="button" style="padding:3px 10px; font-size:0.8em; background:#dc2626; color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick="deleteRecExp(' + r.id + ')">Remove</button>' +
+          '</td></tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+    html += '</div>';
+
     // Purchase Orders section
     html += '<div class="bookings-table-container" style="margin-top:32px;">';
     html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">';
@@ -2652,6 +2688,31 @@ document.addEventListener('DOMContentLoaded', function() {
     html += '</div>';
 
     container.innerHTML = html;
+
+    // Wire add recurring expense button
+    var addRecExpBtn = document.getElementById('btn-add-rec-exp');
+    if (addRecExpBtn) {
+      addRecExpBtn.addEventListener('click', function() {
+        var formContainer = document.getElementById('rec-exp-form-container');
+        if (!formContainer || formContainer.innerHTML) { formContainer.innerHTML = ''; return; }
+        var cats = ['Fuel','Supplies','Equipment','Insurance','Marketing','Vehicle','AMEX Prime','AMEX Blue','Chase Ink','Capital One Spark','SoFi','Other'];
+        var dayOpts = '';
+        for (var d = 1; d <= 28; d++) { dayOpts += '<option value="' + d + '">' + d + (d===1?'st':d===2?'nd':d===3?'rd':'th') + ' of month</option>'; }
+        formContainer.innerHTML =
+          '<div style="background:#f8f9fa; border:1px solid #e5e7eb; border-radius:8px; padding:16px; margin-bottom:14px;">' +
+          '<div style="display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:12px; align-items:end; flex-wrap:wrap;">' +
+          '<div class="form-group"><label>Description *</label><input type="text" id="re-desc" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;" placeholder="e.g. Business Insurance"></div>' +
+          '<div class="form-group"><label>Amount ($) *</label><input type="number" id="re-amount" min="0.01" step="0.01" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;" placeholder="0.00"></div>' +
+          '<div class="form-group"><label>Category</label><select id="re-category" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;">' + cats.map(function(c){return '<option>'+c+'</option>';}).join('') + '</select></div>' +
+          '<div class="form-group"><label>Day of Month</label><select id="re-day" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;">' + dayOpts + '</select></div>' +
+          '</div>' +
+          '<p id="re-error" style="color:#dc2626; min-height:1em; margin:6px 0 0;"></p>' +
+          '<div style="display:flex; gap:8px; margin-top:10px;">' +
+          '<button type="button" class="btn btn-primary" style="padding:7px 20px;" onclick="saveRecurringExpense()">Save</button>' +
+          '<button type="button" class="btn btn-secondary" style="padding:7px 16px;" onclick="document.getElementById(\'rec-exp-form-container\').innerHTML=\'\'">Cancel</button>' +
+          '</div></div>';
+      });
+    }
 
     // Wire create PO button
     var createPoBtn = document.getElementById('btn-create-po');
@@ -3703,6 +3764,55 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     }
   }
+
+  window.saveRecurringExpense = async function() {
+    var desc = (document.getElementById('re-desc') || {}).value || '';
+    var amount = (document.getElementById('re-amount') || {}).value || '';
+    var category = (document.getElementById('re-category') || {}).value || 'Other';
+    var day = (document.getElementById('re-day') || {}).value || '1';
+    var errEl = document.getElementById('re-error');
+    if (!desc.trim()) { if (errEl) errEl.textContent = 'Description is required.'; return; }
+    if (!amount || parseFloat(amount) <= 0) { if (errEl) errEl.textContent = 'Enter a valid amount.'; return; }
+    if (errEl) errEl.textContent = '';
+    try {
+      var res = await fetch('/api/admin/recurring-expenses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+        body: JSON.stringify({ description: desc.trim(), amount: parseFloat(amount), category, day_of_month: parseInt(day) })
+      });
+      if (res.status === 401) { handleAuthExpired(); return; }
+      var data = await res.json();
+      if (data.success) {
+        loadExpensesTab();
+      } else {
+        if (errEl) errEl.textContent = data.error || 'Failed to save.';
+      }
+    } catch(e) {
+      if (errEl) errEl.textContent = 'Error saving recurring expense.';
+    }
+  };
+
+  window.toggleRecExp = async function(id, newActive) {
+    try {
+      await fetch('/api/admin/recurring-expenses/' + id, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+        body: JSON.stringify({ active: newActive })
+      });
+      loadExpensesTab();
+    } catch(e) {}
+  };
+
+  window.deleteRecExp = async function(id) {
+    if (!confirm('Remove this recurring expense? This will not delete past generated expenses.')) return;
+    try {
+      await fetch('/api/admin/recurring-expenses/' + id, {
+        method: 'DELETE',
+        headers: { 'x-admin-token': adminToken }
+      });
+      loadExpensesTab();
+    } catch(e) {}
+  };
 
   window.changeAnalyticsYear = function(year) {
     currentAnalyticsYear = parseInt(year);

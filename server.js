@@ -155,6 +155,20 @@ async function initDb() {
     )
   `);
 
+  // Recurring expenses table
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS recurring_expenses (
+      id SERIAL PRIMARY KEY,
+      description TEXT NOT NULL DEFAULT '',
+      amount NUMERIC(10,2) NOT NULL DEFAULT 0,
+      category TEXT NOT NULL DEFAULT '',
+      day_of_month INTEGER NOT NULL DEFAULT 1,
+      active BOOLEAN NOT NULL DEFAULT true,
+      last_generated DATE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
   // Migration: add customer_id to bookings
   await pool.query(`
     ALTER TABLE bookings ADD COLUMN IF NOT EXISTS customer_id INTEGER
@@ -1499,6 +1513,88 @@ app.post('/api/admin/expenses', requireAdmin, async (req, res) => {
 app.delete('/api/admin/expenses/:id', requireAdmin, async (req, res) => {
   await pool.query('DELETE FROM expenses WHERE id = $1', [parseInt(req.params.id)]);
   res.json({ success: true });
+});
+
+// --- Recurring Expenses ---
+
+// Helper: auto-generate any due recurring expenses for the current month
+async function processRecurringExpenses() {
+  const today = new Date();
+  const todayDay = today.getDate();
+  const thisMonthKey = `${today.getFullYear()}-${today.getMonth()}`;
+  const { rows } = await pool.query('SELECT * FROM recurring_expenses WHERE active = true');
+  for (const rec of rows) {
+    if (todayDay < rec.day_of_month) continue; // not due yet this month
+    const lastGen = rec.last_generated ? new Date(rec.last_generated) : null;
+    const lastGenKey = lastGen ? `${lastGen.getFullYear()}-${lastGen.getMonth()}` : null;
+    if (lastGenKey === thisMonthKey) continue; // already generated this month
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(rec.day_of_month).padStart(2, '0');
+    const expDate = `${today.getFullYear()}-${mm}-${dd}`;
+    await pool.query(
+      'INSERT INTO expenses (date, category, amount, notes) VALUES ($1,$2,$3,$4)',
+      [expDate, rec.category, rec.amount, rec.description + ' (auto)']
+    );
+    await pool.query('UPDATE recurring_expenses SET last_generated = $1 WHERE id = $2', [expDate, rec.id]);
+  }
+}
+
+// GET /api/admin/recurring-expenses — list + auto-process due ones
+app.get('/api/admin/recurring-expenses', requireAdmin, async (req, res) => {
+  try {
+    await processRecurringExpenses();
+    const { rows } = await pool.query('SELECT * FROM recurring_expenses ORDER BY day_of_month ASC, created_at ASC');
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load recurring expenses' });
+  }
+});
+
+// POST /api/admin/recurring-expenses
+app.post('/api/admin/recurring-expenses', requireAdmin, async (req, res) => {
+  try {
+    const { description, amount, category, day_of_month } = req.body;
+    if (!description || !amount) return res.status(400).json({ error: 'Description and amount are required' });
+    const day = Math.min(28, Math.max(1, parseInt(day_of_month) || 1));
+    const { rows: [rec] } = await pool.query(
+      'INSERT INTO recurring_expenses (description, amount, category, day_of_month) VALUES ($1,$2,$3,$4) RETURNING *',
+      [description, parseFloat(amount), category || 'Other', day]
+    );
+    res.json({ success: true, recurring_expense: rec });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to create recurring expense' });
+  }
+});
+
+// PATCH /api/admin/recurring-expenses/:id
+app.patch('/api/admin/recurring-expenses/:id', requireAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { description, amount, category, day_of_month, active } = req.body;
+    const updates = []; const values = []; let idx = 1;
+    if (description !== undefined) { updates.push(`description = $${idx++}`); values.push(description); }
+    if (amount !== undefined) { updates.push(`amount = $${idx++}`); values.push(parseFloat(amount)); }
+    if (category !== undefined) { updates.push(`category = $${idx++}`); values.push(category); }
+    if (day_of_month !== undefined) { updates.push(`day_of_month = $${idx++}`); values.push(Math.min(28, Math.max(1, parseInt(day_of_month)))); }
+    if (active !== undefined) { updates.push(`active = $${idx++}`); values.push(active); }
+    if (updates.length === 0) return res.json({ success: true });
+    values.push(id);
+    await pool.query(`UPDATE recurring_expenses SET ${updates.join(', ')} WHERE id = $${idx}`, values);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to update recurring expense' });
+  }
+});
+
+// DELETE /api/admin/recurring-expenses/:id
+app.delete('/api/admin/recurring-expenses/:id', requireAdmin, async (req, res) => {
+  try {
+    const { rowCount } = await pool.query('DELETE FROM recurring_expenses WHERE id = $1', [parseInt(req.params.id)]);
+    if (rowCount === 0) return res.status(404).json({ error: 'Not found' });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to delete recurring expense' });
+  }
 });
 
 app.get('/api/admin/revenue-report', requireAdmin, async (req, res) => {
