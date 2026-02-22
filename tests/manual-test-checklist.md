@@ -194,7 +194,39 @@ Run this after any significant code change. Each section tests a feature end-to-
 
 ---
 
-## 8. Regression — Existing Features Still Work
+## 8. Recurring Expenses (Expenses Tab)
+
+**Access**
+- [ ] Go to Expenses tab → scroll down → "Recurring Expenses" section appears between the expenses table and Purchase Orders
+- [ ] "+ Add Recurring" button is visible in the section header
+
+**Add a recurring expense**
+- [ ] Click "+ Add Recurring" → inline form appears with 4 fields: Description, Amount, Category, Day of Month
+- [ ] Leave Description blank, click Save → error message appears
+- [ ] Fill in: Description = "Business Insurance", Amount = 150.00, Category = Insurance, Day = 15th of month
+- [ ] Click Save → form closes, new row appears in the table
+- [ ] Row shows: description, amount, category, "15th of month", Last Generated, Active badge
+
+**Auto-generation**
+- [ ] Add a recurring expense with Day = 1st (so it's always due)
+- [ ] Close and reopen the Expenses tab
+- [ ] **Auto behavior:** A new expense entry appears in the expenses table for the current month labeled "description (auto)"
+- [ ] The recurring expense row now shows today's date in "Last Generated"
+- [ ] Reopen Expenses tab again → no duplicate expense created (already generated this month)
+
+**Pause / Resume**
+- [ ] Click "Pause" on an active recurring expense → badge changes to "Paused", button changes to "Resume"
+- [ ] Reload Expenses tab → no auto-expense generated for a paused entry
+- [ ] Click "Resume" → badge returns to "Active"
+
+**Remove**
+- [ ] Click "Remove" → confirmation dialog appears
+- [ ] Confirm → row disappears from the list
+- [ ] Previously auto-generated expense entries are NOT deleted (only the schedule is removed)
+
+---
+
+## 9. Regression — Existing Features Still Work
 
 After all the above, verify nothing broke:
 
@@ -223,3 +255,5 @@ After all the above, verify nothing broke:
 | Time tracking revenue section | Revenue tab load | Shows all WOs with actual_start+actual_end, including booking-less WOs |
 | Avg Duration chart | Analytics load | Groups by service, shows `Xh Ym` on axis and tooltip |
 | WO delete | DELETE /api/admin/work-orders/:id | WO removed from all lists; linked booking unaffected |
+| Recurring expense auto-gen | GET /api/admin/recurring-expenses | If today ≥ day_of_month and not yet generated this month, expense created automatically |
+| Recurring expense no duplicate | GET /api/admin/recurring-expenses (2nd call same month) | No second expense created if last_generated is already this month |

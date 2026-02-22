@@ -410,6 +410,102 @@ async function testPurchaseOrders() {
   }
 }
 
+async function testRecurringExpenses() {
+  section('Recurring Expenses');
+
+  // Create
+  const { status: createStatus, data: created } = await api('POST', '/api/admin/recurring-expenses', {
+    description: 'Test Insurance',
+    amount: 99.99,
+    category: 'Insurance',
+    day_of_month: 15
+  });
+  assert('POST /api/admin/recurring-expenses returns 200', createStatus === 200, `status=${createStatus}`);
+  assert('Created recurring expense has id', !!(created.recurring_expense && created.recurring_expense.id),
+    `data=${JSON.stringify(created)}`);
+
+  if (!created.recurring_expense) return;
+  const recId = created.recurring_expense.id;
+
+  // Verify fields saved correctly
+  assert('description saved', created.recurring_expense.description === 'Test Insurance',
+    `got: ${created.recurring_expense.description}`);
+  assert('amount saved', parseFloat(created.recurring_expense.amount) === 99.99,
+    `got: ${created.recurring_expense.amount}`);
+  assert('day_of_month saved', created.recurring_expense.day_of_month === 15,
+    `got: ${created.recurring_expense.day_of_month}`);
+  assert('active defaults to true', created.recurring_expense.active === true,
+    `got: ${created.recurring_expense.active}`);
+
+  // List — should include new entry
+  const { status: listStatus, data: list } = await api('GET', '/api/admin/recurring-expenses');
+  assert('GET /api/admin/recurring-expenses returns 200', listStatus === 200, `status=${listStatus}`);
+  assert('List is an array', Array.isArray(list), `got: ${typeof list}`);
+  assert('List contains new entry', list.some(r => r.id === recId), 'Entry not found in list');
+
+  // PATCH — pause it
+  const { status: patchStatus } = await api('PATCH', '/api/admin/recurring-expenses/' + recId, {
+    active: false
+  });
+  assert('PATCH active=false (pause) returns 200', patchStatus === 200, `status=${patchStatus}`);
+
+  // Verify paused
+  const { data: afterPause } = await api('GET', '/api/admin/recurring-expenses');
+  const paused = afterPause.find(r => r.id === recId);
+  assert('active is false after pause', paused && paused.active === false,
+    `got: ${paused && paused.active}`);
+
+  // PATCH — update fields
+  const { status: updateStatus } = await api('PATCH', '/api/admin/recurring-expenses/' + recId, {
+    description: 'Updated Insurance',
+    amount: 120.00,
+    day_of_month: 1,
+    active: true
+  });
+  assert('PATCH update fields returns 200', updateStatus === 200, `status=${updateStatus}`);
+
+  // Verify updates persisted
+  const { data: afterUpdate } = await api('GET', '/api/admin/recurring-expenses');
+  const updated = afterUpdate.find(r => r.id === recId);
+  assert('description updated', updated && updated.description === 'Updated Insurance',
+    `got: ${updated && updated.description}`);
+  assert('amount updated', updated && parseFloat(updated.amount) === 120.00,
+    `got: ${updated && updated.amount}`);
+  assert('day_of_month updated to 1', updated && updated.day_of_month === 1,
+    `got: ${updated && updated.day_of_month}`);
+
+  // Auto-generation: the first GET call above (listStatus check) already triggered auto-generation
+  // because day_of_month=15 and today >= 15. The expense is created with the description at that time
+  // ('Test Insurance (auto)'). last_generated is then set, so subsequent GETs don't duplicate it.
+  const today = new Date();
+  const { data: expenses } = await api('GET', `/api/admin/expenses?year=${today.getFullYear()}&month=${today.getMonth() + 1}`);
+  const autoExp = (expenses.expenses || []).find(e => e.notes && e.notes.includes('Test Insurance'));
+  assert('Auto-generated expense appears in expenses list', !!autoExp,
+    'No auto-generated expense found for this month');
+
+  // last_generated should now be set
+  const { data: afterAuto } = await api('GET', '/api/admin/recurring-expenses');
+  const afterAutoRec = afterAuto.find(r => r.id === recId);
+  assert('last_generated set after auto-generation', !!(afterAutoRec && afterAutoRec.last_generated),
+    `got: ${afterAutoRec && afterAutoRec.last_generated}`);
+
+  // Clean up auto-generated expense
+  if (autoExp) await api('DELETE', '/api/admin/expenses/' + autoExp.id);
+
+  // DELETE recurring expense
+  const { status: delStatus } = await api('DELETE', '/api/admin/recurring-expenses/' + recId);
+  assert('DELETE /api/admin/recurring-expenses/:id returns 200', delStatus === 200, `status=${delStatus}`);
+
+  // Verify gone
+  const { data: afterDel } = await api('GET', '/api/admin/recurring-expenses');
+  assert('Deleted entry gone from list', !afterDel.some(r => r.id === recId),
+    'Entry still in list after delete');
+
+  // DELETE non-existent returns 404
+  const { status: missingStatus } = await api('DELETE', '/api/admin/recurring-expenses/' + recId);
+  assert('DELETE non-existent recurring expense returns 404', missingStatus === 404, `got: ${missingStatus}`);
+}
+
 async function testUnauthorized() {
   section('Auth — Unauthorized access blocked');
   const savedToken = token;
@@ -422,6 +518,7 @@ async function testUnauthorized() {
     ['GET',    '/api/admin/analytics/time-tracking'],
     ['GET',    '/api/admin/recurring'],
     ['GET',    '/api/admin/purchase-orders'],
+    ['GET',    '/api/admin/recurring-expenses'],
     ['DELETE', '/api/admin/work-orders/1'],
   ];
   for (const [method, path] of endpoints) {
@@ -449,6 +546,7 @@ async function run() {
     await testWorkOrderDelete();
     await testRecurringServices();
     await testPurchaseOrders();
+    await testRecurringExpenses();
     await testUnauthorized();
   } catch (err) {
     console.error('\n\x1b[31mUnexpected error:\x1b[0m', err.message);
