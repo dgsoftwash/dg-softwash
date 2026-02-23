@@ -3584,9 +3584,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     var html = '<h2 style="margin-bottom:16px;">Analytics</h2>';
-    html += '<div style="display:flex; align-items:center; gap:10px; margin-bottom:24px;">' +
+    html += '<div style="display:flex; align-items:center; gap:12px; margin-bottom:24px;">' +
       '<label style="font-weight:600;">Year:</label>' +
       '<select id="analytics-year-sel" style="padding:7px 12px; border:1px solid #ddd; border-radius:6px;" onchange="changeAnalyticsYear(this.value)">' + yearOpts + '</select>' +
+      '<button onclick="generateYearEndReport(' + currentAnalyticsYear + ')" style="padding:7px 16px; background:#1d4ed8; color:#fff; border:none; border-radius:6px; font-weight:600; cursor:pointer; font-size:14px;">&#128196; Year-End Tax Report</button>' +
       '</div>';
 
     // Charts grid
@@ -3817,6 +3818,114 @@ document.addEventListener('DOMContentLoaded', function() {
   window.changeAnalyticsYear = function(year) {
     currentAnalyticsYear = parseInt(year);
     loadAnalyticsTab();
+  };
+
+  window.generateYearEndReport = function(year) {
+    fetch('/api/admin/year-end-report?year=' + year, { headers: { 'x-admin-token': adminToken } })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        var fmt = function(n) { return '$' + (Math.round(n * 100) / 100).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); };
+        var fmtNum = function(n) { return (Math.round(n * 100) / 100).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); };
+        var generatedDate = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+
+        var rows_monthly = d.monthly.map(function(m) {
+          return '<tr><td>' + m.label + '</td><td style="text-align:center">' + m.job_count + '</td>' +
+            '<td style="text-align:right">' + fmt(m.gross_revenue) + '</td>' +
+            '<td style="text-align:right">' + fmt(m.expenses) + '</td>' +
+            '<td style="text-align:right;font-weight:600;color:' + (m.net >= 0 ? '#166534' : '#991b1b') + '">' + fmt(m.net) + '</td></tr>';
+        }).join('');
+
+        var rows_service = d.by_service.map(function(s) {
+          return '<tr><td>' + (s.service || 'Unknown') + '</td><td style="text-align:center">' + s.count + '</td><td style="text-align:right">' + fmt(s.revenue) + '</td></tr>';
+        }).join('');
+
+        var rows_wo = d.paid_work_orders.map(function(w) {
+          return '<tr><td>' + w.date + '</td><td>' + (w.customer_name || '') + '</td><td>' + (w.service || '') + '</td>' +
+            '<td style="text-align:right">' + w.price + '</td><td>' + (w.payment_method || '') + '</td></tr>';
+        }).join('');
+
+        var rows_cat = d.expenses_by_category.map(function(c) {
+          return '<tr><td>' + c.category + '</td><td style="text-align:center">' + c.count + '</td><td style="text-align:right">' + fmt(c.total) + '</td></tr>';
+        }).join('');
+
+        var rows_exp = d.expenses_detail.map(function(e) {
+          return '<tr><td>' + e.date + '</td><td>' + e.category + '</td><td style="text-align:right">$' + e.amount + '</td><td>' + (e.notes || '') + '</td></tr>';
+        }).join('');
+
+        var html = '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+          '<title>D&amp;G Soft Wash — ' + year + ' Tax Report</title>' +
+          '<style>' +
+            'body { font-family: Arial, sans-serif; font-size: 13px; color: #111; margin: 40px; }' +
+            'h1 { font-size: 22px; margin-bottom: 4px; }' +
+            'h2 { font-size: 16px; margin: 28px 0 8px; border-bottom: 2px solid #1d4ed8; padding-bottom: 4px; color: #1d4ed8; }' +
+            'h3 { font-size: 14px; margin: 0 0 4px; }' +
+            '.summary { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }' +
+            '.summary-box { border: 1px solid #d1d5db; border-radius: 8px; padding: 14px 20px; min-width: 160px; }' +
+            '.summary-box.highlight { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }' +
+            '.summary-box .label { font-size: 11px; font-weight: 600; text-transform: uppercase; opacity: 0.7; }' +
+            '.summary-box .value { font-size: 22px; font-weight: 700; margin-top: 4px; }' +
+            'table { border-collapse: collapse; width: 100%; margin-bottom: 8px; }' +
+            'th { background: #f3f4f6; text-align: left; padding: 7px 10px; font-size: 12px; border: 1px solid #e5e7eb; }' +
+            'td { padding: 6px 10px; border: 1px solid #e5e7eb; vertical-align: top; }' +
+            'tr:nth-child(even) { background: #f9fafb; }' +
+            '.footer { margin-top: 40px; font-size: 11px; color: #6b7280; border-top: 1px solid #e5e7eb; padding-top: 12px; }' +
+            '.print-btn { display: inline-block; margin: 20px 0; padding: 10px 24px; background: #1d4ed8; color: #fff; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; }' +
+            '@media print { .no-print { display: none !important; } body { margin: 20px; } }' +
+          '</style></head><body>' +
+          '<div class="no-print"><button class="print-btn" onclick="window.print()">&#128438; Print / Save as PDF</button></div>' +
+          '<h1>D&amp;G Soft Wash — Annual Tax Summary</h1>' +
+          '<p style="margin:2px 0;color:#6b7280;">Tax Year: <strong>' + year + '</strong> &nbsp;&nbsp; Generated: ' + generatedDate + ' &nbsp;&nbsp; <em>Prepared for CPA/Accountant</em></p>' +
+
+          '<h2>Annual Summary</h2>' +
+          '<div class="summary">' +
+            '<div class="summary-box"><div class="label">Gross Revenue</div><div class="value">' + fmt(d.gross_revenue) + '</div></div>' +
+            '<div class="summary-box"><div class="label">Total Expenses</div><div class="value">' + fmt(d.total_expenses) + '</div></div>' +
+            '<div class="summary-box"><div class="label">Mileage Deduction</div><div class="value">' + fmt(d.mileage_deduction) + '</div></div>' +
+            '<div class="summary-box highlight"><div class="label">Net Income</div><div class="value">' + fmt(d.net_income) + '</div></div>' +
+          '</div>' +
+
+          '<h2>Monthly Profit &amp; Loss</h2>' +
+          '<table><thead><tr><th>Month</th><th style="text-align:center">Jobs</th><th style="text-align:right">Revenue</th><th style="text-align:right">Expenses</th><th style="text-align:right">Net</th></tr></thead>' +
+          '<tbody>' + rows_monthly + '</tbody>' +
+          '<tfoot><tr style="font-weight:600;background:#e0e7ff"><td>TOTAL</td>' +
+            '<td style="text-align:center">' + d.paid_work_orders.length + '</td>' +
+            '<td style="text-align:right">' + fmt(d.gross_revenue) + '</td>' +
+            '<td style="text-align:right">' + fmt(d.total_expenses) + '</td>' +
+            '<td style="text-align:right">' + fmt(d.gross_revenue - d.total_expenses) + '</td>' +
+          '</tr></tfoot></table>' +
+
+          '<h2>Revenue by Service</h2>' +
+          '<table><thead><tr><th>Service</th><th style="text-align:center">Jobs</th><th style="text-align:right">Revenue</th></tr></thead>' +
+          '<tbody>' + rows_service + '</tbody></table>' +
+
+          '<h2>Itemized Income (Paid Work Orders)</h2>' +
+          '<table><thead><tr><th>Date</th><th>Customer</th><th>Service</th><th style="text-align:right">Amount</th><th>Payment Method</th></tr></thead>' +
+          '<tbody>' + rows_wo + '</tbody></table>' +
+
+          '<h2>Expense Summary by Category</h2>' +
+          '<table><thead><tr><th>Category</th><th style="text-align:center"># Entries</th><th style="text-align:right">Total</th></tr></thead>' +
+          '<tbody>' + rows_cat + '</tbody>' +
+          '<tfoot><tr style="font-weight:600;background:#e0e7ff"><td>TOTAL</td><td></td><td style="text-align:right">' + fmt(d.total_expenses) + '</td></tr></tfoot></table>' +
+
+          '<h2>Itemized Expenses</h2>' +
+          '<table><thead><tr><th>Date</th><th>Category</th><th style="text-align:right">Amount</th><th>Notes</th></tr></thead>' +
+          '<tbody>' + rows_exp + '</tbody></table>' +
+
+          '<h2>Mileage Summary</h2>' +
+          '<table><thead><tr><th>Total Miles</th><th>IRS Rate (per mile)</th><th style="text-align:right">Deduction Amount</th></tr></thead>' +
+          '<tbody><tr><td>' + fmtNum(d.total_miles) + ' miles</td><td>$' + (d.irs_mileage_rate || 0.70).toFixed(2) + '</td><td style="text-align:right">' + fmt(d.mileage_deduction) + '</td></tr></tbody></table>' +
+
+          '<div class="footer">This report was generated by the D&amp;G Soft Wash admin system on ' + generatedDate + '. Please verify all figures with source records before filing.</div>' +
+          '<div class="no-print" style="margin-top:16px;"><button class="print-btn" onclick="window.print()">&#128438; Print / Save as PDF</button></div>' +
+          '</body></html>';
+
+        var w = window.open('', '_blank');
+        w.document.write(html);
+        w.document.close();
+      })
+      .catch(function(err) {
+        alert('Failed to generate year-end report: ' + err.message);
+      });
   };
 
   // Check if already logged in

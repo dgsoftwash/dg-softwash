@@ -226,7 +226,60 @@ Run this after any significant code change. Each section tests a feature end-to-
 
 ---
 
-## 9. Regression — Existing Features Still Work
+## 9. Year-End Tax Report (Analytics Tab)
+
+**Access**
+- [ ] Go to Analytics tab
+- [ ] "📄 Year-End Tax Report" button appears to the right of the year selector
+- [ ] Button is blue and clearly visible
+
+**Report generation**
+- [ ] Click the button → a new browser tab opens immediately
+- [ ] Report title shows "D&G Soft Wash — Annual Tax Summary" with the correct year
+- [ ] "Prepared for CPA/Accountant" note is visible
+- [ ] "Print / Save as PDF" button appears at top and bottom of the page
+
+**Annual Summary section**
+- [ ] Four boxes: Gross Revenue, Total Expenses, Mileage Deduction, Net Income
+- [ ] Net Income box is highlighted in blue
+- [ ] All dollar amounts are formatted with commas and 2 decimal places
+
+**Monthly P&L table**
+- [ ] All 12 months appear as rows (January through December)
+- [ ] Totals row at the bottom matches the Annual Summary figures
+- [ ] Net column values are green for positive, red for negative
+
+**Revenue by Service table**
+- [ ] Shows each service type with job count and revenue
+- [ ] If no paid jobs: table is empty (no crash)
+
+**Itemized Income section**
+- [ ] Each paid work order shows: Date, Customer, Service, Amount, Payment Method
+- [ ] Amounts start with "$"
+
+**Expense Summary by Category**
+- [ ] Groups expenses by category with count and total
+- [ ] Category totals footer row matches Total Expenses in Annual Summary
+
+**Itemized Expenses section**
+- [ ] Each expense shows: Date, Category, Amount, Notes
+- [ ] If no expenses: table is empty (no crash)
+
+**Mileage Summary**
+- [ ] Shows total miles, IRS rate ($0.70/mile), and deduction amount
+- [ ] Deduction = miles × rate (verify math manually)
+
+**Print behavior**
+- [ ] Browser File → Print → print preview shows clean layout
+- [ ] "Print / Save as PDF" buttons are NOT visible in print preview (hidden by @media print)
+- [ ] No page overflow or cut-off columns in print preview
+
+**Year selector integration**
+- [ ] Change year in dropdown to a different year, then click the button → report shows the correct year in the title
+
+---
+
+## 10. Regression — Existing Features Still Work
 
 After all the above, verify nothing broke:
 

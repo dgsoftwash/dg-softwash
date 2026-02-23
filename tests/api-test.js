@@ -506,6 +506,75 @@ async function testRecurringExpenses() {
   assert('DELETE non-existent recurring expense returns 404', missingStatus === 404, `got: ${missingStatus}`);
 }
 
+async function testYearEndReport() {
+  section('Year-End Tax Report');
+
+  const year = new Date().getFullYear();
+  const { status, data } = await api('GET', '/api/admin/year-end-report?year=' + year);
+  assert('GET /api/admin/year-end-report returns 200', status === 200, `status=${status}`);
+
+  // Top-level numeric fields
+  assert('Response has year', data.year === year, `got: ${data.year}`);
+  assert('gross_revenue is a number', typeof data.gross_revenue === 'number', `got: ${typeof data.gross_revenue}`);
+  assert('total_expenses is a number', typeof data.total_expenses === 'number', `got: ${typeof data.total_expenses}`);
+  assert('total_miles is a number', typeof data.total_miles === 'number', `got: ${typeof data.total_miles}`);
+  assert('mileage_deduction is a number', typeof data.mileage_deduction === 'number', `got: ${typeof data.mileage_deduction}`);
+  assert('net_income is a number', typeof data.net_income === 'number', `got: ${typeof data.net_income}`);
+  assert('irs_mileage_rate present', typeof data.irs_mileage_rate === 'number', `got: ${typeof data.irs_mileage_rate}`);
+
+  // Arrays
+  assert('monthly is array of 12', Array.isArray(data.monthly) && data.monthly.length === 12,
+    `monthly length=${data.monthly && data.monthly.length}`);
+  assert('by_service is array', Array.isArray(data.by_service), `got: ${typeof data.by_service}`);
+  assert('paid_work_orders is array', Array.isArray(data.paid_work_orders), `got: ${typeof data.paid_work_orders}`);
+  assert('expenses_by_category is array', Array.isArray(data.expenses_by_category), `got: ${typeof data.expenses_by_category}`);
+  assert('expenses_detail is array', Array.isArray(data.expenses_detail), `got: ${typeof data.expenses_detail}`);
+
+  // Monthly shape
+  const jan = data.monthly[0];
+  assert('monthly[0] has month=1', jan && jan.month === 1, `got: ${jan && jan.month}`);
+  assert('monthly[0] has label', jan && typeof jan.label === 'string', `got: ${jan && jan.label}`);
+  assert('monthly[0] has job_count', jan && typeof jan.job_count === 'number', `got: ${jan && jan.job_count}`);
+  assert('monthly[0] has gross_revenue', jan && typeof jan.gross_revenue === 'number', `got: ${jan && jan.gross_revenue}`);
+  assert('monthly[0] has expenses', jan && typeof jan.expenses === 'number', `got: ${jan && jan.expenses}`);
+  assert('monthly[0] has net', jan && typeof jan.net === 'number', `got: ${jan && jan.net}`);
+
+  // Math integrity: gross_revenue == sum of monthly gross
+  const monthlyGrossSum = Math.round(data.monthly.reduce((s, m) => s + m.gross_revenue, 0) * 100) / 100;
+  assert('gross_revenue equals sum of monthly gross_revenue', monthlyGrossSum === data.gross_revenue,
+    `sum=${monthlyGrossSum} vs total=${data.gross_revenue}`);
+
+  const monthlyExpSum = Math.round(data.monthly.reduce((s, m) => s + m.expenses, 0) * 100) / 100;
+  assert('total_expenses equals sum of monthly expenses', monthlyExpSum === data.total_expenses,
+    `sum=${monthlyExpSum} vs total=${data.total_expenses}`);
+
+  // Paid WO shape (if any exist)
+  if (data.paid_work_orders.length > 0) {
+    const w = data.paid_work_orders[0];
+    assert('paid_work_order has date', typeof w.date === 'string', `got: ${w.date}`);
+    assert('paid_work_order has customer_name', typeof w.customer_name === 'string', `got: ${w.customer_name}`);
+    assert('paid_work_order has price starting with $', w.price && w.price.startsWith('$'),
+      `got: ${w.price}`);
+  } else {
+    pass('paid_work_orders is empty (no paid WOs this year) — shape OK');
+  }
+
+  // Expense detail shape (if any exist)
+  if (data.expenses_detail.length > 0) {
+    const e = data.expenses_detail[0];
+    assert('expense_detail has date', typeof e.date === 'string', `got: ${e.date}`);
+    assert('expense_detail has category', typeof e.category === 'string', `got: ${e.category}`);
+    assert('expense_detail has amount', typeof e.amount === 'string', `got: ${e.amount}`);
+  } else {
+    pass('expenses_detail is empty (no expenses this year) — shape OK');
+  }
+
+  // Mileage deduction math
+  const expectedDeduction = Math.round(data.total_miles * data.irs_mileage_rate * 100) / 100;
+  assert('mileage_deduction = total_miles × irs_mileage_rate', data.mileage_deduction === expectedDeduction,
+    `expected=${expectedDeduction} got=${data.mileage_deduction}`);
+}
+
 async function testUnauthorized() {
   section('Auth — Unauthorized access blocked');
   const savedToken = token;
@@ -519,6 +588,7 @@ async function testUnauthorized() {
     ['GET',    '/api/admin/recurring'],
     ['GET',    '/api/admin/purchase-orders'],
     ['GET',    '/api/admin/recurring-expenses'],
+    ['GET',    '/api/admin/year-end-report'],
     ['DELETE', '/api/admin/work-orders/1'],
   ];
   for (const [method, path] of endpoints) {
@@ -547,6 +617,7 @@ async function run() {
     await testRecurringServices();
     await testPurchaseOrders();
     await testRecurringExpenses();
+    await testYearEndReport();
     await testUnauthorized();
   } catch (err) {
     console.error('\n\x1b[31mUnexpected error:\x1b[0m', err.message);

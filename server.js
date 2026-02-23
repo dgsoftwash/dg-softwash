@@ -1668,6 +1668,106 @@ app.get('/api/admin/revenue-report', requireAdmin, async (req, res) => {
   }
 });
 
+app.get('/api/admin/year-end-report', requireAdmin, async (req, res) => {
+  try {
+    const year = parseInt(req.query.year) || new Date().getFullYear();
+    const IRS_MILEAGE_RATE = 0.70; // IRS standard rate — update each year
+
+    const { rows: paidWos } = await pool.query(`
+      SELECT wo.id, wo.mileage,
+        COALESCE(b.price, wo.price) as price,
+        COALESCE(b.service, wo.service) as service,
+        COALESCE(b.name, c.name) as customer_name,
+        wo.payment_method,
+        COALESCE(b.date::text, TO_CHAR(wo.created_at, 'YYYY-MM-DD')) as date
+      FROM work_orders wo
+      LEFT JOIN bookings b ON wo.booking_id = b.id
+      LEFT JOIN customers c ON wo.customer_id = c.id
+      WHERE wo.status_paid = true
+        AND EXTRACT(YEAR FROM COALESCE(b.date::date, wo.created_at::date)) = $1
+      ORDER BY COALESCE(b.date::date, wo.created_at::date)
+    `, [year]);
+
+    const { rows: expenseRows } = await pool.query(
+      'SELECT * FROM expenses WHERE EXTRACT(YEAR FROM date) = $1 ORDER BY date',
+      [year]
+    );
+
+    // Totals
+    const grossRevenue = paidWos.reduce((s, w) => s + parsePrice(w.price), 0);
+    const totalExpenses = expenseRows.reduce((s, e) => s + parseFloat(e.amount), 0);
+    const totalMiles = paidWos.reduce((s, w) => s + (parseFloat(w.mileage) || 0), 0);
+    const mileageDeduction = Math.round(totalMiles * IRS_MILEAGE_RATE * 100) / 100;
+    const netIncome = Math.round((grossRevenue - totalExpenses - mileageDeduction) * 100) / 100;
+
+    // Monthly breakdown
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const monthly = monthNames.map((label, i) => {
+      const m = i + 1;
+      const wos = paidWos.filter(w => parseInt(w.date.split('-')[1]) === m);
+      const exps = expenseRows.filter(e => new Date(e.date + 'T12:00:00').getMonth() + 1 === m);
+      const gross = wos.reduce((s, w) => s + parsePrice(w.price), 0);
+      const expenses = exps.reduce((s, e) => s + parseFloat(e.amount), 0);
+      return { month: m, label, job_count: wos.length, gross_revenue: gross, expenses, net: gross - expenses };
+    });
+
+    // Revenue by service
+    const byService = {};
+    paidWos.forEach(w => {
+      const key = (w.service || 'Unknown').split(' + ')[0].trim();
+      if (!byService[key]) byService[key] = { service: key, count: 0, revenue: 0 };
+      byService[key].count++;
+      byService[key].revenue += parsePrice(w.price);
+    });
+    const byServiceArr = Object.values(byService).sort((a, b) => b.revenue - a.revenue);
+
+    // Expenses by category
+    const byCategory = {};
+    expenseRows.forEach(e => {
+      const cat = e.category || 'Uncategorized';
+      if (!byCategory[cat]) byCategory[cat] = { category: cat, count: 0, total: 0 };
+      byCategory[cat].count++;
+      byCategory[cat].total += parseFloat(e.amount);
+    });
+    const expensesByCategory = Object.values(byCategory).sort((a, b) => b.total - a.total);
+
+    // Paid work orders detail
+    const paidWoDetail = paidWos.map(w => ({
+      date: w.date,
+      customer_name: w.customer_name || 'Unknown',
+      service: w.service || 'Unknown',
+      price: '$' + parsePrice(w.price).toFixed(2),
+      payment_method: w.payment_method || 'Unspecified'
+    }));
+
+    // Expenses detail
+    const expensesDetail = expenseRows.map(e => ({
+      date: e.date ? e.date.toISOString().split('T')[0] : '',
+      category: e.category || 'Uncategorized',
+      amount: parseFloat(e.amount).toFixed(2),
+      notes: e.notes || ''
+    }));
+
+    res.json({
+      year,
+      gross_revenue: Math.round(grossRevenue * 100) / 100,
+      total_expenses: Math.round(totalExpenses * 100) / 100,
+      total_miles: totalMiles,
+      mileage_deduction: mileageDeduction,
+      irs_mileage_rate: IRS_MILEAGE_RATE,
+      net_income: netIncome,
+      monthly,
+      by_service: byServiceArr,
+      paid_work_orders: paidWoDetail,
+      expenses_by_category: expensesByCategory,
+      expenses_detail: expensesDetail
+    });
+  } catch (e) {
+    console.error('Year-end report error:', e.message);
+    res.status(500).json({ error: 'Failed to generate year-end report' });
+  }
+});
+
 app.get('/api/admin/payments', requireAdmin, async (req, res) => {
   try {
     const year  = parseInt(req.query.year)  || new Date().getFullYear();
