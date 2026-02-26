@@ -112,6 +112,9 @@ async function initDb() {
   // Migration: referral source on customers
   await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS referral_source TEXT NOT NULL DEFAULT ''`);
 
+  // Migration: email list opt-in flag on customers
+  await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS email_list BOOLEAN NOT NULL DEFAULT false`);
+
   // Recurring services table
   await pool.query(`
     CREATE TABLE IF NOT EXISTS recurring_services (
@@ -297,7 +300,8 @@ async function initDb() {
     { key: 'cash', label: 'Cash Payment', percent: 10, auto_apply: false, min_services: 0 },
     { key: 'return-customer', label: 'Return Customer', percent: 10, auto_apply: false, min_services: 0 },
     { key: 'multi-2', label: '2+ Services Discount', percent: 10, auto_apply: true, min_services: 2 },
-    { key: 'multi-3', label: '3+ Services Discount', percent: 15, auto_apply: true, min_services: 3 }
+    { key: 'multi-3', label: '3+ Services Discount', percent: 15, auto_apply: true, min_services: 3 },
+    { key: 'email-list', label: 'Email List (1st Service)', percent: 10, auto_apply: false, min_services: 0 }
   ];
   for (const disc of seedDiscounts) {
     await pool.query(
@@ -411,10 +415,12 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'dgsoftwash2025';
 
 // --- Email setup ---
 const transporter = nodemailer.createTransport({
-  service: 'yahoo',
+  host: 'smtp.office365.com',
+  port: 587,
+  secure: false,
   auth: {
-    user: 'dgsoftwash@yahoo.com',
-    pass: 'ygyizljftmjzhqck'
+    user: 'service@dgsoftwash.com',
+    pass: 'Dmbblwbgjfb1222!@'
   }
 });
 
@@ -460,10 +466,10 @@ function generateInvoiceEmail(wo, woId, dateLabel, deadlineLabel) {
     '<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:12px 18px;margin-bottom:20px;text-align:center;">' +
     '<span style="color:#dc2626;font-weight:700;font-size:1em;">PAYMENT STATUS: NOT PAID</span></div>' +
     '<p style="color:#555;">Payment is due within 5 business days. We accept cash, check, and major credit cards.</p>' +
-    '<p style="color:#555;">If you have any questions, please call or text us at <strong>(757) 525-9508</strong> or email <strong>dgsoftwash@yahoo.com</strong>.</p>' +
+    '<p style="color:#555;">If you have any questions, please call or text us at <strong>(757) 525-9508</strong> or email <strong>service@dgsoftwash.com</strong>.</p>' +
     '</div>' +
     '<div style="background:#f8f9fa;padding:16px 30px;text-align:center;color:#888;font-size:0.85em;border-top:1px solid #e5e7eb;">' +
-    'D&amp;G Soft Wash &mdash; (757) 525-9508 &mdash; dgsoftwash@yahoo.com</div>' +
+    'D&amp;G Soft Wash &mdash; (757) 525-9508 &mdash; service@dgsoftwash.com</div>' +
     '</div></body></html>';
 }
 
@@ -492,7 +498,7 @@ function generatePaidEmail(wo, woId, dateLabel) {
     '<p style="color:#555;">If you have any questions, please call or text us at <strong>(757) 525-9508</strong>.</p>' +
     '</div>' +
     '<div style="background:#f8f9fa;padding:16px 30px;text-align:center;color:#888;font-size:0.85em;border-top:1px solid #e5e7eb;">' +
-    'D&amp;G Soft Wash &mdash; (757) 525-9508 &mdash; dgsoftwash@yahoo.com</div>' +
+    'D&amp;G Soft Wash &mdash; (757) 525-9508 &mdash; service@dgsoftwash.com</div>' +
     '</div></body></html>';
 }
 
@@ -522,7 +528,7 @@ function generateQuoteEmail(name, service, price, notes) {
     '<p style="color:#555;font-size:0.9em;">This estimate is valid for 30 days. Final price may vary based on actual job conditions.</p>' +
     '</div>' +
     '<div style="background:#f8f9fa;padding:16px 30px;text-align:center;color:#888;font-size:0.85em;border-top:1px solid #e5e7eb;">' +
-    'D&amp;G Soft Wash &mdash; (757) 525-9508 &mdash; dgsoftwash@yahoo.com</div>' +
+    'D&amp;G Soft Wash &mdash; (757) 525-9508 &mdash; service@dgsoftwash.com</div>' +
     '</div></body></html>';
 }
 
@@ -544,7 +550,7 @@ function generateReviewEmail(customerName, reviewUrl) {
     '<p style="color:#555;">Thank you for supporting a local, veteran-owned business!</p>' +
     '</div>' +
     '<div style="background:#f8f9fa;padding:16px 30px;text-align:center;color:#888;font-size:0.85em;border-top:1px solid #e5e7eb;">' +
-    'D&amp;G Soft Wash &mdash; (757) 525-9508 &mdash; dgsoftwash@yahoo.com</div>' +
+    'D&amp;G Soft Wash &mdash; (757) 525-9508 &mdash; service@dgsoftwash.com</div>' +
     '</div></body></html>';
 }
 
@@ -904,15 +910,15 @@ app.post('/api/contact', async (req, res) => {
 
       // Notify D&G
       await transporter.sendMail({
-        from: 'dgsoftwash@yahoo.com',
-        to: 'dgsoftwash@yahoo.com',
+        from: 'service@dgsoftwash.com',
+        to: 'service@dgsoftwash.com',
         subject: `New ${isMultiDay ? '2-Day ' : ''}Appointment Booked - ${name}`,
         text: `A new appointment has been booked!\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nAddress: ${address}\nService: ${serviceLabel}\n${scheduleText}\n\nMessage:\n${message || 'None'}`
       });
       // Confirm to customer
       if (email) {
         await transporter.sendMail({
-          from: 'dgsoftwash@yahoo.com',
+          from: 'service@dgsoftwash.com',
           to: email,
           subject: `Your D&G Soft Wash Appointment is Confirmed!`,
           text: `Hi ${name},\n\nThank you for booking with D&G Soft Wash! Here are your appointment details:\n\nService: ${serviceLabel}\n${scheduleText}\nAddress: ${address}\n${isMultiDay ? '\nYour service package requires two consecutive days. We will arrive at 9:00 AM on Day 1 and ' + formatSlot(day2StartTime) + ' on Day 2.\n' : ''}\nIf you need to make any changes or have questions, please call or text us at (757) 525-9508.\n\nWe look forward to serving you!\n\nD&G Soft Wash\nVeteran Owned & Operated`
@@ -921,8 +927,8 @@ app.post('/api/contact', async (req, res) => {
     } else {
       // Plain contact message — notify D&G only
       await transporter.sendMail({
-        from: 'dgsoftwash@yahoo.com',
-        to: 'dgsoftwash@yahoo.com',
+        from: 'service@dgsoftwash.com',
+        to: 'service@dgsoftwash.com',
         subject: `New Contact Message - ${name}`,
         text: `New contact form submission:\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nAddress: ${address || 'N/A'}\nService: ${serviceLabel || 'N/A'}\n\nMessage:\n${message || 'None'}`
       });
@@ -1091,6 +1097,26 @@ app.post('/api/admin/bookings', requireAdmin, async (req, res) => {
   }
 });
 
+// POST /api/email-signup — public endpoint: opt in to email list (creates/updates customer)
+app.post('/api/email-signup', async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email is required' });
+    const { rows } = await pool.query('SELECT id FROM customers WHERE email = $1', [email]);
+    if (rows.length > 0) {
+      await pool.query('UPDATE customers SET email_list = true WHERE id = $1', [rows[0].id]);
+    } else {
+      await pool.query(
+        'INSERT INTO customers (name, email, email_list) VALUES ($1,$2,true)',
+        [name || '', email]
+      );
+    }
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Signup failed' });
+  }
+});
+
 // GET /api/admin/customers — list all customers with booking count + last service date
 app.get('/api/admin/customers', requireAdmin, async (req, res) => {
   try {
@@ -1124,16 +1150,17 @@ app.get('/api/admin/customers/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// PATCH /api/admin/customers/:id — update customer notes and/or referral_source
+// PATCH /api/admin/customers/:id — update customer notes, referral_source, and/or email_list
 app.patch('/api/admin/customers/:id', requireAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const { notes, referral_source } = req.body;
+    const { notes, referral_source, email_list } = req.body;
     const updates = [];
     const values = [];
     let idx = 1;
     if (notes !== undefined) { updates.push(`notes = $${idx++}`); values.push(notes || ''); }
     if (referral_source !== undefined) { updates.push(`referral_source = $${idx++}`); values.push(referral_source || ''); }
+    if (email_list !== undefined) { updates.push(`email_list = $${idx++}`); values.push(!!email_list); }
     if (updates.length === 0) return res.json({ success: true });
     values.push(id);
     await pool.query(`UPDATE customers SET ${updates.join(', ')} WHERE id = $${idx}`, values);
@@ -1244,7 +1271,7 @@ app.patch('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
           const deadlineLabel = deadline.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
           try {
             await transporter.sendMail({
-              from: 'dgsoftwash@yahoo.com',
+              from: 'service@dgsoftwash.com',
               to: recipientEmail,
               subject: `D&G Soft Wash - Invoice #${id}`,
               html: generateInvoiceEmail(wo, id, dateLabel, deadlineLabel)
@@ -1256,7 +1283,7 @@ app.patch('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
         } else if (paidChanged && recipientEmail) {
           try {
             await transporter.sendMail({
-              from: 'dgsoftwash@yahoo.com',
+              from: 'service@dgsoftwash.com',
               to: recipientEmail,
               subject: `D&G Soft Wash - Payment Receipt #${id}`,
               html: generatePaidEmail(wo, id, dateLabel)
@@ -1285,7 +1312,7 @@ app.post('/api/admin/email', requireAdmin, async (req, res) => {
     for (const recipient of to) {
       if (!recipient.email) continue;
       await transporter.sendMail({
-        from: 'dgsoftwash@yahoo.com',
+        from: 'service@dgsoftwash.com',
         to: recipient.email,
         subject: subject,
         text: message
@@ -1463,7 +1490,7 @@ app.post('/api/admin/quotes', requireAdmin, async (req, res) => {
   if (!email) return res.status(400).json({ error: 'Customer email is required to send a quote' });
   try {
     await transporter.sendMail({
-      from: 'dgsoftwash@yahoo.com',
+      from: 'service@dgsoftwash.com',
       to: email,
       subject: `D&G Soft Wash - Estimate for ${service || 'Services'}`,
       html: generateQuoteEmail(name, service, price, notes)
@@ -1831,7 +1858,7 @@ app.post('/api/admin/work-orders/:id/review-request', requireAdmin, async (req, 
     const customerName = wo.booking_name || wo.customer_name || 'Valued Customer';
     const reviewUrl = process.env.GOOGLE_REVIEW_URL || 'https://search.google.com/local/writereview';
     await transporter.sendMail({
-      from: 'dgsoftwash@yahoo.com',
+      from: 'service@dgsoftwash.com',
       to: recipientEmail,
       subject: 'How did we do? — D&G Soft Wash',
       html: generateReviewEmail(customerName, reviewUrl)

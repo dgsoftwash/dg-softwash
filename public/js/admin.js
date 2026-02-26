@@ -993,7 +993,7 @@ document.addEventListener('DOMContentLoaded', function() {
       (wo.admin_notes ? '<div class="section"><strong>D&amp;G Comments:</strong><br><span style="white-space:pre-line;">' + escapeHtml(wo.admin_notes) + '</span></div>' : '') +
       (wo.completion_notes ? '<div class="section"><strong>Completion Notes:</strong><br><span style="white-space:pre-line;">' + escapeHtml(wo.completion_notes) + '</span></div>' : '') +
       (wo.mileage ? '<div class="section"><strong>Mileage:</strong> ' + wo.mileage + ' mi</div>' : '') +
-      '<div style="text-align:center; margin-top:40px; color:#aaa; font-size:0.85em;">D&amp;G Soft Wash &mdash; (757) 525-9508 &mdash; dgsoftwash@yahoo.com</div>' +
+      '<div style="text-align:center; margin-top:40px; color:#aaa; font-size:0.85em;">D&amp;G Soft Wash &mdash; (757) 525-9508 &mdash; service@dgsoftwash.com</div>' +
       '<div style="text-align:center; margin-top:16px;"><button onclick="window.print()" style="padding:10px 30px; font-size:1em; cursor:pointer;">Print</button></div>' +
       '</body></html>');
     printWindow.document.close();
@@ -1174,6 +1174,7 @@ document.addEventListener('DOMContentLoaded', function() {
         '<td><input type="checkbox" class="customer-checkbox" data-id="' + c.id + '" data-name="' + escapeHtml(c.name) + '" data-email="' + escapeHtml(c.email) + '" onchange="updateCustomerSelectedCount()"></td>' +
         '<td><a href="#" onclick="openCustomerDetail(' + c.id + '); return false;" style="color:#1a1a2e; font-weight:600;">' + escapeHtml(c.name || '—') + '</a>' +
         (isDue ? '<span style="background:#fed7aa; color:#9a3412; padding:2px 8px; border-radius:10px; font-size:0.75em; margin-left:8px; white-space:nowrap;">Due for Re-service</span>' : '') +
+        (c.email_list ? '<span style="background:#bbf7d0; color:#166534; padding:2px 8px; border-radius:10px; font-size:0.75em; margin-left:8px; white-space:nowrap;">📧 Email List</span>' : '') +
         '</td>' +
         '<td>' + escapeHtml(c.email || '—') + '</td>' +
         '<td>' + escapeHtml(c.phone || '—') + '</td>' +
@@ -3223,6 +3224,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var manualPct = 0;
     if (document.getElementById('qt-disc-cash').checked) manualPct += 10;
     if (document.getElementById('qt-disc-return').checked) manualPct += 10;
+    if (document.getElementById('qt-disc-email').checked) manualPct += 10;
     var savings = Math.round(subtotal * manualPct / 100);
     var total = subtotal - savings;
     var notesLines = lines.slice();
@@ -3254,6 +3256,7 @@ document.addEventListener('DOMContentLoaded', function() {
       var manualPct = 0;
       if (document.getElementById('qt-disc-cash').checked) manualPct += 10;
       if (document.getElementById('qt-disc-return').checked) manualPct += 10;
+      if (document.getElementById('qt-disc-email').checked) manualPct += 10;
       var savings = Math.round(subtotal * manualPct / 100);
       var total = subtotal - savings;
       var notesLines = lines.slice();
@@ -3467,6 +3470,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var manualPct = 0;
     if (document.getElementById('gwo-disc-cash').checked) manualPct += 10;
     if (document.getElementById('gwo-disc-return').checked) manualPct += 10;
+    if (document.getElementById('gwo-disc-email').checked) manualPct += 10;
     var savings = Math.round(subtotal * manualPct / 100);
     var total = subtotal - savings;
 
@@ -3509,6 +3513,7 @@ document.addEventListener('DOMContentLoaded', function() {
       var manualPct = 0;
       if (document.getElementById('gwo-disc-cash').checked) manualPct += 10;
       if (document.getElementById('gwo-disc-return').checked) manualPct += 10;
+      if (document.getElementById('gwo-disc-email').checked) manualPct += 10;
       var savings = Math.round(subtotal * manualPct / 100);
       var total = subtotal - savings;
 

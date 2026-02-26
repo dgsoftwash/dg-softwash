@@ -110,6 +110,16 @@ else
   fail "GET /api/gallery → unexpected response"
 fi
 
+# Email signup public endpoint
+EMAIL_SIGNUP=$(curl -sf -X POST "$BASE/api/email-signup" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Test Basic","email":"test-basic-emailpopup@example.com"}' 2>/dev/null)
+if echo "$EMAIL_SIGNUP" | grep -q '"success":true'; then
+  ok "POST /api/email-signup → success:true"
+else
+  fail "POST /api/email-signup → unexpected response: $EMAIL_SIGNUP"
+fi
+
 # ---------------------------------------------------------------------------
 # 3. Admin API — read-only checks
 # ---------------------------------------------------------------------------

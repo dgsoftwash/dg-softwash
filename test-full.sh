@@ -5,7 +5,7 @@
 # gallery, emails, revenue, settings, pricing, dashboard, payments, quotes.
 #
 # IMPORTANT: This test WRITES real data to the database and SENDS real emails
-#            to dgsoftwash@yahoo.com (your own inbox) to verify delivery.
+#            to service@dgsoftwash.com (your own inbox) to verify delivery.
 #            ALL data created by this test is AUTOMATICALLY DELETED at the end.
 #
 # Run with: bash test-full.sh
@@ -66,7 +66,7 @@ AUTH_H="-H x-admin-token:$TOKEN -H Content-Type:application/json"
 # ---------------------------------------------------------------------------
 head "1. CUSTOMER MANAGEMENT"
 CUST_RESP=$(curl -sf -X POST "$BASE/api/admin/customers" $AUTH_H \
-  -d '{"name":"TEST Customer Full","email":"dgsoftwash@yahoo.com","phone":"7575551234","address":"123 Test Lane Virginia Beach VA"}' 2>/dev/null)
+  -d '{"name":"TEST Customer Full","email":"service@dgsoftwash.com","phone":"7575551234","address":"123 Test Lane Virginia Beach VA"}' 2>/dev/null)
 CUST_ID=$(echo "$CUST_RESP" | node -e "
   const d=require('fs').readFileSync('/dev/stdin','utf8');
   try { const p=JSON.parse(d); console.log(p.customer_id||p.id||''); } catch(e) { console.log(''); }
@@ -105,6 +105,64 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# STEP 1b — EMAIL LIST SIGNUP
+# ---------------------------------------------------------------------------
+head "1b. EMAIL LIST SIGNUP"
+
+EMAIL_SIGNUP_RESP=$(curl -sf -X POST "$BASE/api/email-signup" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"TEST Email Signup","email":"test-emailsignup-full@example.com"}' 2>/dev/null)
+if echo "$EMAIL_SIGNUP_RESP" | grep -q '"success":true'; then
+  ok "POST /api/email-signup → success:true"
+else
+  fail "POST /api/email-signup → unexpected: $EMAIL_SIGNUP_RESP"
+fi
+
+# Verify customer was created and email_list = true
+EMAIL_CUST_LIST=$(curl -sf "$BASE/api/admin/customers" $AUTH_H 2>/dev/null)
+EMAIL_CUST_ID=$(echo "$EMAIL_CUST_LIST" | node -e "
+  const d=require('fs').readFileSync('/dev/stdin','utf8');
+  try {
+    const p=JSON.parse(d);
+    const c=(p.customers||[]).find(function(x){return x.email==='test-emailsignup-full@example.com';});
+    console.log(c?c.id:'');
+  } catch(e){console.log('');}
+" 2>/dev/null)
+
+if [ -n "$EMAIL_CUST_ID" ] && [ "$EMAIL_CUST_ID" != "" ]; then
+  ok "Email signup customer found in list → id=$EMAIL_CUST_ID"
+  CUSTOMER_IDS+=("$EMAIL_CUST_ID")
+else
+  fail "Email signup customer NOT found in customer list"
+fi
+
+# Verify email_list flag is true
+EMAIL_LIST_FLAG=$(echo "$EMAIL_CUST_LIST" | node -e "
+  const d=require('fs').readFileSync('/dev/stdin','utf8');
+  try {
+    const p=JSON.parse(d);
+    const c=(p.customers||[]).find(function(x){return x.email==='test-emailsignup-full@example.com';});
+    console.log(c&&c.email_list?'true':'false');
+  } catch(e){console.log('false');}
+" 2>/dev/null)
+
+if [ "$EMAIL_LIST_FLAG" = "true" ]; then
+  ok "Email signup customer has email_list = true"
+else
+  fail "Email signup customer does NOT have email_list = true (got: $EMAIL_LIST_FLAG)"
+fi
+
+# Upsert: signup again with same email → should still succeed
+EMAIL_UPSERT=$(curl -sf -X POST "$BASE/api/email-signup" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"TEST Email Signup","email":"test-emailsignup-full@example.com"}' 2>/dev/null)
+if echo "$EMAIL_UPSERT" | grep -q '"success":true'; then
+  ok "POST /api/email-signup (duplicate/upsert) → success:true"
+else
+  fail "POST /api/email-signup upsert → unexpected: $EMAIL_UPSERT"
+fi
+
+# ---------------------------------------------------------------------------
 # STEP 2 — Contact form / booking
 # ---------------------------------------------------------------------------
 head "2. CONTACT FORM & BOOKING"
@@ -112,7 +170,7 @@ head "2. CONTACT FORM & BOOKING"
 # A. Contact message only (no appointment)
 CONTACT=$(curl -sf -X POST "$BASE/api/contact" \
   -H "Content-Type: application/json" \
-  -d '{"name":"TEST Contact","email":"dgsoftwash@yahoo.com","phone":"7575559999","address":"456 Test St","message":"This is an automated test message from test-full.sh. Safe to ignore."}' 2>/dev/null)
+  -d '{"name":"TEST Contact","email":"service@dgsoftwash.com","phone":"7575559999","address":"456 Test St","message":"This is an automated test message from test-full.sh. Safe to ignore."}' 2>/dev/null)
 if echo "$CONTACT" | grep -q '"success":true'; then
   ok "Contact form submission (no booking)"
 else
@@ -129,7 +187,7 @@ BOOK_DATE=$(node -e "
 
 BOOK_RESP=$(curl -sf -X POST "$BASE/api/contact" \
   -H "Content-Type: application/json" \
-  -d "{\"name\":\"TEST Full Booking\",\"email\":\"dgsoftwash@yahoo.com\",\"phone\":\"7575550001\",\"address\":\"789 Test Blvd Virginia Beach VA\",\"service\":\"house-rancher\",\"appointmentDate\":\"$BOOK_DATE\",\"appointmentTime\":\"09:00\",\"message\":\"Automated test booking — safe to delete\"}" 2>/dev/null)
+  -d "{\"name\":\"TEST Full Booking\",\"email\":\"service@dgsoftwash.com\",\"phone\":\"7575550001\",\"address\":\"789 Test Blvd Virginia Beach VA\",\"service\":\"house-rancher\",\"appointmentDate\":\"$BOOK_DATE\",\"appointmentTime\":\"09:00\",\"message\":\"Automated test booking — safe to delete\"}" 2>/dev/null)
 
 if echo "$BOOK_RESP" | grep -q '"success":true'; then
   ok "Booking created for $BOOK_DATE 9:00 AM"
@@ -162,7 +220,7 @@ head "3. WORK ORDERS"
 
 # Create standalone work order
 WO_RESP=$(curl -sf -X POST "$BASE/api/admin/work-orders" $AUTH_H \
-  -d '{"name":"TEST WO Customer","email":"dgsoftwash@yahoo.com","phone":"7575550002","address":"999 Work Order Way","service":"Rancher/Single Story","price":"$350"}' 2>/dev/null)
+  -d '{"name":"TEST WO Customer","email":"service@dgsoftwash.com","phone":"7575550002","address":"999 Work Order Way","service":"Rancher/Single Story","price":"$350"}' 2>/dev/null)
 WO_ID=$(jq_val "$WO_RESP" "work_order_id")
 
 if [ -n "$WO_ID" ] && [ "$WO_ID" != "" ]; then
@@ -226,23 +284,23 @@ fi
 # ---------------------------------------------------------------------------
 # STEP 4 — Email sending
 # ---------------------------------------------------------------------------
-head "4. EMAIL SENDING (sends to dgsoftwash@yahoo.com)"
-echo "   NOTE: Check your Yahoo inbox after this test completes."
+head "4. EMAIL SENDING (sends to service@dgsoftwash.com)"
+echo "   NOTE: Check your Outlook inbox after this test completes."
 
 # Invoice email via /api/admin/email
 EMAIL_RESP=$(curl -sf -X POST "$BASE/api/admin/email" $AUTH_H \
-  -d '{"to":[{"email":"dgsoftwash@yahoo.com","name":"Test"}],"subject":"[TEST] Invoice — test-full.sh","message":"This is an automated invoice test email from test-full.sh. If you see this, email delivery is working. Safe to delete."}' 2>/dev/null)
+  -d '{"to":[{"email":"service@dgsoftwash.com","name":"Test"}],"subject":"[TEST] Invoice — test-full.sh","message":"This is an automated invoice test email from test-full.sh. If you see this, email delivery is working. Safe to delete."}' 2>/dev/null)
 if echo "$EMAIL_RESP" | grep -q '"success":true'; then
-  ok "Admin email send (invoice test) → dgsoftwash@yahoo.com"
+  ok "Admin email send (invoice test) → service@dgsoftwash.com"
 else
-  warn "Admin email send failed (check Yahoo SMTP credentials): $EMAIL_RESP"
+  warn "Admin email send failed (check Microsoft 365 SMTP credentials): $EMAIL_RESP"
 fi
 
 # Quote email
 QUOTE_RESP=$(curl -sf -X POST "$BASE/api/admin/quotes" $AUTH_H \
-  -d '{"name":"TEST Quote Customer","email":"dgsoftwash@yahoo.com","service":"Rancher/Single Story","price":"$350","notes":"Test quote from test-full.sh — safe to delete"}' 2>/dev/null)
+  -d '{"name":"TEST Quote Customer","email":"service@dgsoftwash.com","service":"Rancher/Single Story","price":"$350","notes":"Test quote from test-full.sh — safe to delete"}' 2>/dev/null)
 if echo "$QUOTE_RESP" | grep -q '"success":true'; then
-  ok "Quote email → dgsoftwash@yahoo.com"
+  ok "Quote email → service@dgsoftwash.com"
 else
   warn "Quote email failed: $QUOTE_RESP"
 fi
@@ -250,7 +308,7 @@ fi
 # Review request email (requires paid work order)
 REVIEW_RESP=$(curl -sf -X POST "$BASE/api/admin/work-orders/$WO_ID/review-request" $AUTH_H 2>/dev/null)
 if echo "$REVIEW_RESP" | grep -q '"success":true'; then
-  ok "Review request email → dgsoftwash@yahoo.com"
+  ok "Review request email → service@dgsoftwash.com"
 else
   warn "Review request email failed: $REVIEW_RESP"
 fi
