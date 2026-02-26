@@ -14,9 +14,12 @@
       'padding:16px', 'box-sizing:border-box'
     ].join(';');
 
+    var isMobile = window.innerWidth < 480;
+
     var card = document.createElement('div');
     card.style.cssText = [
-      'background:#fff', 'border-radius:14px', 'padding:32px 28px 28px',
+      'background:#fff', 'border-radius:14px',
+      'padding:' + (isMobile ? '24px 20px 20px' : '32px 28px 28px'),
       'max-width:420px', 'width:100%', 'position:relative',
       'box-shadow:0 8px 40px rgba(0,0,0,0.22)', 'text-align:center',
       'font-family:inherit'
@@ -55,7 +58,7 @@
       inp.required = !!required;
       inp.style.cssText = [
         'padding:10px 14px', 'border:1.5px solid #ddd', 'border-radius:8px',
-        'font-size:0.95em', 'outline:none', 'transition:border-color 0.2s',
+        'font-size:16px', 'outline:none', 'transition:border-color 0.2s',
         'box-sizing:border-box', 'width:100%'
       ].join(';');
       inp.onfocus = function() { inp.style.borderColor = '#2d6a4f'; };
@@ -71,8 +74,9 @@
     submitBtn.textContent = 'Claim My 10% Off';
     submitBtn.style.cssText = [
       'background:#2d6a4f', 'color:#fff', 'border:none',
-      'border-radius:8px', 'padding:12px', 'font-size:1em',
-      'font-weight:600', 'cursor:pointer', 'transition:background 0.2s'
+      'border-radius:8px', 'padding:14px', 'font-size:1em',
+      'font-weight:600', 'cursor:pointer', 'transition:background 0.2s',
+      'touch-action:manipulation', '-webkit-tap-highlight-color:transparent'
     ].join(';');
     submitBtn.onmouseover = function() { submitBtn.style.background = '#1b4332'; };
     submitBtn.onmouseout  = function() { submitBtn.style.background = '#2d6a4f'; };
@@ -82,7 +86,8 @@
     noThanks.textContent = 'No thanks';
     noThanks.style.cssText = [
       'background:none', 'border:none', 'color:#aaa',
-      'font-size:0.85em', 'cursor:pointer', 'padding:4px'
+      'font-size:0.85em', 'cursor:pointer', 'padding:10px',
+      'touch-action:manipulation', '-webkit-tap-highlight-color:transparent'
     ].join(';');
     noThanks.onclick = dismiss;
 
