@@ -96,6 +96,12 @@ Current version: **v2** (bumped 2026-02-26 after email popup rollout)
 - Opted-in customers show a green **📧 Email List** badge in the admin Customers tab
 - **10% Email List discount** checkbox available in the Generate WO and Quote modals
 - Dismiss via ×, "No thanks", or clicking outside the popup — all set the localStorage flag
+- Mobile-optimized: 16px input font (prevents iOS Safari zoom), larger tap targets, tighter padding on small screens
+
+**To test popup on your phone** (same WiFi as Mac):
+- Open `http://192.168.4.29:3000` on your phone
+- Use a private/incognito tab to get fresh localStorage
+- Wait 5 seconds — popup should appear
 
 ---
 
@@ -113,4 +119,4 @@ Environment variables (set in Render dashboard, not in .env):
 
 ---
 
-*Last updated: 2026-02-26*
+*Last updated: 2026-02-26 (mobile popup fix)*
