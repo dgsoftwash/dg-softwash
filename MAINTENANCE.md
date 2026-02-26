@@ -26,15 +26,15 @@ cd /Users/davidbemish/Desktop/dg-softwash
 | What | Command |
 |------|---------|
 | **Basic test** — non-intrusive, no data written | `bash test-basic.sh` |
-| **Full test** — all features, writes+deletes data, sends emails to dgsoftwash@yahoo.com | `bash test-full.sh` |
+| **Full test** — all features, writes+deletes data, sends emails to service@dgsoftwash.com | `bash test-full.sh` |
 
 **Basic test** checks: auth, all public pages, all public APIs, all admin APIs,
 auth protection, dashboard fields, database connectivity. Safe to run anytime.
 
-**Full test** checks: customer CRUD, bookings, work orders (job complete / invoiced /
-paid / mileage), email sending (invoice, quote, review request), expenses, gallery
-upload & image serving, settings, dashboard, payments, pricing. Cleans up everything
-when done.
+**Full test** checks: customer CRUD, email list signup (create + upsert + email_list flag),
+bookings, work orders (job complete / invoiced / paid / mileage), email sending (invoice,
+quote, review request), expenses, gallery upload & image serving, settings, dashboard,
+payments, pricing. Cleans up everything when done.
 
 ---
 
@@ -57,6 +57,21 @@ node_modules/pm2/bin/pm2 reload dg-softwash
 
 ---
 
+## SERVICE WORKER CACHE
+
+The service worker (`public/service-worker.js`) caches public pages (`/`, `/services`,
+`/pricing`, `/gallery`, `/contact`) for offline/fast loading. Whenever you update HTML
+files, **bump the cache version** so browsers drop stale content:
+
+```js
+// public/service-worker.js — line 1
+const CACHE = 'dg-softwash-v3';  // increment each time HTML changes
+```
+
+Current version: **v2** (bumped 2026-02-26 after email popup rollout)
+
+---
+
 ## COMMON TROUBLESHOOTING
 
 | Symptom | Likely Cause | Fix |
@@ -67,6 +82,20 @@ node_modules/pm2/bin/pm2 reload dg-softwash
 | Admin login fails | Password changed or env var missing | Check `ADMIN_PASSWORD` on Render dashboard |
 | Gallery images not loading | Image stored as bad base64 | Delete item in admin gallery tab, re-upload |
 | Changes not appearing after deploy | Server not reloaded | `pm2 reload dg-softwash` |
+| Old pages showing after HTML update | Service worker serving stale cache | Bump cache version in `public/service-worker.js`, then `pm2 reload` |
+| Email popup appears every page visit | localStorage `dgEmailPopupDone` not set | Check browser isn't in incognito; open DevTools → Application → Local Storage to verify |
+| Need to re-test popup (reset flag) | `dgEmailPopupDone` set in localStorage | DevTools → Application → Local Storage → delete `dgEmailPopupDone` |
+
+---
+
+## FEATURE REFERENCE
+
+### Email List Signup Popup (added 2026-02-26)
+- Popup appears after 5 seconds on all public pages; shown only once per browser (localStorage flag `dgEmailPopupDone`)
+- Submits to `POST /api/email-signup` — creates or updates customer with `email_list = true`
+- Opted-in customers show a green **📧 Email List** badge in the admin Customers tab
+- **10% Email List discount** checkbox available in the Generate WO and Quote modals
+- Dismiss via ×, "No thanks", or clicking outside the popup — all set the localStorage flag
 
 ---
 
@@ -84,4 +113,4 @@ Environment variables (set in Render dashboard, not in .env):
 
 ---
 
-*Last updated: 2026-02-20*
+*Last updated: 2026-02-26*
