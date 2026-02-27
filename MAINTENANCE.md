@@ -103,6 +103,12 @@ Current version: **v7** (bumped 2026-02-27 after mailto revert)
 - Use a private/incognito tab to get fresh localStorage
 - Wait 5 seconds — popup should appear
 
+**Full flow test — PASSED 2026-02-27** ✅
+1. Popup appears after 5s ✓
+2. Signup creates customer with 📧 Email List badge in admin ✓
+3. Email List – 1st Service (10%) checkbox present in Generate WO modal ✓
+4. Price recalculates with 10% off when checked ✓
+
 ---
 
 ## RENDER DEPLOYMENT
