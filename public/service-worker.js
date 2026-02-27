@@ -1,4 +1,4 @@
-const CACHE = 'dg-softwash-v3';
+const CACHE = 'dg-softwash-v4';
 
 const STATIC_ASSETS = [
   '/',

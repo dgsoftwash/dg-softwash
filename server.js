@@ -240,54 +240,6 @@ async function initDb() {
     )
   `);
 
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS scholarships (
-      id SERIAL PRIMARY KEY,
-      title TEXT NOT NULL DEFAULT '',
-      description TEXT NOT NULL DEFAULT '',
-      amount TEXT NOT NULL DEFAULT 'See website',
-      deadline TEXT NOT NULL DEFAULT 'See website',
-      url TEXT NOT NULL DEFAULT '',
-      category TEXT NOT NULL DEFAULT 'general',
-      color_class TEXT NOT NULL DEFAULT '',
-      sort_order INTEGER NOT NULL DEFAULT 0,
-      active BOOLEAN NOT NULL DEFAULT true,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      UNIQUE(title, url)
-    )
-  `);
-
-  // Seed scholarships from the static page content
-  const seedScholarships = [
-    // GI Bill
-    { title: 'Post-9/11 GI Bill (Chapter 33) — Transferred Benefit', description: 'Covers 100% of in-state tuition & fees at any Virginia public university (ODU, VCU, JMU, UVA, Tech, etc.). Also includes a monthly housing stipend (BAH at E-5 w/ dependents) and $1,000/yr book allowance.', amount: '100% in-state tuition + housing + $1,000/yr books', deadline: 'Use within 15 yrs of discharge', url: 'https://www.va.gov/education/about-gi-bill-benefits/post-9-11/', category: 'gi-bill', color_class: 'gold', sort_order: 1 },
-    { title: 'Yellow Ribbon Program', description: 'If you choose a private school or out-of-state university, the Yellow Ribbon Program can cover the gap above the in-state rate. The school and VA split the difference — can cover full tuition at participating schools.', amount: 'Covers tuition gap', deadline: 'See website', url: 'https://www.va.gov/education/about-gi-bill-benefits/post-9-11/yellow-ribbon-program/', category: 'gi-bill', color_class: 'gold', sort_order: 2 },
-    { title: 'Apply for GI Bill Benefits — VA.gov', description: 'Submit VA Form 22-1990e (Application for Transfer of Entitlement) to officially claim the transferred benefit. Do this early — processing can take several weeks before school starts.', amount: 'See website', deadline: 'Apply before enrollment', url: 'https://www.va.gov/education/apply-for-education-benefits/application/1990E/', category: 'gi-bill', color_class: 'gold', sort_order: 3 },
-    // State of Virginia
-    { title: 'Virginia Academic Scholarship (VAS)', description: 'Merit-based award for high-achieving Virginia public school graduates. Applied through your high school counselor — not a separate application. Up to $3,000/year stackable on top of GI Bill.', amount: 'Up to $3,000/yr', deadline: 'Via high school counselor', url: 'https://www.schev.edu/students/financial-aid/scholarships-and-grants', category: 'state', color_class: 'blue', sort_order: 1 },
-    { title: 'Virginia Guaranteed Assistance Program (VGAP)', description: 'Need-based grant for Virginia residents at participating public colleges. Apply via FAFSA — the school awards it automatically if eligible. Covers remaining costs after other aid.', amount: 'Varies by school', deadline: 'Apply via FAFSA', url: 'https://www.schev.edu/students/financial-aid/grants/vgap', category: 'state', color_class: 'blue', sort_order: 2 },
-    { title: 'SCHEV — All Virginia Scholarships & Grants', description: 'State Council of Higher Education for Virginia — the official hub for all VA state financial aid programs including teaching scholarships, STEM awards, and need-based grants.', amount: 'See website', deadline: 'See website', url: 'https://www.schev.edu/students/financial-aid/scholarships-and-grants', category: 'state', color_class: 'blue', sort_order: 3 },
-    // Military
-    { title: "Survivors' & Dependents' Educational Assistance (DEA / Ch. 35)", description: 'Alternative to transferred GI Bill — pays up to ~$1,471/month for full-time enrollment. Can sometimes be better depending on the school. Check both benefits before choosing.', amount: '~$1,471/month full-time', deadline: 'VA Form 22-5490', url: 'https://www.va.gov/education/survivor-dependent-benefits/dependents-education-assistance/', category: 'military', color_class: 'purple', sort_order: 1 },
-    { title: 'Military Child Education Coalition (MCEC) Scholarships', description: 'Scholarships specifically for children of military members, including multiple awards for dependents of active duty, veterans, and National Guard. Hampton Roads students eligible.', amount: 'Multiple awards', deadline: 'See website', url: 'https://www.militarychild.org/programs/scholarships/', category: 'military', color_class: 'purple', sort_order: 2 },
-    { title: 'Pat Tillman Foundation Scholarship', description: 'Prestigious scholarship for military veterans and dependents — up to $25,000/yr. Highly competitive but well worth applying. Strong essay component.', amount: 'Up to $25,000/yr', deadline: 'See website', url: 'https://pattillmanfoundation.org/apply-to-be-a-scholar/', category: 'military', color_class: 'purple', sort_order: 3 },
-    { title: 'AMVETS National Scholarship', description: 'Open to children and grandchildren of veterans, active duty, National Guard, and Reserve. Multiple scholarship tiers from $1,000–$4,000. Virginia residents eligible.', amount: '$1,000–$4,000', deadline: 'Deadline varies — check site', url: 'https://amvets.org/scholarships/', category: 'military', color_class: 'purple', sort_order: 4 },
-    // Local
-    { title: 'Hampton Roads Community Foundation', description: 'Local foundation offering dozens of scholarships for Hampton Roads students — many are need and merit based, with several specifically for military families.', amount: 'See website', deadline: 'See website', url: 'https://hamptonroadscf.org/scholarships/', category: 'local', color_class: 'teal', sort_order: 1 },
-    { title: 'Ivy Foundation of Hampton, Inc.', description: 'Scholarships for Hampton-area students. Check the website for current application cycles and eligibility requirements — deadlines change yearly.', amount: 'See website', deadline: 'See website', url: 'https://ivyfoundationofhamptoninc.org/scholarships-2/', category: 'local', color_class: 'teal', sort_order: 2 },
-    { title: 'Navy-Marine Corps Relief Society Education Assistance', description: 'Financial assistance and scholarships for dependents of Navy and Marine Corps members — highly relevant for Hampton Roads families near NAS Oceana and Norfolk Naval Station.', amount: 'Varies', deadline: 'See website', url: 'https://www.nmcrs.org/education', category: 'local', color_class: 'teal', sort_order: 3 },
-    // Search tools
-    { title: 'Fastweb — Free Scholarship Matching', description: 'Create a free profile and Fastweb matches you to scholarships you qualify for — including military, Virginia-specific, and academic awards. One of the largest scholarship databases.', amount: 'See website', deadline: 'See website', url: 'https://www.fastweb.com', category: 'tools', color_class: 'orange', sort_order: 1 },
-    { title: 'Scholarships.com — Military Dependent Search', description: 'Filter scholarships by military affiliation, state (Virginia), and school year. Good for finding awards that stack on top of GI Bill benefits.', amount: 'See website', deadline: 'See website', url: 'https://www.scholarships.com/financial-aid/college-scholarships/scholarship-directory/military-affiliation/child-of-veteran', category: 'tools', color_class: 'orange', sort_order: 2 },
-    { title: 'FAFSA — Free Application for Federal Student Aid', description: 'File FAFSA even if you have GI Bill benefits — it unlocks additional grants (Pell, VGAP) that can be stacked on top. File as early as possible each year (opens October 1).', amount: 'See website', deadline: 'Opens October 1 each year', url: 'https://studentaid.gov/h/apply-for-aid/fafsa', category: 'tools', color_class: 'orange', sort_order: 3 }
-  ];
-  for (const s of seedScholarships) {
-    await pool.query(
-      'INSERT INTO scholarships (title, description, amount, deadline, url, category, color_class, sort_order) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING',
-      [s.title, s.description, s.amount, s.deadline, s.url, s.category, s.color_class, s.sort_order]
-    );
-  }
-
   // Seed services (ON CONFLICT DO NOTHING = safe to re-run, won't overwrite admin edits)
   const seedServices = [
     // House Washing
@@ -720,74 +672,8 @@ app.delete('/api/admin/gallery/:id', requireAdmin, async (req, res) => {
   } catch(e) { res.status(500).json({ error: 'Failed to delete' }); }
 });
 
-// --- Scholarship API ---
-
-app.get('/api/scholarships', async (req, res) => {
-  try {
-    const { rows } = await pool.query(
-      'SELECT * FROM scholarships WHERE active = true ORDER BY category, sort_order, id'
-    );
-    res.json(rows);
-  } catch(e) { res.status(500).json({ error: 'Failed to load scholarships' }); }
-});
-
-app.get('/api/admin/scholarships', requireAdmin, async (req, res) => {
-  try {
-    const { rows } = await pool.query(
-      'SELECT * FROM scholarships ORDER BY category, sort_order, id'
-    );
-    res.json(rows);
-  } catch(e) { res.status(500).json({ error: 'Failed to load scholarships' }); }
-});
-
-app.post('/api/admin/scholarships', requireAdmin, async (req, res) => {
-  const { title, description, amount, deadline, url, category, color_class } = req.body;
-  if (!title || !url) return res.status(400).json({ error: 'Title and URL are required' });
-  try {
-    const { rows } = await pool.query(
-      'INSERT INTO scholarships (title, description, amount, deadline, url, category, color_class) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id',
-      [title, description || '', amount || 'See website', deadline || 'See website', url, category || 'general', color_class || '']
-    );
-    res.json({ success: true, id: rows[0].id });
-  } catch(e) { res.status(500).json({ error: 'Failed to create scholarship' }); }
-});
-
-app.patch('/api/admin/scholarships/:id', requireAdmin, async (req, res) => {
-  const allowed = ['title', 'description', 'amount', 'deadline', 'url', 'category', 'color_class', 'sort_order', 'active'];
-  const updates = [];
-  const values = [];
-  let i = 1;
-  for (const field of allowed) {
-    if (req.body[field] !== undefined) {
-      updates.push(field + ' = $' + i);
-      values.push(req.body[field]);
-      i++;
-    }
-  }
-  if (updates.length === 0) return res.status(400).json({ error: 'No fields to update' });
-  values.push(req.params.id);
-  try {
-    await pool.query(
-      'UPDATE scholarships SET ' + updates.join(', ') + ' WHERE id = $' + i,
-      values
-    );
-    res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: 'Failed to update scholarship' }); }
-});
-
-app.delete('/api/admin/scholarships/:id', requireAdmin, async (req, res) => {
-  try {
-    await pool.query('DELETE FROM scholarships WHERE id = $1', [req.params.id]);
-    res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: 'Failed to delete scholarship' }); }
-});
-
 app.get('/contact', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'contact.html'));
-});
-
-app.get('/scholarships', (req, res) => {
-  res.sendFile(path.join(__dirname, 'views', 'scholarships.html'));
 });
 
 app.get('/admin', (req, res) => {

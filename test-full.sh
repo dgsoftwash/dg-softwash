@@ -27,7 +27,6 @@ CUSTOMER_IDS=()
 WO_IDS=()
 EXPENSE_IDS=()
 GALLERY_IDS=()
-SCHOLARSHIP_IDS=()
 
 ok()   { echo -e "  ${GREEN}PASS${NC}  $1"; ((PASS++)); }
 fail() { echo -e "  ${RED}FAIL${NC}  $1 ${RED}← ERROR${NC}"; ((FAIL++)); }
@@ -461,108 +460,6 @@ if echo "$PUB_PRICE" | grep -q '"services"'; then
   ok "Public pricing endpoint returns services"
 else
   fail "Public pricing: $PUB_PRICE"
-fi
-
-# ---------------------------------------------------------------------------
-# STEP — Scholarships
-# ---------------------------------------------------------------------------
-head "SCHOLARSHIPS CRUD"
-
-# Public endpoint (seeded data should be there)
-SCH_LIST=$(curl -sf "$BASE/api/scholarships" 2>/dev/null)
-if echo "$SCH_LIST" | grep -q '"id"'; then
-  ok "GET /api/scholarships — returns items"
-else
-  fail "GET /api/scholarships — no items returned: $SCH_LIST"
-fi
-
-# Admin list
-SCH_ADMIN_LIST=$(curl -sf "$BASE/api/admin/scholarships" $AUTH_H 2>/dev/null)
-if echo "$SCH_ADMIN_LIST" | grep -q '"id"'; then
-  ok "GET /api/admin/scholarships — returns items"
-else
-  fail "GET /api/admin/scholarships — no items returned: $SCH_ADMIN_LIST"
-fi
-
-# Create a test scholarship
-SCH_CREATE=$(curl -sf -X POST "$BASE/api/admin/scholarships" $AUTH_H \
-  -d '{"title":"TEST Scholarship","url":"https://test.example.com","description":"Test description","amount":"$999","deadline":"December 31","category":"general","color_class":"blue"}' 2>/dev/null)
-SCH_ID=$(jq_val "$SCH_CREATE" "id")
-if [ -n "$SCH_ID" ] && [ "$SCH_ID" != "" ] && [ "$SCH_ID" != "null" ]; then
-  ok "Create scholarship → id=$SCH_ID"
-  SCHOLARSHIP_IDS+=("$SCH_ID")
-else
-  fail "Create scholarship — no id returned: $SCH_CREATE"
-fi
-
-# Verify it appears in admin list
-SCH_ADMIN2=$(curl -sf "$BASE/api/admin/scholarships" $AUTH_H 2>/dev/null)
-if echo "$SCH_ADMIN2" | grep -q '"TEST Scholarship"'; then
-  ok "New scholarship appears in admin list"
-else
-  fail "New scholarship NOT in admin list"
-fi
-
-# Verify it appears in public list
-SCH_PUB2=$(curl -sf "$BASE/api/scholarships" 2>/dev/null)
-if echo "$SCH_PUB2" | grep -q '"TEST Scholarship"'; then
-  ok "New scholarship appears on public endpoint"
-else
-  fail "New scholarship NOT on public endpoint"
-fi
-
-# Patch it (update amount)
-if [ -n "$SCH_ID" ] && [ "$SCH_ID" != "" ]; then
-  SCH_PATCH=$(curl -sf -X PATCH "$BASE/api/admin/scholarships/$SCH_ID" $AUTH_H \
-    -d '{"amount":"$1,234"}' 2>/dev/null)
-  if echo "$SCH_PATCH" | grep -q '"success":true'; then
-    ok "PATCH scholarship amount"
-  else
-    fail "PATCH scholarship failed: $SCH_PATCH"
-  fi
-
-  # Toggle active=false
-  SCH_HIDE=$(curl -sf -X PATCH "$BASE/api/admin/scholarships/$SCH_ID" $AUTH_H \
-    -d '{"active":false}' 2>/dev/null)
-  if echo "$SCH_HIDE" | grep -q '"success":true'; then
-    ok "PATCH scholarship active=false"
-  else
-    fail "PATCH scholarship active=false failed: $SCH_HIDE"
-  fi
-
-  # Confirm hidden on public endpoint
-  SCH_PUB3=$(curl -sf "$BASE/api/scholarships" 2>/dev/null)
-  if ! echo "$SCH_PUB3" | grep -q '"TEST Scholarship"'; then
-    ok "Hidden scholarship absent from public endpoint"
-  else
-    fail "Hidden scholarship still showing on public endpoint"
-  fi
-
-  # Still visible in admin
-  SCH_ADMIN3=$(curl -sf "$BASE/api/admin/scholarships" $AUTH_H 2>/dev/null)
-  if echo "$SCH_ADMIN3" | grep -q '"TEST Scholarship"'; then
-    ok "Hidden scholarship still visible in admin"
-  else
-    fail "Hidden scholarship missing from admin"
-  fi
-fi
-
-# Delete the test scholarship
-for id in "${SCHOLARSHIP_IDS[@]}"; do
-  R=$(curl -sf -X DELETE "$BASE/api/admin/scholarships/$id" $AUTH_H 2>/dev/null)
-  if echo "$R" | grep -q '"success":true'; then
-    ok "Deleted scholarship id=$id"
-  else
-    fail "Failed to delete scholarship id=$id: $R"
-  fi
-done
-
-# Confirm deleted from public
-SCH_PUB4=$(curl -sf "$BASE/api/scholarships" 2>/dev/null)
-if ! echo "$SCH_PUB4" | grep -q '"TEST Scholarship"'; then
-  ok "Deleted scholarship gone from public endpoint"
-else
-  fail "Deleted scholarship still on public endpoint"
 fi
 
 # ---------------------------------------------------------------------------
