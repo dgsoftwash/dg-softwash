@@ -466,10 +466,10 @@ function generateInvoiceEmail(wo, woId, dateLabel, deadlineLabel) {
     '<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:12px 18px;margin-bottom:20px;text-align:center;">' +
     '<span style="color:#dc2626;font-weight:700;font-size:1em;">PAYMENT STATUS: NOT PAID</span></div>' +
     '<p style="color:#555;">Payment is due within 5 business days. We accept cash, check, and major credit cards.</p>' +
-    '<p style="color:#555;">If you have any questions, please call or text us at <strong>(757) 525-9508</strong> or email <strong>service@dgsoftwash.com</strong>.</p>' +
+    '<p style="color:#555;">If you have any questions, please call or text us at <strong>(757) 330-4260</strong> or email <strong>service@dgsoftwash.com</strong>.</p>' +
     '</div>' +
     '<div style="background:#f8f9fa;padding:16px 30px;text-align:center;color:#888;font-size:0.85em;border-top:1px solid #e5e7eb;">' +
-    'D&amp;G Soft Wash &mdash; (757) 525-9508 &mdash; service@dgsoftwash.com</div>' +
+    'D&amp;G Soft Wash &mdash; (757) 330-4260 &mdash; service@dgsoftwash.com</div>' +
     '</div></body></html>';
 }
 
@@ -495,10 +495,10 @@ function generatePaidEmail(wo, woId, dateLabel) {
     '<div style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:8px;padding:12px 18px;margin-bottom:20px;text-align:center;">' +
     '<span style="color:#065f46;font-weight:700;font-size:1em;">&#10003; PAID IN FULL</span></div>' +
     '<p style="color:#555;">Thank you for your business! We appreciate your trust in D&amp;G Soft Wash. We hope to serve you again soon.</p>' +
-    '<p style="color:#555;">If you have any questions, please call or text us at <strong>(757) 525-9508</strong>.</p>' +
+    '<p style="color:#555;">If you have any questions, please call or text us at <strong>(757) 330-4260</strong>.</p>' +
     '</div>' +
     '<div style="background:#f8f9fa;padding:16px 30px;text-align:center;color:#888;font-size:0.85em;border-top:1px solid #e5e7eb;">' +
-    'D&amp;G Soft Wash &mdash; (757) 525-9508 &mdash; service@dgsoftwash.com</div>' +
+    'D&amp;G Soft Wash &mdash; (757) 330-4260 &mdash; service@dgsoftwash.com</div>' +
     '</div></body></html>';
 }
 
@@ -524,11 +524,11 @@ function generateQuoteEmail(name, service, price, notes) {
     '</table>' + notesBlock +
     '<div style="background:#dbeafe;border:1px solid #93c5fd;border-radius:8px;padding:16px 18px;margin-bottom:20px;text-align:center;">' +
     '<p style="margin:0 0 8px;color:#1e40af;font-weight:600;">Ready to book?</p>' +
-    '<p style="margin:0;color:#1e40af;">Call or text us at <strong>(757) 525-9508</strong></p></div>' +
+    '<p style="margin:0;color:#1e40af;">Call or text us at <strong>(757) 330-4260</strong></p></div>' +
     '<p style="color:#555;font-size:0.9em;">This estimate is valid for 30 days. Final price may vary based on actual job conditions.</p>' +
     '</div>' +
     '<div style="background:#f8f9fa;padding:16px 30px;text-align:center;color:#888;font-size:0.85em;border-top:1px solid #e5e7eb;">' +
-    'D&amp;G Soft Wash &mdash; (757) 525-9508 &mdash; service@dgsoftwash.com</div>' +
+    'D&amp;G Soft Wash &mdash; (757) 330-4260 &mdash; service@dgsoftwash.com</div>' +
     '</div></body></html>';
 }
 
@@ -546,11 +546,11 @@ function generateReviewEmail(customerName, reviewUrl) {
     '<p style="color:#555;">If you had a great experience, a quick Google review would mean the world to us &mdash; it only takes a minute!</p>' +
     '<div style="text-align:center;margin:30px 0;">' +
     '<a href="' + reviewUrl + '" style="background:#1a1a2e;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:1.05em;">&#11088; Leave a Google Review</a></div>' +
-    '<p style="color:#555;font-size:0.9em;">If there\'s anything we could have done better, please reach out at <strong>(757) 525-9508</strong> &mdash; we always want the chance to make it right.</p>' +
+    '<p style="color:#555;font-size:0.9em;">If there\'s anything we could have done better, please reach out at <strong>(757) 330-4260</strong> &mdash; we always want the chance to make it right.</p>' +
     '<p style="color:#555;">Thank you for supporting a local, veteran-owned business!</p>' +
     '</div>' +
     '<div style="background:#f8f9fa;padding:16px 30px;text-align:center;color:#888;font-size:0.85em;border-top:1px solid #e5e7eb;">' +
-    'D&amp;G Soft Wash &mdash; (757) 525-9508 &mdash; service@dgsoftwash.com</div>' +
+    'D&amp;G Soft Wash &mdash; (757) 330-4260 &mdash; service@dgsoftwash.com</div>' +
     '</div></body></html>';
 }
 
@@ -921,7 +921,7 @@ app.post('/api/contact', async (req, res) => {
           from: 'service@dgsoftwash.com',
           to: email,
           subject: `Your D&G Soft Wash Appointment is Confirmed!`,
-          text: `Hi ${name},\n\nThank you for booking with D&G Soft Wash! Here are your appointment details:\n\nService: ${serviceLabel}\n${scheduleText}\nAddress: ${address}\n${isMultiDay ? '\nYour service package requires two consecutive days. We will arrive at 9:00 AM on Day 1 and ' + formatSlot(day2StartTime) + ' on Day 2.\n' : ''}\nIf you need to make any changes or have questions, please call or text us at (757) 525-9508.\n\nWe look forward to serving you!\n\nD&G Soft Wash\nVeteran Owned & Operated`
+          text: `Hi ${name},\n\nThank you for booking with D&G Soft Wash! Here are your appointment details:\n\nService: ${serviceLabel}\n${scheduleText}\nAddress: ${address}\n${isMultiDay ? '\nYour service package requires two consecutive days. We will arrive at 9:00 AM on Day 1 and ' + formatSlot(day2StartTime) + ' on Day 2.\n' : ''}\nIf you need to make any changes or have questions, please call or text us at (757) 330-4260.\n\nWe look forward to serving you!\n\nD&G Soft Wash\nVeteran Owned & Operated`
         });
       }
     } else {
@@ -1895,7 +1895,7 @@ app.post('/api/admin/work-orders/:id/sms-reminder', requireAdmin, async (req, re
     const dateLabel = wo.date ? new Date(wo.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : '';
     const timeLabel = wo.time ? formatSlot(wo.time) : '';
     const address = wo.booking_address || wo.customer_address || '';
-    const body = `Hi ${name}! Reminder: D&G Soft Wash is scheduled${dateLabel ? ' for ' + dateLabel : ''}${timeLabel ? ' at ' + timeLabel : ''}${address ? ' at ' + address : ''}. Questions? Call/text (757) 525-9508.`;
+    const body = `Hi ${name}! Reminder: D&G Soft Wash is scheduled${dateLabel ? ' for ' + dateLabel : ''}${timeLabel ? ' at ' + timeLabel : ''}${address ? ' at ' + address : ''}. Questions? Call/text (757) 330-4260.`;
     await twilioClient.messages.create({
       body,
       from: process.env.TWILIO_FROM_NUMBER,
