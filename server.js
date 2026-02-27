@@ -676,6 +676,10 @@ app.get('/contact', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'contact.html'));
 });
 
+app.get('/scholarships', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'scholarships.html'));
+});
+
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'admin.html'));
 });
