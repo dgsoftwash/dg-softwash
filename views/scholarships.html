@@ -144,6 +144,85 @@
     }
     .tip-box strong { display: block; margin-bottom: 4px; font-size: 0.95em; }
 
+    /* ── Forms & Documents section ── */
+    .forms-section {
+      margin-top: 36px;
+    }
+    .forms-section > .section-label {
+      font-size: 0.9em;
+      color: #374151;
+    }
+    details {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+      margin-bottom: 10px;
+      overflow: hidden;
+    }
+    summary {
+      cursor: pointer;
+      padding: 15px 18px;
+      font-weight: 700;
+      font-size: 0.95em;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary::after {
+      content: '+';
+      font-size: 1.2em;
+      font-weight: 400;
+      color: #9ca3af;
+      flex-shrink: 0;
+    }
+    details[open] summary::after { content: '−'; }
+    details[open] summary {
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .details-body {
+      padding: 16px 18px 18px;
+    }
+    .details-body h4 {
+      font-size: 0.85em;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #64748b;
+      margin: 14px 0 8px;
+    }
+    .details-body h4:first-child { margin-top: 0; }
+    .details-body ul {
+      padding-left: 18px;
+      margin: 0;
+    }
+    .details-body li {
+      font-size: 0.88em;
+      color: #374151;
+      line-height: 1.6;
+      margin-bottom: 4px;
+    }
+    .details-body p {
+      font-size: 0.88em;
+      color: #374151;
+      line-height: 1.6;
+      margin-bottom: 8px;
+    }
+    .tip-inline {
+      background: #f0fdf4;
+      border-left: 3px solid #16a34a;
+      padding: 8px 12px;
+      border-radius: 0 8px 8px 0;
+      font-size: 0.85em;
+      color: #166534;
+      margin-top: 10px;
+      line-height: 1.5;
+    }
+
     /* ── Footer ── */
     .page-footer {
       text-align: center;
@@ -163,9 +242,8 @@
 
   <div class="container">
 
-    <!-- GI BILL -->
+    <!-- GI Bill tip — always shown -->
     <div class="section-label">🪖 GI Bill Benefits (Your #1 Resource)</div>
-
     <div class="tip-box">
       <strong>💡 Start here first.</strong>
       With a transferred Post-9/11 GI Bill, Virginia public universities are essentially
@@ -173,158 +251,99 @@
       Stack scholarships on top to cover living expenses and private school gaps.
     </div>
 
-    <div class="card gold">
-      <div class="card-title">Post-9/11 GI Bill (Chapter 33) — Transferred Benefit</div>
-      <div class="card-desc">Covers 100% of in-state tuition &amp; fees at any Virginia public university (ODU, VCU, JMU, UVA, Tech, etc.). Also includes a monthly housing stipend (BAH at E-5 w/ dependents) and $1,000/yr book allowance.</div>
-      <div class="card-meta">
-        <span class="pill pill-amount">100% in-state tuition</span>
-        <span class="pill pill-gi">Housing allowance</span>
-        <span class="pill pill-gi">$1,000/yr books</span>
-        <span class="pill pill-deadline">Use within 15 yrs of discharge</span>
-      </div>
-      <a href="https://www.va.gov/education/about-gi-bill-benefits/post-9-11/" target="_blank" class="btn-link">View on VA.gov →</a>
+    <!-- Dynamic scholarship cards loaded from API -->
+    <div id="scholarships-cards-container">
+      <p style="color:#666;padding:20px 0;text-align:center;">Loading scholarships…</p>
     </div>
 
-    <div class="card gold">
-      <div class="card-title">Yellow Ribbon Program</div>
-      <div class="card-desc">If you choose a private school or out-of-state university, the Yellow Ribbon Program can cover the gap above the in-state rate. The school and VA split the difference — can cover full tuition at participating schools.</div>
-      <div class="card-meta">
-        <span class="pill pill-amount">Covers tuition gap</span>
-        <span class="pill pill-stackable">Stackable on GI Bill</span>
-      </div>
-      <a href="https://www.va.gov/education/about-gi-bill-benefits/post-9-11/yellow-ribbon-program/" target="_blank" class="btn-link">Find participating schools →</a>
-    </div>
+    <!-- Forms & Documents Guide -->
+    <div class="forms-section">
+      <div class="section-label" style="font-size:0.9em;color:#374151;">📋 Forms &amp; Documents Guide</div>
 
-    <div class="card gold">
-      <div class="card-title">Apply for GI Bill Benefits — VA.gov</div>
-      <div class="card-desc">Submit VA Form 22-1990e (Application for Transfer of Entitlement) to officially claim the transferred benefit. Do this early — processing can take several weeks before school starts.</div>
-      <div class="card-meta">
-        <span class="pill pill-deadline">Apply before enrollment</span>
-      </div>
-      <a href="https://www.va.gov/education/apply-for-education-benefits/application/1990E/" target="_blank" class="btn-link">Apply now (Form 22-1990e) →</a>
-    </div>
+      <details>
+        <summary>VA Form 22-1990e — Transfer of Entitlement</summary>
+        <div class="details-body">
+          <h4>What you need before you start</h4>
+          <ul>
+            <li>Your VA file number <em>or</em> sponsor's Social Security Number</li>
+            <li>Sponsor's branch of service and discharge date (from DD-214)</li>
+            <li>School name, address, and VA certifying official contact</li>
+            <li>Intended major / program of education</li>
+            <li>Anticipated start date</li>
+          </ul>
+          <h4>Step-by-step</h4>
+          <ul>
+            <li><strong>Find your VA file number:</strong> Log in to VA.gov → My VA → look for "VA file number" in your profile, or call 1-800-827-1000. It's often your SSN but may be different for older filers.</li>
+            <li><strong>Find your school's VA certifying official:</strong> Call the financial aid or registrar's office and ask specifically for the "VA certifying official" or "SCO." They handle enrollment certification and can confirm the school is approved.</li>
+            <li><strong>"Program of education"</strong> just means your degree/certificate program (e.g., "B.S. in Computer Science"). Use the catalog name from the school's website.</li>
+            <li><strong>Apply at:</strong> va.gov/education/apply-for-education-benefits/application/1990E/ — processing typically takes 4–6 weeks. Apply as early as possible before the semester starts.</li>
+          </ul>
+          <div class="tip-inline">Once approved, you'll get a Certificate of Eligibility (COE). Keep this — you'll need it for Yellow Ribbon and other VA programs.</div>
+        </div>
+      </details>
 
-    <!-- STATE OF VIRGINIA -->
-    <div class="section-label">🏛️ State of Virginia</div>
+      <details>
+        <summary>FAFSA — Free Application for Federal Student Aid</summary>
+        <div class="details-body">
+          <h4>What you need before you start</h4>
+          <ul>
+            <li>Student's Social Security Number</li>
+            <li>Prior-year federal tax return (use IRS Data Retrieval Tool for auto-fill)</li>
+            <li>Bank account and investment totals (as of the day you file)</li>
+            <li>VA benefit award letter (shows monthly benefit amount)</li>
+            <li>FSA ID (username/password) — create at StudentAid.gov before you sit down</li>
+          </ul>
+          <h4>Key things to know</h4>
+          <ul>
+            <li><strong>Dependency questions:</strong> If you are claimed as a dependent on your parents' taxes, you'll need their financial info too. Most students under 24 are dependent unless they meet specific independence criteria.</li>
+            <li><strong>VA benefits are NOT counted as income</strong> for the Pell Grant calculation. This is a common misconception — fill out FAFSA even if you receive GI Bill benefits, because you may still qualify for Pell Grants and state aid.</li>
+            <li><strong>Opens October 1</strong> every year for the following academic year. File as early as possible — some state aid (like VGAP) is first-come, first-served.</li>
+            <li><strong>After filing,</strong> you'll get a Student Aid Report (SAR) — keep a copy, many scholarship applications require it.</li>
+          </ul>
+          <div class="tip-inline">File every year even after freshman year. Aid packages change based on your family's financial situation.</div>
+        </div>
+      </details>
 
-    <div class="card blue">
-      <div class="card-title">Virginia Academic Scholarship (VAS)</div>
-      <div class="card-desc">Merit-based award for high-achieving Virginia public school graduates. Applied through your high school counselor — not a separate application. Up to $3,000/year stackable on top of GI Bill.</div>
-      <div class="card-meta">
-        <span class="pill pill-amount">Up to $3,000/yr</span>
-        <span class="pill pill-stackable">Stackable on GI Bill</span>
-        <span class="pill pill-deadline">Via high school counselor</span>
-      </div>
-      <a href="https://www.schev.edu/students/financial-aid/scholarships-and-grants" target="_blank" class="btn-link">SCHEV Info →</a>
-    </div>
+      <details>
+        <summary>Yellow Ribbon Program</summary>
+        <div class="details-body">
+          <h4>What you need before you start</h4>
+          <ul>
+            <li>Certificate of Eligibility (COE) from VA — received after approving your 22-1990e</li>
+            <li>School's Yellow Ribbon application form (each school has their own)</li>
+            <li>Copy of 22-1990e approval letter</li>
+          </ul>
+          <h4>Step-by-step</h4>
+          <ul>
+            <li><strong>Confirm 100% entitlement:</strong> Yellow Ribbon is only available to veterans (not dependents using transferred benefit) with 100% Post-9/11 GI Bill eligibility. Verify your COE shows 100%.</li>
+            <li><strong>Request your COE online:</strong> After submitting Form 22-1990e, your COE arrives by mail or you can download it from VA.gov → Education Benefits. Call 1-888-442-4551 if you haven't received it within 6 weeks.</li>
+            <li><strong>Find the school's financial aid YR contact:</strong> Search "[School Name] Yellow Ribbon Program" or call their financial aid office and ask for the Yellow Ribbon coordinator.</li>
+            <li><strong>Apply early — seats are limited:</strong> Schools set their own caps on how many students they accept each year. Some schools fill quickly. Apply as soon as you have your COE.</li>
+          </ul>
+          <div class="tip-inline">Not all schools participate, and those that do may have seat limits. Check the VA's Yellow Ribbon school search tool at va.gov before committing to a school.</div>
+        </div>
+      </details>
 
-    <div class="card blue">
-      <div class="card-title">Virginia Guaranteed Assistance Program (VGAP)</div>
-      <div class="card-desc">Need-based grant for Virginia residents at participating public colleges. Apply via FAFSA — the school awards it automatically if eligible. Covers remaining costs after other aid.</div>
-      <div class="card-meta">
-        <span class="pill pill-amount">Varies by school</span>
-        <span class="pill pill-deadline">Apply via FAFSA</span>
-      </div>
-      <a href="https://www.schev.edu/students/financial-aid/grants/vgap" target="_blank" class="btn-link">Learn more →</a>
-    </div>
-
-    <div class="card blue">
-      <div class="card-title">SCHEV — All Virginia Scholarships &amp; Grants</div>
-      <div class="card-desc">State Council of Higher Education for Virginia — the official hub for all VA state financial aid programs including teaching scholarships, STEM awards, and need-based grants.</div>
-      <a href="https://www.schev.edu/students/financial-aid/scholarships-and-grants" target="_blank" class="btn-link">Browse all programs →</a>
-    </div>
-
-    <!-- MILITARY / VETERAN SPECIFIC -->
-    <div class="section-label">⭐ Military &amp; Veteran-Specific</div>
-
-    <div class="card purple">
-      <div class="card-title">Survivors' &amp; Dependents' Educational Assistance (DEA / Ch. 35)</div>
-      <div class="card-desc">Alternative to transferred GI Bill — pays up to ~$1,471/month for full-time enrollment. Can sometimes be better depending on the school. Check both benefits before choosing.</div>
-      <div class="card-meta">
-        <span class="pill pill-amount">~$1,471/month full-time</span>
-        <span class="pill pill-deadline">VA Form 22-5490</span>
-      </div>
-      <a href="https://www.va.gov/education/survivor-dependent-benefits/dependents-education-assistance/" target="_blank" class="btn-link">Compare benefits →</a>
-    </div>
-
-    <div class="card purple">
-      <div class="card-title">Military Child Education Coalition (MCEC) Scholarships</div>
-      <div class="card-desc">Scholarships specifically for children of military members, including multiple awards for dependents of active duty, veterans, and National Guard. Hampton Roads students eligible.</div>
-      <div class="card-meta">
-        <span class="pill pill-amount">Multiple awards</span>
-        <span class="pill pill-stackable">Stackable on GI Bill</span>
-      </div>
-      <a href="https://www.militarychild.org/programs/scholarships/" target="_blank" class="btn-link">Apply →</a>
-    </div>
-
-    <div class="card purple">
-      <div class="card-title">Pat Tillman Foundation Scholarship</div>
-      <div class="card-desc">Prestigious scholarship for military veterans and dependents — up to $25,000/yr. Highly competitive but well worth applying. Strong essay component.</div>
-      <div class="card-meta">
-        <span class="pill pill-amount">Up to $25,000/yr</span>
-        <span class="pill pill-stackable">Stackable on GI Bill</span>
-      </div>
-      <a href="https://pattillmanfoundation.org/apply-to-be-a-scholar/" target="_blank" class="btn-link">Apply →</a>
-    </div>
-
-    <div class="card purple">
-      <div class="card-title">AMVETS National Scholarship</div>
-      <div class="card-desc">Open to children and grandchildren of veterans, active duty, National Guard, and Reserve. Multiple scholarship tiers from $1,000–$4,000. Virginia residents eligible.</div>
-      <div class="card-meta">
-        <span class="pill pill-amount">$1,000–$4,000</span>
-        <span class="pill pill-deadline">Deadline varies — check site</span>
-      </div>
-      <a href="https://amvets.org/scholarships/" target="_blank" class="btn-link">Apply →</a>
-    </div>
-
-    <!-- HAMPTON ROADS LOCAL -->
-    <div class="section-label">📍 Hampton Roads Local</div>
-
-    <div class="card teal">
-      <div class="card-title">Hampton Roads Community Foundation</div>
-      <div class="card-desc">Local foundation offering dozens of scholarships for Hampton Roads students — many are need and merit based, with several specifically for military families.</div>
-      <a href="https://hamptonroadscf.org/scholarships/" target="_blank" class="btn-link">Browse local scholarships →</a>
-    </div>
-
-    <div class="card teal">
-      <div class="card-title">Ivy Foundation of Hampton, Inc.</div>
-      <div class="card-desc">Scholarships for Hampton-area students. Check the website for current application cycles and eligibility requirements — deadlines change yearly.</div>
-      <a href="https://ivyfoundationofhamptoninc.org/scholarships-2/" target="_blank" class="btn-link">View scholarships →</a>
-    </div>
-
-    <div class="card teal">
-      <div class="card-title">Navy-Marine Corps Relief Society Education Assistance</div>
-      <div class="card-desc">Financial assistance and scholarships for dependents of Navy and Marine Corps members — highly relevant for Hampton Roads families near NAS Oceana and Norfolk Naval Station.</div>
-      <div class="card-meta">
-        <span class="pill pill-amount">Varies</span>
-        <span class="pill pill-gi">Navy/USMC families</span>
-      </div>
-      <a href="https://www.nmcrs.org/education" target="_blank" class="btn-link">Apply →</a>
-    </div>
-
-    <!-- SEARCH TOOLS -->
-    <div class="section-label">🔍 Scholarship Search Tools</div>
-
-    <div class="card orange">
-      <div class="card-title">Fastweb — Free Scholarship Matching</div>
-      <div class="card-desc">Create a free profile and Fastweb matches you to scholarships you qualify for — including military, Virginia-specific, and academic awards. One of the largest scholarship databases.</div>
-      <a href="https://www.fastweb.com" target="_blank" class="btn-link">Search scholarships →</a>
-    </div>
-
-    <div class="card orange">
-      <div class="card-title">Scholarships.com — Military Dependent Search</div>
-      <div class="card-desc">Filter scholarships by military affiliation, state (Virginia), and school year. Good for finding awards that stack on top of GI Bill benefits.</div>
-      <a href="https://www.scholarships.com/financial-aid/college-scholarships/scholarship-directory/military-affiliation/child-of-veteran" target="_blank" class="btn-link">Search →</a>
-    </div>
-
-    <div class="card orange">
-      <div class="card-title">FAFSA — Free Application for Federal Student Aid</div>
-      <div class="card-desc">File FAFSA even if you have GI Bill benefits — it unlocks additional grants (Pell, VGAP) that can be stacked on top. File as early as possible each year (opens October 1).</div>
-      <div class="card-meta">
-        <span class="pill pill-deadline">Opens October 1 each year</span>
-        <span class="pill pill-stackable">Stackable on GI Bill</span>
-      </div>
-      <a href="https://studentaid.gov/h/apply-for-aid/fafsa" target="_blank" class="btn-link">File FAFSA →</a>
+      <details>
+        <summary>General Scholarship Applications — Standard Checklist</summary>
+        <div class="details-body">
+          <h4>Documents to prepare</h4>
+          <ul>
+            <li><strong>Official transcripts</strong> — request from your high school registrar at least 2 weeks before deadlines. Some scholarships need official sealed copies mailed directly.</li>
+            <li><strong>2 recommendation letters</strong> — ask teachers, coaches, or counselors at least <em>6 weeks</em> before the deadline. Give them a brief note about the scholarship and your goals to make their letter stronger.</li>
+            <li><strong>Personal essay</strong> — most scholarships ask for 200–500 words. Common prompts: "Why do you deserve this scholarship?" / "How has military service affected your family?" / "Describe your career goals." Draft early and have someone proofread.</li>
+            <li><strong>FAFSA Student Aid Report (SAR)</strong> — downloaded from StudentAid.gov after filing FAFSA. Many scholarships require it as proof of financial need.</li>
+            <li><strong>Photo ID</strong> — driver's license or school ID. Some applications require a copy for identity verification.</li>
+            <li><strong>Proof of military affiliation</strong> (for military scholarships) — copy of sponsor's DD-214 or a military ID card copy.</li>
+          </ul>
+          <h4>Tips</h4>
+          <ul>
+            <li>Keep a folder (digital or physical) with all your documents so you can reuse them across multiple applications.</li>
+            <li>Treat each application like a job application — tailor your essay to the specific scholarship's mission.</li>
+            <li>Apply for everything you qualify for, even small awards. $500–$1,000 scholarships add up and are less competitive.</li>
+          </ul>
+        </div>
+      </details>
     </div>
 
   </div>
@@ -334,5 +353,92 @@
     Questions? Call/text <a href="tel:7575259508" style="color:#2d6a4f;">(757) 525-9508</a>
   </div>
 
+  <script>
+    var CATEGORY_ORDER = ['gi-bill', 'state', 'military', 'local', 'tools', 'general'];
+    var CATEGORY_META = {
+      'gi-bill':  '🪖 GI Bill Benefits',
+      'state':    '🏛️ State of Virginia',
+      'military': '⭐ Military &amp; Veteran-Specific',
+      'local':    '📍 Hampton Roads Local',
+      'tools':    '🔍 Scholarship Search Tools',
+      'general':  '📋 Other Scholarships'
+    };
+
+    function esc(str) {
+      return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function renderScholarshipCards(items) {
+      var container = document.getElementById('scholarships-cards-container');
+      if (!items || items.length === 0) {
+        container.innerHTML = '<p style="color:#666;padding:20px 0;text-align:center;">No scholarships available right now. Check back soon.</p>';
+        return;
+      }
+
+      // Group by category, preserving CATEGORY_ORDER
+      var groups = {};
+      items.forEach(function(item) {
+        var cat = item.category || 'general';
+        if (!groups[cat]) groups[cat] = [];
+        groups[cat].push(item);
+      });
+
+      var html = '';
+      CATEGORY_ORDER.forEach(function(cat) {
+        if (!groups[cat] || groups[cat].length === 0) return;
+        html += '<div class="section-label">' + (CATEGORY_META[cat] || cat) + '</div>';
+        groups[cat].forEach(function(item) {
+          var cls = item.color_class ? ' ' + esc(item.color_class) : '';
+          html += '<div class="card' + cls + '">';
+          html += '<div class="card-title">' + esc(item.title) + '</div>';
+          if (item.description) {
+            html += '<div class="card-desc">' + esc(item.description) + '</div>';
+          }
+          var hasMeta = (item.amount && item.amount !== 'See website') || (item.deadline && item.deadline !== 'See website');
+          if (hasMeta) {
+            html += '<div class="card-meta">';
+            if (item.amount && item.amount !== 'See website') {
+              html += '<span class="pill pill-amount">' + esc(item.amount) + '</span>';
+            }
+            if (item.deadline && item.deadline !== 'See website') {
+              html += '<span class="pill pill-deadline">' + esc(item.deadline) + '</span>';
+            }
+            html += '</div>';
+          }
+          if (item.url) {
+            html += '<a href="' + esc(item.url) + '" target="_blank" rel="noopener" class="btn-link">Visit →</a>';
+          }
+          html += '</div>';
+        });
+      });
+
+      // Any categories not in CATEGORY_ORDER
+      Object.keys(groups).forEach(function(cat) {
+        if (CATEGORY_ORDER.indexOf(cat) === -1) {
+          html += '<div class="section-label">' + esc(cat) + '</div>';
+          groups[cat].forEach(function(item) {
+            var cls = item.color_class ? ' ' + esc(item.color_class) : '';
+            html += '<div class="card' + cls + '">';
+            html += '<div class="card-title">' + esc(item.title) + '</div>';
+            if (item.description) html += '<div class="card-desc">' + esc(item.description) + '</div>';
+            if (item.url) html += '<a href="' + esc(item.url) + '" target="_blank" rel="noopener" class="btn-link">Visit →</a>';
+            html += '</div>';
+          });
+        }
+      });
+
+      container.innerHTML = html;
+    }
+
+    fetch('/api/scholarships')
+      .then(function(r) { return r.json(); })
+      .then(function(items) { renderScholarshipCards(items); })
+      .catch(function() {
+        document.getElementById('scholarships-cards-container').innerHTML =
+          '<p style="color:#dc2626;padding:20px 0;text-align:center;">Could not load scholarships. Please refresh the page.</p>';
+      });
+  </script>
+
+  <script src="/js/email-popup.js"></script>
 </body>
 </html>

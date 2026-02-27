@@ -1543,6 +1543,7 @@ document.addEventListener('DOMContentLoaded', function() {
       if (tab === 'gallery-admin') loadGalleryAdmin();
       if (tab === 'loc') loadLocTab();
       if (tab === 'analytics') loadAnalyticsTab();
+      if (tab === 'scholarships') loadScholarshipsAdmin();
     });
   });
 
@@ -2359,6 +2360,212 @@ document.addEventListener('DOMContentLoaded', function() {
         headers: { 'x-admin-token': adminToken }
       });
       loadGalleryAdmin();
+    } catch(e) { alert('Delete failed.'); }
+  };
+
+  // --- Scholarships Admin Tab ---
+  async function loadScholarshipsAdmin() {
+    var container = document.getElementById('scholarships-admin-container');
+    if (!container) return;
+    container.innerHTML = '<p style="color:#666;">Loading...</p>';
+    try {
+      var res = await fetch('/api/admin/scholarships', { headers: { 'x-admin-token': adminToken } });
+      if (res.status === 401) { handleAuthExpired(); return; }
+      var items = await res.json();
+      renderScholarshipsAdmin(items);
+    } catch(e) {
+      container.innerHTML = '<p style="color:#dc2626;">Failed to load scholarships.</p>';
+    }
+  }
+
+  function renderScholarshipsAdmin(items) {
+    var container = document.getElementById('scholarships-admin-container');
+
+    var catOptions = [
+      { value: 'gi-bill',  label: 'GI Bill' },
+      { value: 'state',    label: 'State of Virginia' },
+      { value: 'military', label: 'Military / Veteran' },
+      { value: 'local',    label: 'Hampton Roads Local' },
+      { value: 'tools',    label: 'Search Tools' },
+      { value: 'general',  label: 'General' }
+    ];
+    var colorOptions = [
+      { value: '',       label: 'Green (default)' },
+      { value: 'gold',   label: 'Gold' },
+      { value: 'blue',   label: 'Blue' },
+      { value: 'purple', label: 'Purple' },
+      { value: 'orange', label: 'Orange' },
+      { value: 'teal',   label: 'Teal' }
+    ];
+    var catLabels = {};
+    catOptions.forEach(function(o) { catLabels[o.value] = o.label; });
+    var catOptHtml = catOptions.map(function(o) { return '<option value="' + o.value + '">' + o.label + '</option>'; }).join('');
+    var colorOptHtml = colorOptions.map(function(o) { return '<option value="' + o.value + '">' + o.label + '</option>'; }).join('');
+
+    function fieldHtml(id, label, tag, attrs, inner) {
+      return '<div class="form-group" style="margin-bottom:10px;"><label style="display:block;font-size:0.85em;font-weight:600;margin-bottom:4px;">' + label + '</label>'
+        + '<' + tag + ' id="' + id + '" ' + attrs + ' style="width:100%;padding:7px 9px;border:1px solid #ddd;border-radius:6px;box-sizing:border-box;font-size:0.92em;">' + (inner || '') + '</' + tag + '>'
+        + '</div>';
+    }
+
+    function buildForm(prefix, data) {
+      var d = data || {};
+      var catSel = catOptHtml.replace('value="' + (d.category || 'general') + '"', 'value="' + (d.category || 'general') + '" selected');
+      var colSel = colorOptHtml.replace('value="' + (d.color_class || '') + '"', 'value="' + (d.color_class || '') + '" selected');
+      var html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">';
+      html += fieldHtml(prefix + '-title',       'Title *',       'input', 'type="text" placeholder="e.g. Fastweb" value="' + escapeHtml(d.title || '') + '"', null);
+      html += fieldHtml(prefix + '-url',         'URL *',         'input', 'type="text" placeholder="https://..." value="' + escapeHtml(d.url || '') + '"', null);
+      html += fieldHtml(prefix + '-amount',      'Amount',        'input', 'type="text" placeholder="e.g. Up to $3,000/yr" value="' + escapeHtml(d.amount || '') + '"', null);
+      html += fieldHtml(prefix + '-deadline',    'Deadline',      'input', 'type="text" placeholder="e.g. April 15 each year" value="' + escapeHtml(d.deadline || '') + '"', null);
+      html += fieldHtml(prefix + '-category',    'Category',      'select', '', catSel);
+      html += fieldHtml(prefix + '-color',       'Color',         'select', '', colSel);
+      html += '<div class="form-group" style="grid-column:1/-1;margin-bottom:10px;"><label style="display:block;font-size:0.85em;font-weight:600;margin-bottom:4px;">Description</label>'
+        + '<textarea id="' + prefix + '-desc" rows="3" placeholder="Brief description of the scholarship..." style="width:100%;padding:7px 9px;border:1px solid #ddd;border-radius:6px;box-sizing:border-box;font-size:0.92em;resize:vertical;">' + escapeHtml(d.description || '') + '</textarea></div>';
+      html += '</div>';
+      return html;
+    }
+
+    var html = '<h2 style="margin-bottom:20px;">Scholarships</h2>';
+
+    // Add form
+    html += '<div class="bookings-table-container" style="margin-bottom:28px;">';
+    html += '<h3 style="margin:0 0 16px;">Add New Scholarship</h3>';
+    html += buildForm('sch-new', null);
+    html += '<p id="sch-new-msg" style="min-height:1.2em;color:#dc2626;margin-bottom:8px;"></p>';
+    html += '<button type="button" id="sch-add-btn" class="btn btn-primary" style="padding:9px 28px;">Add Scholarship</button>';
+    html += '</div>';
+
+    // Table
+    html += '<div class="bookings-table-container">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">';
+    html += '<h3 style="margin:0;">All Scholarships (' + items.length + ')</h3></div>';
+    if (items.length === 0) {
+      html += '<p style="color:#666;padding:10px 0;">No scholarships yet. Add one above.</p>';
+    } else {
+      html += '<div style="overflow-x:auto;">';
+      html += '<table style="width:100%;border-collapse:collapse;font-size:0.9em;">';
+      html += '<thead><tr style="background:#f8f9fa;text-align:left;">';
+      html += '<th style="padding:8px 10px;border-bottom:2px solid #e5e7eb;">Title</th>';
+      html += '<th style="padding:8px 10px;border-bottom:2px solid #e5e7eb;">Category</th>';
+      html += '<th style="padding:8px 10px;border-bottom:2px solid #e5e7eb;">Amount</th>';
+      html += '<th style="padding:8px 10px;border-bottom:2px solid #e5e7eb;">Active</th>';
+      html += '<th style="padding:8px 10px;border-bottom:2px solid #e5e7eb;">Actions</th>';
+      html += '</tr></thead><tbody>';
+      items.forEach(function(item) {
+        var rowId = 'sch-row-' + item.id;
+        html += '<tr id="' + rowId + '" style="border-bottom:1px solid #f0f0f0;">';
+        html += '<td style="padding:8px 10px;max-width:260px;">';
+        html += '<div style="font-weight:600;font-size:0.92em;">' + escapeHtml(item.title) + '</div>';
+        if (item.url) html += '<div style="font-size:0.78em;color:#666;margin-top:2px;">' + escapeHtml(item.url.replace(/^https?:\/\//, '').split('/')[0]) + '</div>';
+        html += '</td>';
+        html += '<td style="padding:8px 10px;white-space:nowrap;">' + escapeHtml(catLabels[item.category] || item.category) + '</td>';
+        html += '<td style="padding:8px 10px;white-space:nowrap;">' + escapeHtml(item.amount || '—') + '</td>';
+        html += '<td style="padding:8px 10px;">';
+        html += '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;">';
+        html += '<input type="checkbox" ' + (item.active ? 'checked' : '') + ' onchange="toggleScholarshipActive(' + item.id + ', this.checked)">';
+        html += '<span style="font-size:0.85em;">' + (item.active ? 'Visible' : 'Hidden') + '</span>';
+        html += '</label></td>';
+        html += '<td style="padding:8px 10px;white-space:nowrap;">';
+        html += '<button type="button" class="btn btn-secondary" style="padding:4px 12px;font-size:0.82em;margin-right:6px;" onclick="editScholarship(' + item.id + ')">Edit</button>';
+        html += '<button type="button" class="btn-cancel" style="padding:4px 10px;font-size:0.82em;" onclick="deleteScholarship(' + item.id + ')">Delete</button>';
+        html += '</td></tr>';
+        // Edit row (hidden)
+        html += '<tr id="sch-edit-row-' + item.id + '" style="display:none;background:#f8f9fa;">';
+        html += '<td colspan="5" style="padding:16px;">';
+        html += buildForm('sch-edit-' + item.id, item);
+        html += '<p id="sch-edit-msg-' + item.id + '" style="min-height:1.2em;color:#dc2626;margin-bottom:8px;"></p>';
+        html += '<button type="button" class="btn btn-primary" style="padding:7px 20px;margin-right:8px;" onclick="saveScholarshipEdit(' + item.id + ')">Save</button>';
+        html += '<button type="button" class="btn btn-secondary" style="padding:7px 14px;" onclick="cancelScholarshipEdit(' + item.id + ')">Cancel</button>';
+        html += '</td></tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+    html += '</div>';
+
+    container.innerHTML = html;
+
+    // Wire up Add button
+    document.getElementById('sch-add-btn').addEventListener('click', async function() {
+      var title = document.getElementById('sch-new-title').value.trim();
+      var url   = document.getElementById('sch-new-url').value.trim();
+      var msg   = document.getElementById('sch-new-msg');
+      if (!title || !url) { msg.textContent = 'Title and URL are required.'; return; }
+      msg.textContent = '';
+      try {
+        var res = await fetch('/api/admin/scholarships', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+          body: JSON.stringify({
+            title:       title,
+            url:         url,
+            description: document.getElementById('sch-new-desc').value.trim(),
+            amount:      document.getElementById('sch-new-amount').value.trim() || 'See website',
+            deadline:    document.getElementById('sch-new-deadline').value.trim() || 'See website',
+            category:    document.getElementById('sch-new-category').value,
+            color_class: document.getElementById('sch-new-color').value
+          })
+        });
+        if (res.ok) { loadScholarshipsAdmin(); }
+        else { var d = await res.json(); msg.textContent = d.error || 'Failed to add.'; }
+      } catch(e) { msg.textContent = 'Error adding scholarship.'; }
+    });
+  }
+
+  window.editScholarship = function(id) {
+    var editRow = document.getElementById('sch-edit-row-' + id);
+    if (editRow) editRow.style.display = editRow.style.display === 'none' ? '' : 'none';
+  };
+
+  window.cancelScholarshipEdit = function(id) {
+    var editRow = document.getElementById('sch-edit-row-' + id);
+    if (editRow) editRow.style.display = 'none';
+  };
+
+  window.saveScholarshipEdit = async function(id) {
+    var msg = document.getElementById('sch-edit-msg-' + id);
+    var prefix = 'sch-edit-' + id;
+    var title = document.getElementById(prefix + '-title').value.trim();
+    var url   = document.getElementById(prefix + '-url').value.trim();
+    if (!title || !url) { msg.textContent = 'Title and URL are required.'; return; }
+    msg.textContent = '';
+    try {
+      var res = await fetch('/api/admin/scholarships/' + id, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+        body: JSON.stringify({
+          title:       title,
+          url:         url,
+          description: document.getElementById(prefix + '-desc').value.trim(),
+          amount:      document.getElementById(prefix + '-amount').value.trim() || 'See website',
+          deadline:    document.getElementById(prefix + '-deadline').value.trim() || 'See website',
+          category:    document.getElementById(prefix + '-category').value,
+          color_class: document.getElementById(prefix + '-color').value
+        })
+      });
+      if (res.ok) { loadScholarshipsAdmin(); }
+      else { var d = await res.json(); msg.textContent = d.error || 'Save failed.'; }
+    } catch(e) { msg.textContent = 'Error saving.'; }
+  };
+
+  window.toggleScholarshipActive = async function(id, active) {
+    try {
+      await fetch('/api/admin/scholarships/' + id, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+        body: JSON.stringify({ active: active })
+      });
+      loadScholarshipsAdmin();
+    } catch(e) { alert('Failed to update.'); }
+  };
+
+  window.deleteScholarship = async function(id) {
+    if (!confirm('Delete this scholarship? This cannot be undone.')) return;
+    try {
+      await fetch('/api/admin/scholarships/' + id, {
+        method: 'DELETE',
+        headers: { 'x-admin-token': adminToken }
+      });
+      loadScholarshipsAdmin();
     } catch(e) { alert('Delete failed.'); }
   };
 
