@@ -68,7 +68,7 @@ files, **bump the cache version** so browsers drop stale content:
 const CACHE = 'dg-softwash-v3';  // increment each time HTML changes
 ```
 
-Current version: **v2** (bumped 2026-02-26 after email popup rollout)
+Current version: **v7** (bumped 2026-02-27 after mailto revert)
 
 ---
 
@@ -119,4 +119,14 @@ Environment variables (set in Render dashboard, not in .env):
 
 ---
 
-*Last updated: 2026-02-26 (mobile popup fix)*
+## EMAIL LINK BEHAVIOR (updated 2026-02-27)
+
+Email links on all public pages use standard `mailto:service@dgsoftwash.com`.
+- On mobile: opens mail app automatically ✓
+- On desktop: opens whatever email client is set as default in the browser
+- David's Mac (Chrome): Yahoo Mail set as mailto handler in chrome://settings/handlers
+- If mailto stops working in Chrome: go to chrome://settings/handlers → re-add yahoo.com or outlook.office365.com as the email handler
+
+---
+
+*Last updated: 2026-02-27 (mailto handler notes)*
