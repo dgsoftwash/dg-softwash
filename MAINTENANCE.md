@@ -42,7 +42,7 @@ payments, pricing. Cleans up everything when done.
 
 | What | Command |
 |------|---------|
-| **Check row counts in all tables** | `node -e "const{Pool}=require('pg');require('dotenv').config();const p=new Pool({connectionString:process.env.DATABASE_URL,ssl:{rejectUnauthorized:false}});async function r(){const t=['bookings','customers','work_orders','expenses','gallery_items','settings'];for(const x of t){const{rows}=await p.query('SELECT COUNT(*) FROM '+x);console.log(x+': '+rows[0].count)}p.end();}r()"` |
+| **Check row counts in all tables** | `node -e "const{Pool}=require('pg');require('dotenv').config();const p=new Pool({connectionString:process.env.DATABASE_URL,ssl:{rejectUnauthorized:false}});async function r(){const t=['bookings','customers','work_orders','expenses','gallery_items','settings','reviews'];for(const x of t){const{rows}=await p.query('SELECT COUNT(*) FROM '+x);console.log(x+': '+rows[0].count)}p.end();}r()"` |
 | **Wipe ALL data (nuclear reset — irreversible)** | `node -e "const{Pool}=require('pg');require('dotenv').config();const p=new Pool({connectionString:process.env.DATABASE_URL,ssl:{rejectUnauthorized:false}});p.query('DELETE FROM work_orders').then(()=>p.query('DELETE FROM bookings')).then(()=>p.query('DELETE FROM customers')).then(()=>p.query('DELETE FROM expenses')).then(()=>p.query('DELETE FROM gallery_items')).then(()=>{console.log('WIPED');p.end()})"` |
 | **Check if DB is reachable** | `curl -sf http://localhost:3000/api/gallery \| head -c 100` |
 
@@ -60,7 +60,7 @@ node_modules/pm2/bin/pm2 reload dg-softwash
 ## SERVICE WORKER CACHE
 
 The service worker (`public/service-worker.js`) caches public pages (`/`, `/services`,
-`/pricing`, `/gallery`, `/contact`) for offline/fast loading. Whenever you update HTML
+`/pricing`, `/gallery`, `/reviews`, `/contact`) for offline/fast loading. Whenever you update HTML
 files, **bump the cache version** so browsers drop stale content:
 
 ```js
@@ -68,7 +68,9 @@ files, **bump the cache version** so browsers drop stale content:
 const CACHE = 'dg-softwash-v3';  // increment each time HTML changes
 ```
 
-Current version: **v7** (bumped 2026-02-27 after mailto revert)
+Current version: **v9** (bumped 2026-02-28 after adding Reviews page + nav links)
+
+Also add `/reviews` to `STATIC_ASSETS` array when adding new public pages.
 
 ---
 
@@ -113,6 +115,8 @@ Current version: **v7** (bumped 2026-02-27 after mailto revert)
 
 ## RENDER DEPLOYMENT
 
+**Live URL: https://dg-softwash.onrender.com**
+
 Changes are deployed by pushing to GitHub (if auto-deploy is configured), or
 manually from the Render dashboard at render.com.
 
@@ -122,6 +126,23 @@ Environment variables (set in Render dashboard, not in .env):
 - `YAHOO_APP_PASSWORD` — Yahoo SMTP app password for emails
 - `GOOGLE_REVIEW_URL` — Your Google review link (optional)
 - `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM_NUMBER` — SMS (optional)
+
+---
+
+### Reviews / Testimonials (added 2026-02-28)
+- Public `/reviews` page with two modes: **Submit a Review** (shows top 5 + form) and **Read All Reviews** (shows 10 + Load More + form)
+- Homepage "What Our Customers Say" section shows up to 6 approved/live reviews; two buttons link to each mode
+- Customer submits → review goes **live immediately** on the public site (no approval message shown)
+- Admin → Reviews tab shows all reviews; **"Pending Review"** badge = needs your action
+  - **Approve** → makes it permanent (survives forever)
+  - **Delete** → removes immediately
+  - **Reply** → opens focused modal to write a public response (shown below review on site)
+  - **Edit** → edit all fields
+- **Auto-delete**: reviews not approved within 8 hours are automatically deleted (background job runs every 15 min)
+- Admin-added reviews (via + Add Review) are always auto-approved
+- DB table: `reviews` — columns: id, customer_name, star_rating, review_text, service_type, status, source, admin_response, created_at
+
+**Reviews nav link** is in the navbar and footer of all public pages.
 
 ---
 
@@ -135,4 +156,4 @@ Email links on all public pages use standard `mailto:service@dgsoftwash.com`.
 
 ---
 
-*Last updated: 2026-02-27 (mailto handler notes)*
+*Last updated: 2026-02-28 (reviews feature, nav links, Render URL)*
