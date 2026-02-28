@@ -879,6 +879,26 @@ body {
   color: var(--gray-600);
 }
 
+.share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 8px 20px;
+  background: transparent;
+  border: 1px solid var(--gray-300);
+  border-radius: 20px;
+  color: var(--gray-600);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.share-btn:hover {
+  background: var(--primary-color);
+  color: #fff;
+  border-color: var(--primary-color);
+}
+
 /* Hamburger Button */
 .hamburger {
   display: none;

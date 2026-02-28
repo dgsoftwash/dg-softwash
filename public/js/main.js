@@ -1,3 +1,25 @@
+// Share Button
+document.addEventListener('DOMContentLoaded', function() {
+  var shareBtn = document.getElementById('share-btn');
+  if (shareBtn) {
+    shareBtn.addEventListener('click', function() {
+      var shareData = {
+        title: 'D&G Soft Wash',
+        text: 'Check out D&G Soft Wash — professional exterior cleaning services!',
+        url: 'https://dg-softwash.onrender.com'
+      };
+      if (navigator.share) {
+        navigator.share(shareData);
+      } else {
+        navigator.clipboard.writeText(shareData.url).then(function() {
+          shareBtn.textContent = '✓ Link Copied!';
+          setTimeout(function() { shareBtn.textContent = '📤 Share Our Site'; }, 2000);
+        });
+      }
+    });
+  }
+});
+
 // Mobile Menu Toggle
 document.addEventListener('DOMContentLoaded', function() {
   const hamburger = document.querySelector('.hamburger');

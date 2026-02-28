@@ -68,7 +68,7 @@ files, **bump the cache version** so browsers drop stale content:
 const CACHE = 'dg-softwash-v3';  // increment each time HTML changes
 ```
 
-Current version: **v9** (bumped 2026-02-28 after adding Reviews page + nav links)
+Current version: **v10** (bumped 2026-02-28 after adding Share button to all public pages)
 
 Also add `/reviews` to `STATIC_ASSETS` array when adding new public pages.
 
@@ -156,4 +156,14 @@ Email links on all public pages use standard `mailto:service@dgsoftwash.com`.
 
 ---
 
-*Last updated: 2026-02-28 (reviews feature, nav links, Render URL)*
+---
+
+### Share Button (added 2026-02-28)
+- "📤 Share Our Site" button in the footer-bottom of all 6 public pages
+- On mobile (iOS/Android): opens native share sheet via Web Share API
+- On desktop: copies site URL to clipboard, button text changes to "✓ Link Copied!" for 2 seconds
+- JS logic in `public/js/main.js`, styles in `public/css/styles.css` (.share-btn)
+
+---
+
+*Last updated: 2026-02-28 (share button, service worker v10)*
