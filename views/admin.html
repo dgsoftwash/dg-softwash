@@ -461,6 +461,25 @@
     </div>
   </div>
 
+  <!-- Reply to Review Modal -->
+  <div id="reply-review-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1000; overflow-y:auto;">
+    <div style="background:#fff; max-width:500px; margin:40px auto; border-radius:12px; padding:30px; position:relative; box-shadow:0 8px 32px rgba(0,0,0,0.18);">
+      <button id="close-reply-modal" style="position:absolute; top:16px; right:20px; background:none; border:none; font-size:1.6em; cursor:pointer; color:#888; line-height:1;">&times;</button>
+      <h2 style="margin-top:0; margin-bottom:16px;">Reply to Review</h2>
+      <div id="reply-review-card" style="background:#f8f9fa; border-radius:8px; padding:16px; margin-bottom:20px; font-size:0.95em; line-height:1.6; color:#333;"></div>
+      <form id="reply-review-form">
+        <input type="hidden" id="rr-id" value="">
+        <div class="form-group">
+          <label style="font-weight:600; display:block; margin-bottom:6px; color:#1a1a2e;">Your Response</label>
+          <textarea id="rr-response" rows="4" placeholder="e.g. Thank you so much for the kind words! It was our pleasure serving you." style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box; resize:vertical; font-family:inherit;"></textarea>
+          <p style="margin:4px 0 0; font-size:0.82em; color:#888;">This response will appear publicly below the review.</p>
+        </div>
+        <p id="rr-error" style="color:#dc2626; margin-top:8px; min-height:1.2em;"></p>
+        <button type="submit" class="btn btn-primary" style="width:100%; margin-top:4px;">Save Response</button>
+      </form>
+    </div>
+  </div>
+
   <!-- Add / Edit Review Modal -->
   <div id="review-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1000; overflow-y:auto;">
     <div style="background:#fff; max-width:520px; margin:40px auto; border-radius:12px; padding:30px; position:relative; box-shadow:0 8px 32px rgba(0,0,0,0.18);">
