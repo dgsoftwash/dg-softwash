@@ -1,10 +1,11 @@
-const CACHE = 'dg-softwash-v7';
+const CACHE = 'dg-softwash-v8';
 
 const STATIC_ASSETS = [
   '/',
   '/services',
   '/pricing',
   '/gallery',
+  '/reviews',
   '/contact',
   '/css/styles.css',
   '/images/logo.png'

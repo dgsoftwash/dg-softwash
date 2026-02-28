@@ -240,6 +240,25 @@ async function initDb() {
     )
   `);
 
+  // Reviews table
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS reviews (
+      id SERIAL PRIMARY KEY,
+      customer_name TEXT NOT NULL,
+      star_rating INTEGER NOT NULL CHECK (star_rating BETWEEN 1 AND 5),
+      review_text TEXT NOT NULL,
+      service_type TEXT,
+      status TEXT NOT NULL DEFAULT 'live',
+      source TEXT NOT NULL DEFAULT 'public',
+      admin_response TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+  // Migration: add admin_response if table already exists
+  await pool.query(`ALTER TABLE reviews ADD COLUMN IF NOT EXISTS admin_response TEXT`);
+  // Migration: fix old pending reviews to live so they appear publicly
+  await pool.query(`UPDATE reviews SET status = 'live' WHERE status = 'pending' AND source = 'public'`);
+
   // Seed services (ON CONFLICT DO NOTHING = safe to re-run, won't overwrite admin edits)
   const seedServices = [
     // House Washing
@@ -674,6 +693,110 @@ app.delete('/api/admin/gallery/:id', requireAdmin, async (req, res) => {
 
 app.get('/contact', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'contact.html'));
+});
+
+// --- Reviews page ---
+app.get('/reviews', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'reviews.html'));
+});
+
+// --- Reviews API (public) ---
+app.get('/api/reviews', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, customer_name, star_rating, review_text, service_type, admin_response, created_at
+       FROM reviews WHERE status IN ('live', 'approved') ORDER BY created_at DESC`
+    );
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load reviews' });
+  }
+});
+
+app.post('/api/reviews', async (req, res) => {
+  try {
+    const { customer_name, star_rating, review_text, service_type } = req.body;
+    if (!customer_name || !star_rating || !review_text) {
+      return res.status(400).json({ error: 'Name, rating, and review text are required' });
+    }
+    const rating = parseInt(star_rating);
+    if (isNaN(rating) || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'Rating must be between 1 and 5' });
+    }
+    await pool.query(
+      `INSERT INTO reviews (customer_name, star_rating, review_text, service_type, status, source)
+       VALUES ($1, $2, $3, $4, 'live', 'public')`,
+      [customer_name.trim(), rating, review_text.trim(), service_type || null]
+    );
+    res.json({ success: true, message: 'Thank you for your review!' });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to submit review' });
+  }
+});
+
+// --- Reviews API (admin) ---
+app.get('/api/admin/reviews', requireAdmin, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, customer_name, star_rating, review_text, service_type, status, source, admin_response, created_at
+       FROM reviews ORDER BY created_at DESC`
+    );
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load reviews' });
+  }
+});
+
+app.post('/api/admin/reviews', requireAdmin, async (req, res) => {
+  try {
+    const { customer_name, star_rating, review_text, service_type, admin_response } = req.body;
+    if (!customer_name || !star_rating || !review_text) {
+      return res.status(400).json({ error: 'Name, rating, and review text are required' });
+    }
+    const rating = parseInt(star_rating);
+    if (isNaN(rating) || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'Rating must be between 1 and 5' });
+    }
+    const { rows } = await pool.query(
+      `INSERT INTO reviews (customer_name, star_rating, review_text, service_type, status, source, admin_response)
+       VALUES ($1, $2, $3, $4, 'approved', 'admin', $5) RETURNING id`,
+      [customer_name.trim(), rating, review_text.trim(), service_type || null, admin_response || null]
+    );
+    res.json({ success: true, id: rows[0].id });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to add review' });
+  }
+});
+
+app.patch('/api/admin/reviews/:id', requireAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { status, customer_name, star_rating, review_text, service_type, admin_response } = req.body;
+    const updates = [];
+    const values = [];
+    let idx = 1;
+    if (status !== undefined) { updates.push(`status = $${idx++}`); values.push(status); }
+    if (customer_name !== undefined) { updates.push(`customer_name = $${idx++}`); values.push(customer_name.trim()); }
+    if (star_rating !== undefined) { updates.push(`star_rating = $${idx++}`); values.push(parseInt(star_rating)); }
+    if (review_text !== undefined) { updates.push(`review_text = $${idx++}`); values.push(review_text.trim()); }
+    if (service_type !== undefined) { updates.push(`service_type = $${idx++}`); values.push(service_type || null); }
+    if (admin_response !== undefined) { updates.push(`admin_response = $${idx++}`); values.push(admin_response || null); }
+    if (updates.length === 0) return res.json({ success: true });
+    values.push(id);
+    await pool.query(`UPDATE reviews SET ${updates.join(', ')} WHERE id = $${idx}`, values);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to update review' });
+  }
+});
+
+app.delete('/api/admin/reviews/:id', requireAdmin, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM reviews WHERE id = $1', [parseInt(req.params.id)]);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to delete review' });
+  }
 });
 
 app.get('/admin', (req, res) => {
@@ -2171,11 +2294,28 @@ app.delete('/api/admin/purchase-orders/:id', requireAdmin, async (req, res) => {
   }
 });
 
+// Auto-delete unapproved public reviews older than 8 hours
+async function expireUnapprovedReviews() {
+  try {
+    const result = await pool.query(
+      `DELETE FROM reviews WHERE status = 'live' AND source = 'public' AND created_at < NOW() - INTERVAL '8 hours'`
+    );
+    if (result.rowCount > 0) {
+      console.log(`Auto-deleted ${result.rowCount} unapproved review(s) older than 8 hours.`);
+    }
+  } catch (e) {
+    console.error('Error expiring unapproved reviews:', e.message);
+  }
+}
+
 // --- Start server ---
 initDb().then(() => {
   applyDuePricingSchedules();
   // Re-check scheduled pricing changes every hour
   setInterval(applyDuePricingSchedules, 60 * 60 * 1000);
+  // Check for expired unreviewed reviews every 15 minutes
+  setInterval(expireUnapprovedReviews, 15 * 60 * 1000);
+  expireUnapprovedReviews(); // run once on startup too
   app.listen(PORT, () => {
     console.log(`D&G Soft Wash website running on port ${PORT}`);
   });

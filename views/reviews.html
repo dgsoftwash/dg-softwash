@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Customer Reviews - D&G Soft Wash</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/images/logo.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="D&G Soft Wash">
+  <meta name="theme-color" content="#1a1a2e">
+  <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    .reviews-section {
+      padding: 60px 0;
+      background: #f8f9fa;
+    }
+    .reviews-header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    .reviews-header h2 {
+      font-size: 2em;
+      color: #1a1a2e;
+      margin-bottom: 10px;
+    }
+    .reviews-header p {
+      color: #555;
+      font-size: 1.05em;
+    }
+    .star-filter {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 32px;
+    }
+    .star-filter button {
+      padding: 7px 18px;
+      border: 2px solid #e5e7eb;
+      border-radius: 999px;
+      background: #fff;
+      cursor: pointer;
+      font-size: 0.93em;
+      font-weight: 600;
+      color: #555;
+      transition: all 0.15s;
+    }
+    .star-filter button.active, .star-filter button:hover {
+      border-color: #1a1a2e;
+      background: #1a1a2e;
+      color: #fff;
+    }
+    .reviews-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+      margin-bottom: 20px;
+    }
+    .review-card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.08), 0 2px 4px -1px rgba(0,0,0,0.04);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .review-card .stars {
+      color: #f59e0b;
+      font-size: 1.2em;
+      letter-spacing: 2px;
+    }
+    .review-card .review-text {
+      color: #333;
+      font-size: 0.97em;
+      line-height: 1.65;
+      flex: 1;
+    }
+    .review-card .review-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin-top: 4px;
+    }
+    .review-card .review-name {
+      font-weight: 700;
+      color: #1a1a2e;
+      font-size: 0.97em;
+    }
+    .review-card .review-service {
+      color: #888;
+      font-size: 0.85em;
+    }
+    .review-card .review-date {
+      color: #bbb;
+      font-size: 0.8em;
+    }
+    .no-reviews-msg {
+      text-align: center;
+      color: #888;
+      padding: 40px 0;
+      font-size: 1.05em;
+      grid-column: 1 / -1;
+    }
+    /* Submit form */
+    .submit-review-section {
+      padding: 60px 0;
+      background: #fff;
+    }
+    .submit-review-section h2 {
+      text-align: center;
+      font-size: 1.6em;
+      color: #1a1a2e;
+      margin-bottom: 8px;
+    }
+    .submit-review-section .sub {
+      text-align: center;
+      color: #666;
+      margin-bottom: 32px;
+    }
+    .review-form-wrap {
+      max-width: 560px;
+      margin: 0 auto;
+      background: #f8f9fa;
+      border-radius: 12px;
+      padding: 32px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .review-form-wrap .form-group {
+      margin-bottom: 16px;
+    }
+    .review-form-wrap label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #1a1a2e;
+      font-size: 0.95em;
+    }
+    .review-form-wrap input,
+    .review-form-wrap select,
+    .review-form-wrap textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: 7px;
+      font-size: 0.95em;
+      box-sizing: border-box;
+      font-family: inherit;
+    }
+    .review-form-wrap textarea {
+      resize: vertical;
+    }
+    /* Star picker */
+    .star-pick-row {
+      display: flex;
+      gap: 6px;
+      font-size: 2em;
+      cursor: pointer;
+    }
+    .star-pick-row span {
+      color: #d1d5db;
+      transition: color 0.1s;
+      user-select: none;
+    }
+    .star-pick-row span.filled {
+      color: #f59e0b;
+    }
+    .form-msg {
+      margin-top: 12px;
+      min-height: 1.2em;
+      font-size: 0.95em;
+    }
+    .form-msg.success { color: #059669; font-weight: 600; }
+    .form-msg.error { color: #dc2626; }
+    .admin-response {
+      background: #f0f9ff;
+      border-left: 3px solid #0ea5e9;
+      border-radius: 0 6px 6px 0;
+      padding: 8px 12px;
+      font-size: 0.88em;
+      color: #0c4a6e;
+      line-height: 1.5;
+    }
+    .admin-response-label {
+      font-weight: 700;
+      display: block;
+      margin-bottom: 2px;
+      font-size: 0.85em;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #0369a1;
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-container">
+      <a href="/" class="logo"><img src="/images/logo.png" alt="D&G Soft Wash"></a>
+      <button class="hamburger" aria-label="Menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <ul class="nav-links">
+        <li><a href="/">Home</a></li>
+        <li><a href="/services">Services</a></li>
+        <li><a href="/pricing">Pricing</a></li>
+        <li><a href="/gallery">Gallery</a></li>
+        <li><a href="/reviews" class="active">Reviews</a></li>
+        <li><a href="/contact">Contact</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <header class="page-header">
+    <h1>Customer Reviews</h1>
+    <p>See what our customers are saying about D&G Soft Wash</p>
+  </header>
+
+  <section class="reviews-section">
+    <div class="container">
+      <div class="reviews-header">
+        <h2>What Our Customers Say</h2>
+        <p>Honest reviews from real customers across Hampton Roads</p>
+      </div>
+
+      <div class="star-filter" id="star-filter">
+        <button class="active" data-filter="all">All Reviews</button>
+        <button data-filter="5">5 Stars ★★★★★</button>
+        <button data-filter="4">4+ Stars</button>
+        <button data-filter="3">3+ Stars</button>
+      </div>
+
+      <div class="reviews-grid" id="reviews-grid">
+        <p class="no-reviews-msg">Loading reviews...</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="submit-review-section">
+    <div class="container">
+      <h2>Share Your Experience</h2>
+      <p class="sub">Enjoyed our service? We'd love to hear from you!</p>
+      <div class="review-form-wrap">
+        <form id="review-form">
+          <div class="form-group">
+            <label for="rv-name">Your Name *</label>
+            <input type="text" id="rv-name" placeholder="e.g. John S." required>
+          </div>
+          <div class="form-group">
+            <label for="rv-service">Service Received</label>
+            <select id="rv-service">
+              <option value="">-- Select a service --</option>
+              <option value="House Washing">House Washing</option>
+              <option value="Roof Cleaning">Roof Cleaning</option>
+              <option value="Driveway & Concrete">Driveway &amp; Concrete</option>
+              <option value="Fence & Deck">Fence &amp; Deck</option>
+              <option value="RV Washing">RV Washing</option>
+              <option value="Boat Cleaning">Boat Cleaning</option>
+              <option value="Heavy Equipment">Heavy Equipment</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Your Rating *</label>
+            <div class="star-pick-row" id="star-picker" role="group" aria-label="Star rating">
+              <span data-val="1">&#9733;</span>
+              <span data-val="2">&#9733;</span>
+              <span data-val="3">&#9733;</span>
+              <span data-val="4">&#9733;</span>
+              <span data-val="5">&#9733;</span>
+            </div>
+            <input type="hidden" id="rv-rating" value="">
+          </div>
+          <div class="form-group">
+            <label for="rv-text">Your Review *</label>
+            <textarea id="rv-text" rows="5" placeholder="Tell us about your experience..." required></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width:100%;">Submit Review</button>
+          <p class="form-msg" id="review-msg"></p>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-section">
+          <h3>D&G Soft Wash</h3>
+          <p><em>Integrity You Can See</em></p>
+          <p>Veteran owned & operated. Professional exterior cleaning services for residential and commercial properties.</p>
+        </div>
+        <div class="footer-section">
+          <h3>Quick Links</h3>
+          <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/services">Services</a></li>
+            <li><a href="/pricing">Pricing</a></li>
+            <li><a href="/gallery">Gallery</a></li>
+            <li><a href="/reviews">Reviews</a></li>
+            <li><a href="/contact">Contact</a></li>
+          </ul>
+        </div>
+        <div class="footer-section">
+          <h3>Contact Info</h3>
+          <p>Phone: <a href="tel:7573304260">(757) 330-4260</a></p>
+          <p>Email: <a href="mailto:service@dgsoftwash.com">service@dgsoftwash.com</a></p>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2025 D&G Soft Wash. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/js/main.js"></script>
+  <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js');</script>
+  <script src="/js/email-popup.js"></script>
+  <script>
+    var allReviews = [];
+    var currentFilter = 'all';
+
+    function starsHtml(n) {
+      return '★'.repeat(n) + '☆'.repeat(5 - n);
+    }
+
+    function formatDate(iso) {
+      var d = new Date(iso);
+      return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    }
+
+    function renderReviews(reviews) {
+      var grid = document.getElementById('reviews-grid');
+      if (!reviews.length) {
+        grid.innerHTML = '<p class="no-reviews-msg">No reviews yet. Be the first to leave one!</p>';
+        return;
+      }
+      grid.innerHTML = reviews.map(function(r) {
+        var responseHtml = r.admin_response
+          ? '<div class="admin-response"><span class="admin-response-label">Response from D&amp;G Soft Wash:</span> ' + escHtml(r.admin_response) + '</div>'
+          : '';
+        return '<div class="review-card">' +
+          '<div class="stars">' + starsHtml(r.star_rating) + '</div>' +
+          '<p class="review-text">&ldquo;' + escHtml(r.review_text) + '&rdquo;</p>' +
+          responseHtml +
+          '<div class="review-meta">' +
+            '<span class="review-name">' + escHtml(r.customer_name) + '</span>' +
+            (r.service_type ? '<span class="review-service">' + escHtml(r.service_type) + '</span>' : '') +
+            '<span class="review-date">' + formatDate(r.created_at) + '</span>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    function escHtml(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function applyFilter(filter) {
+      currentFilter = filter;
+      var filtered = allReviews.filter(function(r) {
+        if (filter === 'all') return true;
+        return r.star_rating >= parseInt(filter);
+      });
+      renderReviews(filtered);
+    }
+
+    // Star filter buttons
+    document.getElementById('star-filter').addEventListener('click', function(e) {
+      var btn = e.target.closest('button');
+      if (!btn) return;
+      document.querySelectorAll('#star-filter button').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      applyFilter(btn.dataset.filter);
+    });
+
+    // Load reviews
+    fetch('/api/reviews')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        allReviews = data;
+        applyFilter(currentFilter);
+      })
+      .catch(function() {
+        document.getElementById('reviews-grid').innerHTML = '<p class="no-reviews-msg">Could not load reviews. Please try again later.</p>';
+      });
+
+    // Star picker
+    var starPicker = document.getElementById('star-picker');
+    var ratingInput = document.getElementById('rv-rating');
+    var pickerStars = starPicker.querySelectorAll('span');
+
+    function updatePickerDisplay(val) {
+      pickerStars.forEach(function(s) {
+        s.classList.toggle('filled', parseInt(s.dataset.val) <= val);
+      });
+    }
+
+    starPicker.addEventListener('mouseover', function(e) {
+      var s = e.target.closest('span');
+      if (s) updatePickerDisplay(parseInt(s.dataset.val));
+    });
+    starPicker.addEventListener('mouseleave', function() {
+      updatePickerDisplay(parseInt(ratingInput.value) || 0);
+    });
+    starPicker.addEventListener('click', function(e) {
+      var s = e.target.closest('span');
+      if (!s) return;
+      ratingInput.value = s.dataset.val;
+      updatePickerDisplay(parseInt(s.dataset.val));
+    });
+
+    // Submit form
+    document.getElementById('review-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      var msg = document.getElementById('review-msg');
+      var name = document.getElementById('rv-name').value.trim();
+      var service = document.getElementById('rv-service').value;
+      var rating = ratingInput.value;
+      var text = document.getElementById('rv-text').value.trim();
+
+      if (!rating) {
+        msg.textContent = 'Please select a star rating.';
+        msg.className = 'form-msg error';
+        return;
+      }
+      msg.textContent = '';
+      var btn = this.querySelector('button[type=submit]');
+      btn.disabled = true;
+      btn.textContent = 'Submitting...';
+
+      fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customer_name: name, star_rating: parseInt(rating), review_text: text, service_type: service || null })
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.success) {
+            msg.textContent = data.message || 'Thank you for your review!';
+            msg.className = 'form-msg success';
+            document.getElementById('review-form').reset();
+            ratingInput.value = '';
+            updatePickerDisplay(0);
+          } else {
+            msg.textContent = data.error || 'Submission failed. Please try again.';
+            msg.className = 'form-msg error';
+          }
+        })
+        .catch(function() {
+          msg.textContent = 'Submission failed. Please try again.';
+          msg.className = 'form-msg error';
+        })
+        .finally(function() {
+          btn.disabled = false;
+          btn.textContent = 'Submit Review';
+        });
+    });
+  </script>
+</body>
+</html>

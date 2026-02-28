@@ -115,6 +115,21 @@
     </div>
   </section>
 
+  <section class="reviews-section" id="homepage-reviews">
+    <div class="container">
+      <div style="text-align:center; margin-bottom:32px;">
+        <h2 style="color:#1a1a2e; margin-bottom:10px;">What Our Customers Say</h2>
+        <p style="color:#555; font-size:1.05em;">Real reviews from real customers across Hampton Roads</p>
+      </div>
+      <div class="reviews-grid" id="homepage-reviews-grid">
+        <p style="color:#888; text-align:center; grid-column:1/-1;">Loading reviews...</p>
+      </div>
+      <div class="center" style="margin-top:28px;">
+        <a href="/reviews" class="btn btn-secondary">See All Reviews &rarr;</a>
+      </div>
+    </div>
+  </section>
+
   <section class="cta">
     <div class="container">
       <div class="cta-inner">
@@ -162,5 +177,37 @@
   <script src="/js/main.js"></script>
   <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js');</script>
   <script src="/js/email-popup.js"></script>
+  <script>
+    (function() {
+      function starsHtml(n) { return '★'.repeat(n) + '☆'.repeat(5 - n); }
+      function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+      fetch('/api/reviews')
+        .then(function(r) { return r.json(); })
+        .then(function(reviews) {
+          var grid = document.getElementById('homepage-reviews-grid');
+          if (!grid) return;
+          var top = reviews.slice(0, 6);
+          if (!top.length) {
+            grid.innerHTML = '<p style="color:#888; text-align:center; grid-column:1/-1;">No reviews yet — be the first!</p>';
+            return;
+          }
+          grid.innerHTML = top.map(function(r) {
+            var responseHtml = r.admin_response
+              ? '<div class="admin-response"><span class="admin-response-label">Response from D&amp;G Soft Wash:</span> ' + escHtml(r.admin_response) + '</div>'
+              : '';
+            return '<div class="review-card">' +
+              '<div class="stars">' + starsHtml(r.star_rating) + '</div>' +
+              '<p class="review-text">&ldquo;' + escHtml(r.review_text) + '&rdquo;</p>' +
+              responseHtml +
+              '<div class="review-meta">' +
+                '<span class="review-name">' + escHtml(r.customer_name) + '</span>' +
+                (r.service_type ? '<span class="review-service">' + escHtml(r.service_type) + '</span>' : '') +
+              '</div>' +
+            '</div>';
+          }).join('');
+        })
+        .catch(function() {});
+    })();
+  </script>
 </body>
 </html>

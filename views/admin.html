@@ -68,6 +68,7 @@
           <button class="admin-tab" data-tab="revenue" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Revenue</button>
           <button class="admin-tab" data-tab="payments" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Payments</button>
           <button class="admin-tab" data-tab="gallery-admin" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Gallery</button>
+          <button class="admin-tab" data-tab="reviews-admin" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Reviews</button>
           <button class="admin-tab" data-tab="loc" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Lines of Credit</button>
           <button class="admin-tab" data-tab="analytics" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Analytics</button>
         </div>
@@ -219,6 +220,11 @@
         <!-- Gallery Admin Tab -->
         <div id="tab-gallery-admin" class="tab-panel" style="display:none;">
           <div id="gallery-admin-container"></div>
+        </div>
+
+        <!-- Reviews Admin Tab -->
+        <div id="tab-reviews-admin" class="tab-panel" style="display:none;">
+          <div id="reviews-admin-container"></div>
         </div>
 
         <!-- Line of Credit Tab -->
@@ -451,6 +457,49 @@
         </div>
         <p id="gwo-error" style="color:#dc2626; margin-top:8px; min-height:1.2em;"></p>
         <button type="submit" class="btn btn-primary" style="width:100%;">Generate Work Order</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add / Edit Review Modal -->
+  <div id="review-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1000; overflow-y:auto;">
+    <div style="background:#fff; max-width:520px; margin:40px auto; border-radius:12px; padding:30px; position:relative; box-shadow:0 8px 32px rgba(0,0,0,0.18);">
+      <button id="close-review-modal" style="position:absolute; top:16px; right:20px; background:none; border:none; font-size:1.6em; cursor:pointer; color:#888; line-height:1;">&times;</button>
+      <h2 id="review-modal-title" style="margin-top:0; margin-bottom:20px;">Add Review</h2>
+      <form id="review-modal-form">
+        <input type="hidden" id="rm-id" value="">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+          <div class="form-group" style="grid-column:1/-1;"><label>Customer Name *</label><input type="text" id="rm-name" required style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"></div>
+          <div class="form-group">
+            <label>Service</label>
+            <select id="rm-service" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;">
+              <option value="">-- None --</option>
+              <option value="House Washing">House Washing</option>
+              <option value="Roof Cleaning">Roof Cleaning</option>
+              <option value="Driveway & Concrete">Driveway &amp; Concrete</option>
+              <option value="Fence & Deck">Fence &amp; Deck</option>
+              <option value="RV Washing">RV Washing</option>
+              <option value="Boat Cleaning">Boat Cleaning</option>
+              <option value="Heavy Equipment">Heavy Equipment</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Star Rating *</label>
+            <select id="rm-rating" required style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;">
+              <option value="">-- Select --</option>
+              <option value="5">5 Stars ★★★★★</option>
+              <option value="4">4 Stars ★★★★</option>
+              <option value="3">3 Stars ★★★</option>
+              <option value="2">2 Stars ★★</option>
+              <option value="1">1 Star ★</option>
+            </select>
+          </div>
+          <div class="form-group" style="grid-column:1/-1;"><label>Review Text *</label><textarea id="rm-text" rows="4" required style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box; resize:vertical;"></textarea></div>
+          <div class="form-group" style="grid-column:1/-1;"><label>Your Response <span style="font-weight:400; color:#888;">(optional — shown publicly under the review)</span></label><textarea id="rm-response" rows="3" placeholder="e.g. Thank you so much for the kind words! It was our pleasure..." style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box; resize:vertical;"></textarea></div>
+        </div>
+        <p id="rm-error" style="color:#dc2626; margin-top:8px; min-height:1.2em;"></p>
+        <button type="submit" id="rm-submit" class="btn btn-primary" style="width:100%; margin-top:4px;">Save Review</button>
       </form>
     </div>
   </div>

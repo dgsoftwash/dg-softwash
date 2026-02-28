@@ -1140,24 +1140,40 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
+  var _allCustomersData = [];
+
   function renderCustomersList(customers) {
+    _allCustomersData = customers;
     var container = document.getElementById('customers-admin-container');
     var html = '<h2 style="margin-bottom:16px;">Customers</h2>';
 
-    html += '<div style="display:flex; gap:10px; margin-bottom:16px; align-items:center; flex-wrap:wrap;">' +
+    html += '<div style="display:flex; gap:10px; margin-bottom:12px; align-items:center; flex-wrap:wrap;">' +
       '<button type="button" class="btn btn-primary" style="padding:7px 16px; font-size:0.9em;" onclick="emailSelectedCustomers()">Email Selected</button>' +
       '<button type="button" class="btn btn-secondary" style="padding:7px 16px; font-size:0.9em;" onclick="emailAllCustomers()">Email All</button>' +
       '<button type="button" class="btn btn-secondary" style="padding:7px 16px; font-size:0.9em;" onclick="openAddCustomerModal()">+ Add Customer</button>' +
       '<span id="customers-selected-count" style="color:#666; font-size:0.9em;"></span>' +
+      '</div>' +
+      '<div style="margin-bottom:16px;">' +
+        '<input type="search" id="customer-search" placeholder="Search by name, email, phone, or address..." ' +
+          'style="width:100%; max-width:440px; padding:9px 14px; border:1px solid #ddd; border-radius:7px; font-size:0.95em; box-sizing:border-box;"' +
+          ' oninput="filterCustomersList(this.value)">' +
       '</div>';
 
+    html += '<div id="customers-table-wrap"></div>';
+    container.innerHTML = html;
+    renderCustomersTable(_allCustomersData);
+  }
+
+  function renderCustomersTable(customers) {
+    var wrap = document.getElementById('customers-table-wrap');
+    if (!wrap) return;
+
     if (customers.length === 0) {
-      html += '<p style="color:#666; padding:20px 0;">No customers yet.</p>';
-      container.innerHTML = html;
+      wrap.innerHTML = '<p style="color:#666; padding:20px 0;">No customers found.</p>';
       return;
     }
 
-    html += '<div style="overflow-x:auto;">' +
+    var html = '<div style="overflow-x:auto;">' +
       '<table class="bookings-table">' +
       '<thead><tr>' +
         '<th style="width:36px;"><input type="checkbox" id="select-all-customers" onchange="toggleAllCustomers(this.checked)"></th>' +
@@ -1189,8 +1205,23 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     html += '</tbody></table></div>';
-    container.innerHTML = html;
+    wrap.innerHTML = html;
   }
+
+  window.filterCustomersList = function(query) {
+    var q = query.trim().toLowerCase();
+    if (!q) {
+      renderCustomersTable(_allCustomersData);
+      return;
+    }
+    var filtered = _allCustomersData.filter(function(c) {
+      return (c.name || '').toLowerCase().includes(q) ||
+             (c.email || '').toLowerCase().includes(q) ||
+             (c.phone || '').toLowerCase().includes(q) ||
+             (c.address || '').toLowerCase().includes(q);
+    });
+    renderCustomersTable(filtered);
+  };
 
   window.toggleAllCustomers = function(checked) {
     document.querySelectorAll('.customer-checkbox').forEach(function(cb) { cb.checked = checked; });
@@ -1541,6 +1572,7 @@ document.addEventListener('DOMContentLoaded', function() {
       if (tab === 'revenue') loadRevenueTab();
       if (tab === 'payments') loadPaymentsTab();
       if (tab === 'gallery-admin') loadGalleryAdmin();
+      if (tab === 'reviews-admin') loadReviewsAdmin();
       if (tab === 'loc') loadLocTab();
       if (tab === 'analytics') loadAnalyticsTab();
     });
@@ -3932,6 +3964,205 @@ document.addEventListener('DOMContentLoaded', function() {
         alert('Failed to generate year-end report: ' + err.message);
       });
   };
+
+  // --- Reviews Admin ---
+  function starsText(n) {
+    return '★'.repeat(n) + '☆'.repeat(5 - n);
+  }
+
+  async function loadReviewsAdmin() {
+    var container = document.getElementById('reviews-admin-container');
+    if (!container) return;
+    container.innerHTML = '<p style="color:#666;">Loading reviews...</p>';
+    try {
+      var res = await fetch('/api/admin/reviews', { headers: { 'x-admin-token': adminToken } });
+      if (res.status === 401) { handleAuthExpired(); return; }
+      var reviews = await res.json();
+      renderReviewsAdmin(reviews);
+    } catch (e) {
+      container.innerHTML = '<p style="color:#dc2626;">Failed to load reviews.</p>';
+    }
+  }
+
+  function renderReviewsAdmin(reviews) {
+    var container = document.getElementById('reviews-admin-container');
+    var liveCount = reviews.filter(function(r) { return r.status === 'live'; }).length;
+    var approvedCount = reviews.filter(function(r) { return r.status === 'approved'; }).length;
+
+    var html = '<div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:20px; align-items:center;">' +
+      '<span style="background:#fef3c7; color:#92400e; padding:6px 14px; border-radius:999px; font-size:0.9em; font-weight:600;">' +
+        liveCount + ' New (auto-expire 8h)</span>' +
+      '<span style="background:#d1fae5; color:#065f46; padding:6px 14px; border-radius:999px; font-size:0.9em; font-weight:600;">' +
+        approvedCount + ' Approved</span>' +
+      '<button onclick="openAddReviewModal()" class="btn btn-primary" style="margin-left:auto; padding:8px 18px;">+ Add Review</button>' +
+    '</div>';
+
+    if (!reviews.length) {
+      html += '<p style="color:#888;">No reviews yet.</p>';
+      container.innerHTML = html;
+      return;
+    }
+
+    html += '<div style="overflow-x:auto;"><table class="bookings-table" style="min-width:700px;">' +
+      '<thead><tr>' +
+        '<th>Date</th><th>Name</th><th>Stars</th><th>Service</th><th>Review</th><th>Response</th><th>Status</th><th>Actions</th>' +
+      '</tr></thead><tbody>';
+
+    reviews.forEach(function(r) {
+      var isLive = r.status === 'live';
+      var rowStyle = isLive ? 'background:#fffbeb;' : '';
+      var date = new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      var truncated = r.review_text.length > 70 ? r.review_text.substring(0, 70) + '…' : r.review_text;
+      var responseTrunc = r.admin_response
+        ? (r.admin_response.length > 50 ? r.admin_response.substring(0, 50) + '…' : r.admin_response)
+        : '<span style="color:#bbb;">—</span>';
+
+      var statusBadge;
+      if (r.status === 'live') {
+        statusBadge = '<span style="background:#fef3c7; color:#92400e; padding:3px 10px; border-radius:999px; font-size:0.82em; font-weight:700;">Live</span>';
+      } else if (r.status === 'approved') {
+        statusBadge = '<span style="background:#d1fae5; color:#065f46; padding:3px 10px; border-radius:999px; font-size:0.82em; font-weight:700;">Approved</span>';
+      } else {
+        statusBadge = '<span style="background:#f3f4f6; color:#374151; padding:3px 10px; border-radius:999px; font-size:0.82em; font-weight:700;">' + escAdm(r.status) + '</span>';
+      }
+
+      html += '<tr style="' + rowStyle + '">' +
+        '<td style="white-space:nowrap;">' + date + '</td>' +
+        '<td>' + escAdm(r.customer_name) + '</td>' +
+        '<td style="color:#f59e0b; letter-spacing:1px;">' + starsText(r.star_rating) + '</td>' +
+        '<td>' + (r.service_type ? escAdm(r.service_type) : '<span style="color:#bbb;">—</span>') + '</td>' +
+        '<td style="max-width:180px; font-size:0.88em; color:#555;">' + escAdm(truncated) + '</td>' +
+        '<td style="max-width:160px; font-size:0.88em; color:#0369a1;">' + (r.admin_response ? escAdm(responseTrunc) : '<span style="color:#bbb;">—</span>') + '</td>' +
+        '<td>' + statusBadge + '</td>' +
+        '<td style="white-space:nowrap;">' +
+          (isLive ? '<button class="btn btn-primary" style="padding:4px 12px; font-size:0.82em; margin-right:4px;" onclick="approveReview(' + r.id + ')">Approve</button>' : '') +
+          '<button class="btn btn-secondary" style="padding:4px 12px; font-size:0.82em; margin-right:4px;" onclick="openEditReviewModal(' + r.id + ')">Edit / Respond</button>' +
+          '<button class="btn" style="padding:4px 12px; font-size:0.82em; background:#fee2e2; color:#dc2626; border:1px solid #fca5a5;" onclick="deleteReview(' + r.id + ')">Delete</button>' +
+        '</td>' +
+      '</tr>';
+    });
+
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+
+    // Store reviews data for edit modal
+    window._adminReviews = reviews;
+  }
+
+  function escAdm(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  window.approveReview = async function(id) {
+    try {
+      var res = await fetch('/api/admin/reviews/' + id, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+        body: JSON.stringify({ status: 'approved' })
+      });
+      if (res.status === 401) { handleAuthExpired(); return; }
+      loadReviewsAdmin();
+    } catch (e) {
+      alert('Failed to approve review.');
+    }
+  };
+
+  window.deleteReview = async function(id) {
+    if (!confirm('Delete this review? This cannot be undone.')) return;
+    try {
+      var res = await fetch('/api/admin/reviews/' + id, {
+        method: 'DELETE',
+        headers: { 'x-admin-token': adminToken }
+      });
+      if (res.status === 401) { handleAuthExpired(); return; }
+      loadReviewsAdmin();
+    } catch (e) {
+      alert('Failed to delete review.');
+    }
+  };
+
+  window.openAddReviewModal = function() {
+    document.getElementById('review-modal-title').textContent = 'Add Review';
+    document.getElementById('rm-id').value = '';
+    document.getElementById('rm-name').value = '';
+    document.getElementById('rm-service').value = '';
+    document.getElementById('rm-rating').value = '';
+    document.getElementById('rm-text').value = '';
+    document.getElementById('rm-response').value = '';
+    document.getElementById('rm-error').textContent = '';
+    document.getElementById('rm-submit').textContent = 'Add Review';
+    document.getElementById('review-modal').style.display = 'block';
+  };
+
+  window.openEditReviewModal = function(id) {
+    var reviews = window._adminReviews || [];
+    var r = reviews.find(function(x) { return x.id === id; });
+    if (!r) return;
+    document.getElementById('review-modal-title').textContent = 'Edit / Respond';
+    document.getElementById('rm-id').value = r.id;
+    document.getElementById('rm-name').value = r.customer_name;
+    document.getElementById('rm-service').value = r.service_type || '';
+    document.getElementById('rm-rating').value = r.star_rating;
+    document.getElementById('rm-text').value = r.review_text;
+    document.getElementById('rm-response').value = r.admin_response || '';
+    document.getElementById('rm-error').textContent = '';
+    document.getElementById('rm-submit').textContent = 'Save Changes';
+    document.getElementById('review-modal').style.display = 'block';
+  };
+
+  var closeReviewModalBtn = document.getElementById('close-review-modal');
+  if (closeReviewModalBtn) {
+    closeReviewModalBtn.addEventListener('click', function() {
+      document.getElementById('review-modal').style.display = 'none';
+    });
+  }
+
+  var reviewModalForm = document.getElementById('review-modal-form');
+  if (reviewModalForm) {
+    reviewModalForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      var errEl = document.getElementById('rm-error');
+      errEl.textContent = '';
+      var id = document.getElementById('rm-id').value;
+      var payload = {
+        customer_name: document.getElementById('rm-name').value.trim(),
+        star_rating: parseInt(document.getElementById('rm-rating').value),
+        review_text: document.getElementById('rm-text').value.trim(),
+        service_type: document.getElementById('rm-service').value || null,
+        admin_response: document.getElementById('rm-response').value.trim() || null
+      };
+      if (!payload.customer_name || !payload.review_text || !payload.star_rating) {
+        errEl.textContent = 'Name, rating, and review text are required.';
+        return;
+      }
+      try {
+        var res;
+        if (id) {
+          res = await fetch('/api/admin/reviews/' + id, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+            body: JSON.stringify(payload)
+          });
+        } else {
+          res = await fetch('/api/admin/reviews', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+            body: JSON.stringify(payload)
+          });
+        }
+        if (res.status === 401) { handleAuthExpired(); return; }
+        var data = await res.json();
+        if (data.success) {
+          document.getElementById('review-modal').style.display = 'none';
+          loadReviewsAdmin();
+        } else {
+          errEl.textContent = data.error || 'Failed to save review.';
+        }
+      } catch (err) {
+        errEl.textContent = 'Failed to save review.';
+      }
+    });
+  }
 
   // Check if already logged in
   if (adminToken) {
