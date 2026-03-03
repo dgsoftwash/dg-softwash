@@ -1,8 +1,8 @@
 # D&G Soft Wash — Maintenance Commands Reference
 
-All commands are run from the project directory:
+All commands are run from the project directory on the **Mac Mini**:
 ```
-cd /Users/davidbemish/Desktop/dg-softwash
+cd /Volumes/<SSD>/dg-softwash
 ```
 
 ---
@@ -11,12 +11,12 @@ cd /Users/davidbemish/Desktop/dg-softwash
 
 | What | Command |
 |------|---------|
-| **Restart server** (pick up code changes) | `node_modules/pm2/bin/pm2 reload dg-softwash` |
-| **Check server status** | `node_modules/pm2/bin/pm2 list` |
-| **View live server logs** (errors, crashes) | `node_modules/pm2/bin/pm2 logs dg-softwash` |
-| **View last 50 log lines** | `node_modules/pm2/bin/pm2 logs dg-softwash --lines 50` |
-| **Stop server** | `node_modules/pm2/bin/pm2 stop dg-softwash` |
-| **Start server** (if stopped) | `node_modules/pm2/bin/pm2 start dg-softwash` |
+| **Restart server** (pick up code changes) | `pm2 reload dg-softwash` |
+| **Check server status** | `pm2 list` |
+| **View live server logs** (errors, crashes) | `pm2 logs dg-softwash` |
+| **View last 50 log lines** | `pm2 logs dg-softwash --lines 50` |
+| **Stop server** | `pm2 stop dg-softwash` |
+| **Start server** (if stopped) | `pm2 start ecosystem.config.js` |
 | **See what's on port 3000** | `lsof -i:3000` |
 
 ---
@@ -38,13 +38,18 @@ payments, pricing. Cleans up everything when done.
 
 ---
 
-## DATABASE (PostgreSQL on Render)
+## DATABASE (PostgreSQL — local on Mac Mini)
 
 | What | Command |
 |------|---------|
-| **Check row counts in all tables** | `node -e "const{Pool}=require('pg');require('dotenv').config();const p=new Pool({connectionString:process.env.DATABASE_URL,ssl:{rejectUnauthorized:false}});async function r(){const t=['bookings','customers','work_orders','expenses','gallery_items','settings','reviews'];for(const x of t){const{rows}=await p.query('SELECT COUNT(*) FROM '+x);console.log(x+': '+rows[0].count)}p.end();}r()"` |
-| **Wipe ALL data (nuclear reset — irreversible)** | `node -e "const{Pool}=require('pg');require('dotenv').config();const p=new Pool({connectionString:process.env.DATABASE_URL,ssl:{rejectUnauthorized:false}});p.query('DELETE FROM work_orders').then(()=>p.query('DELETE FROM bookings')).then(()=>p.query('DELETE FROM customers')).then(()=>p.query('DELETE FROM expenses')).then(()=>p.query('DELETE FROM gallery_items')).then(()=>{console.log('WIPED');p.end()})"` |
+| **Check row counts in all tables** | `node -e "const{Pool}=require('pg');require('dotenv').config();const p=new Pool({connectionString:process.env.DATABASE_URL});async function r(){const t=['bookings','customers','work_orders','expenses','gallery_items','settings','reviews'];for(const x of t){const{rows}=await p.query('SELECT COUNT(*) FROM '+x);console.log(x+': '+rows[0].count)}p.end();}r()"` |
+| **Wipe ALL data (nuclear reset — irreversible)** | `node -e "const{Pool}=require('pg');require('dotenv').config();const p=new Pool({connectionString:process.env.DATABASE_URL});p.query('DELETE FROM work_orders').then(()=>p.query('DELETE FROM bookings')).then(()=>p.query('DELETE FROM customers')).then(()=>p.query('DELETE FROM expenses')).then(()=>p.query('DELETE FROM gallery_items')).then(()=>{console.log('WIPED');p.end()})"` |
 | **Check if DB is reachable** | `curl -sf http://localhost:3000/api/gallery \| head -c 100` |
+| **Open psql shell** | `psql dgsoftwash` |
+| **Backup database** | `pg_dump dgsoftwash --no-acl --no-owner -Fc -f ~/Desktop/backup_$(date +%Y%m%d).dump` |
+| **Restore from backup** | `pg_restore -d dgsoftwash --no-acl --no-owner ~/Desktop/backup_YYYYMMDD.dump` |
+| **Check PostgreSQL service** | `brew services list \| grep postgresql` |
+| **Restart PostgreSQL** | `brew services restart postgresql@15` |
 
 ---
 
@@ -52,7 +57,7 @@ payments, pricing. Cleans up everything when done.
 
 Whenever you edit a `.js` or `.html` file, restart the server to load the changes:
 ```
-node_modules/pm2/bin/pm2 reload dg-softwash
+pm2 reload dg-softwash
 ```
 
 ---
@@ -78,15 +83,17 @@ Also add `/reviews` to `STATIC_ASSETS` array when adding new public pages.
 
 | Symptom | Likely Cause | Fix |
 |---------|-------------|-----|
-| Site down / 502 on Render | Server crashed | Check `pm2 logs`, then `pm2 reload` |
-| "Cannot connect to database" errors | Render DB sleeping | Wait 30s and retry — free tier spins down |
-| Emails not sending | Yahoo SMTP app password expired | Re-generate Yahoo app password, update `YAHOO_APP_PASSWORD` env var on Render |
-| Admin login fails | Password changed or env var missing | Check `ADMIN_PASSWORD` on Render dashboard |
+| Site down | Server crashed | Check `pm2 logs`, then `pm2 reload` |
+| "Cannot connect to database" errors | PostgreSQL not running | `brew services start postgresql@15` |
+| Cloudflare Tunnel down | cloudflared not running | `sudo launchctl start com.cloudflare.cloudflared` |
+| Emails not sending | Yahoo SMTP app password expired | Re-generate Yahoo app password, update `YAHOO_APP_PASSWORD` in `.env`, then `pm2 reload` |
+| Admin login fails | Password missing from .env | Check `ADMIN_PASSWORD` in `.env` |
 | Gallery images not loading | Image stored as bad base64 | Delete item in admin gallery tab, re-upload |
 | Changes not appearing after deploy | Server not reloaded | `pm2 reload dg-softwash` |
 | Old pages showing after HTML update | Service worker serving stale cache | Bump cache version in `public/service-worker.js`, then `pm2 reload` |
 | Email popup appears every page visit | localStorage `dgEmailPopupDone` not set | Check browser isn't in incognito; open DevTools → Application → Local Storage to verify |
 | Need to re-test popup (reset flag) | `dgEmailPopupDone` set in localStorage | DevTools → Application → Local Storage → delete `dgEmailPopupDone` |
+| Site doesn't come back after reboot | PM2 or cloudflared autostart not set | Re-run `pm2 startup && pm2 save` and `sudo cloudflared service install` |
 
 ---
 
@@ -100,8 +107,8 @@ Also add `/reviews` to `STATIC_ASSETS` array when adding new public pages.
 - Dismiss via ×, "No thanks", or clicking outside the popup — all set the localStorage flag
 - Mobile-optimized: 16px input font (prevents iOS Safari zoom), larger tap targets, tighter padding on small screens
 
-**To test popup on your phone** (same WiFi as Mac):
-- Open `http://192.168.4.29:3000` on your phone
+**To test popup on your phone** (same WiFi as Mac Mini):
+- Open `http://<mac-mini-local-ip>:3000` on your phone
 - Use a private/incognito tab to get fresh localStorage
 - Wait 5 seconds — popup should appear
 
@@ -113,19 +120,37 @@ Also add `/reviews` to `STATIC_ASSETS` array when adding new public pages.
 
 ---
 
-## RENDER DEPLOYMENT
+## HOSTING (Self-Hosted — Mac Mini)
 
-**Live URL: https://dg-softwash.onrender.com**
+**Live URL: https://dgsoftwash.com** (via Cloudflare Tunnel)
 
-Changes are deployed by pushing to GitHub (if auto-deploy is configured), or
-manually from the Render dashboard at render.com.
+The app runs on the Mac Mini 24/7 via:
+- **PM2** — keeps Node/Express running, auto-restarts on crash, starts on Mac login
+- **Cloudflare Tunnel** (`cloudflared`) — exposes localhost:3000 to the internet as https://dgsoftwash.com without port forwarding or a static IP
+- **PostgreSQL 15** (Homebrew) — local database, starts on Mac login via `brew services`
 
-Environment variables (set in Render dashboard, not in .env):
-- `DATABASE_URL` — PostgreSQL connection string
+Environment variables are in `.env` in the project root (not a hosting dashboard):
+- `DATABASE_URL` — `postgresql://localhost/dgsoftwash`
 - `ADMIN_PASSWORD` — Admin login password
 - `YAHOO_APP_PASSWORD` — Yahoo SMTP app password for emails
 - `GOOGLE_REVIEW_URL` — Your Google review link (optional)
 - `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM_NUMBER` — SMS (optional)
+
+### Cloudflare Tunnel management
+```bash
+# Check tunnel status
+sudo launchctl list | grep cloudflare
+
+# Start/stop tunnel service
+sudo launchctl start com.cloudflare.cloudflared
+sudo launchctl stop com.cloudflare.cloudflared
+
+# Run tunnel manually (for debugging)
+cloudflared tunnel run dg-softwash
+
+# View tunnel config
+cat ~/.cloudflared/config.yml
+```
 
 ---
 
@@ -156,8 +181,6 @@ Email links on all public pages use standard `mailto:service@dgsoftwash.com`.
 
 ---
 
----
-
 ### Share Button (added 2026-02-28)
 - "📤 Share Our Site" button in the footer-bottom of all 6 public pages
 - On mobile (iOS/Android): opens native share sheet via Web Share API
@@ -166,4 +189,4 @@ Email links on all public pages use standard `mailto:service@dgsoftwash.com`.
 
 ---
 
-*Last updated: 2026-02-28 (share button, service worker v10)*
+*Last updated: 2026-03-03 (migrated to Mac Mini self-hosted + Cloudflare Tunnel)*
