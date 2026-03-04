@@ -437,12 +437,12 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'dgsoftwash2025';
 
 // --- Email setup ---
 const transporter = nodemailer.createTransport({
-  host: 'smtp.office365.com',
-  port: 587,
-  secure: false,
+  host: 'smtp.mail.yahoo.com',
+  port: 465,
+  secure: true,
   auth: {
     user: 'service@dgsoftwash.com',
-    pass: 'Dmbblwbgjfb1222!@'
+    pass: process.env.YAHOO_APP_PASSWORD
   }
 });
 
