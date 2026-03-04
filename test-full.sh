@@ -492,7 +492,8 @@ done
 node -e "
 const { Pool } = require('pg');
 require('dotenv').config({ path: require('path').join(__dirname, '.env') });
-const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+const isRemoteDb = process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('localhost') && !process.env.DATABASE_URL.includes('127.0.0.1');
+const pool = new Pool({ connectionString: process.env.DATABASE_URL, ...(isRemoteDb ? { ssl: { rejectUnauthorized: false } } : {}) });
 async function clean() {
   // Step 1: delete all work_orders linked to TEST bookings or TEST customers
   await pool.query(\"DELETE FROM work_orders WHERE booking_id IN (SELECT id FROM bookings WHERE name LIKE 'TEST%')\");
