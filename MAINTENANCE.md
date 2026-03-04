@@ -2,7 +2,7 @@
 
 All commands are run from the project directory on the **Mac Mini**:
 ```
-cd /Volumes/<SSD>/dg-softwash
+cd /Volumes/1TB\ SSD/dg-softwash
 ```
 
 ---
@@ -94,6 +94,8 @@ Also add `/reviews` to `STATIC_ASSETS` array when adding new public pages.
 | Email popup appears every page visit | localStorage `dgEmailPopupDone` not set | Check browser isn't in incognito; open DevTools → Application → Local Storage to verify |
 | Need to re-test popup (reset flag) | `dgEmailPopupDone` set in localStorage | DevTools → Application → Local Storage → delete `dgEmailPopupDone` |
 | Site doesn't come back after reboot | PM2 or cloudflared autostart not set | Re-run `pm2 startup && pm2 save` and `sudo cloudflared service install` |
+| PM2 shows "errored" after reboot (EPERM on 1TB SSD) | PM2 daemon lacks disk access | Run `pm2 kill` then `cd /Volumes/1TB\ SSD/dg-softwash && pm2 start ecosystem.config.js && pm2 save` |
+| Cloudflare Tunnel not running after reboot | launchd timing issue | Run `sudo launchctl start com.cloudflare.cloudflared` |
 
 ---
 
