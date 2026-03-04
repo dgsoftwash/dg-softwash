@@ -51,6 +51,8 @@ payments, pricing. Cleans up everything when done.
 | **Check PostgreSQL service** | `brew services list \| grep postgresql` |
 | **Restart PostgreSQL** | `brew services restart postgresql@15` |
 
+> **Note:** PostgreSQL data directory is on the **internal 256GB SSD** (`/opt/homebrew/var/postgresql@15`) — this is intentional for reliability. Project code is on the 1TB SSD.
+
 ---
 
 ## CODE CHANGES
@@ -85,8 +87,8 @@ Also add `/reviews` to `STATIC_ASSETS` array when adding new public pages.
 |---------|-------------|-----|
 | Site down | Server crashed | Check `pm2 logs`, then `pm2 reload` |
 | "Cannot connect to database" errors | PostgreSQL not running | `brew services start postgresql@15` |
-| Cloudflare Tunnel down | cloudflared not running | `sudo launchctl start com.cloudflare.cloudflared` |
-| Emails not sending | Yahoo SMTP app password expired | Re-generate Yahoo app password, update `YAHOO_APP_PASSWORD` in `.env`, then `pm2 reload` |
+| Cloudflare Tunnel down (Error 1033) | cloudflared stopped or broken | Stop service, reinstall, restart: see Cloudflare Tunnel section below |
+| Emails not sending | Zoho not yet configured or Yahoo app password expired | Once Zoho is verified, update SMTP settings in `server.js` and `.env`. Until then, email warnings in `test-full.sh` are expected. |
 | Admin login fails | Password missing from .env | Check `ADMIN_PASSWORD` in `.env` |
 | Gallery images not loading | Image stored as bad base64 | Delete item in admin gallery tab, re-upload |
 | Changes not appearing after deploy | Server not reloaded | `pm2 reload dg-softwash` |
@@ -94,8 +96,8 @@ Also add `/reviews` to `STATIC_ASSETS` array when adding new public pages.
 | Email popup appears every page visit | localStorage `dgEmailPopupDone` not set | Check browser isn't in incognito; open DevTools → Application → Local Storage to verify |
 | Need to re-test popup (reset flag) | `dgEmailPopupDone` set in localStorage | DevTools → Application → Local Storage → delete `dgEmailPopupDone` |
 | Site doesn't come back after reboot | PM2 or cloudflared autostart not set | Re-run `pm2 startup && pm2 save` and `sudo cloudflared service install` |
-| PM2 shows "errored" after reboot (EPERM on 1TB SSD) | PM2 daemon lacks disk access | Run `pm2 kill` then `cd /Volumes/1TB\ SSD/dg-softwash && pm2 start ecosystem.config.js && pm2 save` |
-| Cloudflare Tunnel not running after reboot | launchd timing issue | Run `sudo launchctl start com.cloudflare.cloudflared` |
+| PM2 shows "errored" after reboot (EPERM on 1TB SSD) | PM2 daemon lacks disk access | Run `chmod -R 755 /Volumes/1TB\ SSD/dg-softwash` then `pm2 kill` then `cd /Volumes/1TB\ SSD/dg-softwash && pm2 start ecosystem.config.js && pm2 save` |
+| Cloudflare Tunnel not running after reboot | launchd timing issue | Run `sudo cloudflared service uninstall && sudo cloudflared service install` then reboot |
 
 ---
 
@@ -143,12 +145,15 @@ Environment variables are in `.env` in the project root (not a hosting dashboard
 # Check tunnel status
 sudo launchctl list | grep cloudflare
 
-# Start/stop tunnel service
-sudo launchctl start com.cloudflare.cloudflared
+# If site shows Error 1033 — full reset (most reliable fix):
 sudo launchctl stop com.cloudflare.cloudflared
+sudo cloudflared service uninstall
+sudo cloudflared service install
+sudo launchctl start com.cloudflare.cloudflared
 
-# Run tunnel manually (for debugging)
+# If still down after the above — run manually to restore immediately:
 cloudflared tunnel run dg-softwash
+# (keep this terminal open — Ctrl+C will drop the tunnel)
 
 # View tunnel config
 cat ~/.cloudflared/config.yml
@@ -179,7 +184,7 @@ Email links on all public pages use standard `mailto:service@dgsoftwash.com`.
 - On mobile: opens mail app automatically ✓
 - On desktop: opens whatever email client is set as default in the browser
 - David's Mac (Chrome): Yahoo Mail set as mailto handler in chrome://settings/handlers
-- If mailto stops working in Chrome: go to chrome://settings/handlers → re-add yahoo.com or outlook.office365.com as the email handler
+- If mailto stops working in Chrome: go to chrome://settings/handlers → re-add your email handler
 
 ---
 
@@ -191,4 +196,4 @@ Email links on all public pages use standard `mailto:service@dgsoftwash.com`.
 
 ---
 
-*Last updated: 2026-03-03 (migrated to Mac Mini self-hosted + Cloudflare Tunnel)*
+*Last updated: 2026-03-04 (tunnel stability fixes, Yahoo SMTP, PostgreSQL on internal SSD confirmed)*
