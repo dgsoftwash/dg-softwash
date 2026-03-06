@@ -4,6 +4,11 @@ const path = require('path');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const { Pool } = require('pg');
+const { exec } = require('child_process');
+const os = require('os');
+const http = require('http');
+const https = require('https');
+const fs = require('fs');
 
 let twilioClient = null;
 if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
@@ -23,6 +28,17 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Security headers
+app.use((req, res, next) => {
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  next();
+});
 
 // --- PostgreSQL setup ---
 const isRemoteDb = process.env.DATABASE_URL &&
@@ -437,12 +453,12 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'dgsoftwash2025';
 
 // --- Email setup ---
 const transporter = nodemailer.createTransport({
-  host: 'smtp.mail.yahoo.com',
+  host: 'smtp.zoho.com',
   port: 465,
   secure: true,
   auth: {
     user: 'service@dgsoftwash.com',
-    pass: process.env.YAHOO_APP_PASSWORD
+    pass: process.env.ZOHO_APP_PASSWORD
   }
 });
 
@@ -613,6 +629,15 @@ async function applyDuePricingSchedules() {
 }
 
 // --- Page routes ---
+app.get('/widget', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.sendFile(path.join(__dirname, '..', 'server-widget', 'ServerWidget.html'));
+});
+app.get('/backup-widget', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.sendFile('/Users/david/Desktop/Misc Script Files /BackupWidget.html');
+});
+
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'index.html'));
 });
@@ -2310,6 +2335,285 @@ async function expireUnapprovedReviews() {
     console.error('Error expiring unapproved reviews:', e.message);
   }
 }
+
+// Serve the server health widget
+app.get('/server-widget', (req, res) => {
+  res.sendFile('/Volumes/1TB SSD/server-widget/ServerWidget.html');
+});
+
+// --- Server Health & Action endpoints ---
+
+function execPromise(cmd, opts = {}) {
+  return new Promise((resolve, reject) => {
+    exec(cmd, { timeout: 10000, ...opts }, (err, stdout, stderr) => {
+      if (err) reject({ err, stdout, stderr });
+      else resolve({ stdout, stderr });
+    });
+  });
+}
+
+function checkWebsite() {
+  return new Promise((resolve) => {
+    const start = Date.now();
+    const req = https.get('https://dgsoftwash.com', { timeout: 5000 }, (res) => {
+      const ms = Date.now() - start;
+      res.resume();
+      const status = res.statusCode === 200
+        ? (ms > 2000 ? 'yellow' : 'green')
+        : 'red';
+      resolve({ status, ms, code: res.statusCode });
+    });
+    req.on('timeout', () => { req.destroy(); resolve({ status: 'red', ms: 5000, code: 0, error: 'timeout' }); });
+    req.on('error', (e) => resolve({ status: 'red', ms: Date.now() - start, code: 0, error: e.message }));
+  });
+}
+
+async function checkPm2() {
+  try {
+    const { stdout } = await execPromise('pm2 jlist');
+    const list = JSON.parse(stdout);
+    const proc = list.find(p => p.name === 'dg-softwash');
+    if (!proc) return { status: 'red', detail: 'process not found' };
+    const restarts = proc.pm2_env.restart_time || 0;
+    const uptime = proc.pm2_env.pm_uptime ? Math.floor((Date.now() - proc.pm2_env.pm_uptime) / 1000) : 0;
+    if (proc.pm2_env.status !== 'online') return { status: 'red', detail: proc.pm2_env.status, restarts };
+    return { status: restarts >= 50 ? 'yellow' : 'green', detail: 'online', restarts, uptime };
+  } catch (e) {
+    return { status: 'red', detail: 'pm2 error', error: e.err ? e.err.message : String(e) };
+  }
+}
+
+async function checkDatabase() {
+  const start = Date.now();
+  try {
+    await pool.query('SELECT 1');
+    const ms = Date.now() - start;
+    return { status: ms > 500 ? 'red' : ms > 100 ? 'yellow' : 'green', ms };
+  } catch (e) {
+    return { status: 'red', ms: Date.now() - start, error: e.message };
+  }
+}
+
+async function checkTunnel() {
+  try {
+    await execPromise('pgrep -x cloudflared');
+    return { status: 'green', detail: 'running' };
+  } catch {
+    return { status: 'red', detail: 'not running' };
+  }
+}
+
+async function checkDisks() {
+  try {
+    const { stdout } = await execPromise('df -k');
+    const lines = stdout.split('\n');
+    const parse = (mountpoint) => {
+      const line = lines.find(l => l.endsWith(' ' + mountpoint) || l.includes(mountpoint + ' '));
+      if (!line) return null;
+      const parts = line.trim().split(/\s+/);
+      const used = parseInt(parts[2]);
+      const avail = parseInt(parts[3]);
+      const total = used + avail;
+      const pct = total > 0 ? Math.round((used / total) * 100) : 0;
+      return { pct, used, total };
+    };
+    const internal = parse('/');
+    const ssd1tb = parse('/Volumes/1TB SSD');
+    const hdd2tb = parse('/Volumes/2TB HDD');
+    const ssd4tb = parse('/Volumes/4TB SSD');
+    const diskStatus = (d, mustMount) => {
+      if (!d) return mustMount ? 'yellow' : 'red';
+      if (d.pct > 90) return 'red';
+      if (d.pct > 80) return 'yellow';
+      return 'green';
+    };
+    return {
+      internal: { ...internal, status: diskStatus(internal, true) },
+      ssd1tb: { ...(ssd1tb || {}), status: diskStatus(ssd1tb, true), mounted: !!ssd1tb },
+      hdd2tb: { ...(hdd2tb || {}), status: diskStatus(hdd2tb, false), mounted: !!hdd2tb },
+      ssd4tb: { ...(ssd4tb || {}), status: diskStatus(ssd4tb, false), mounted: !!ssd4tb }
+    };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+function checkUps() {
+  return new Promise((resolve) => {
+    exec('pmset -g batt', (err, stdout) => {
+      if (err) return resolve({ status: 'grey', detail: 'unavailable' });
+      const onBattery = stdout.includes('Battery Power') || stdout.includes('UPS Power');
+      const pctMatch = stdout.match(/(\d+)%/);
+      const timeMatch = stdout.match(/(\d+:\d+) remaining/);
+      const pct = pctMatch ? parseInt(pctMatch[1]) : null;
+      const source = onBattery ? 'battery' : 'AC';
+      const timeLeft = timeMatch ? timeMatch[1] : null;
+      let status = 'green';
+      if (onBattery && pct !== null && pct <= 10) status = 'red';
+      else if (onBattery && pct !== null && pct <= 30) status = 'yellow';
+      else if (onBattery) status = 'yellow';
+      resolve({ status, source, pct, timeLeft });
+    });
+  });
+}
+
+function checkSystem() {
+  const loadavg = os.loadavg()[0];
+  const cpus = os.cpus().length;
+  const cpuPct = Math.round((loadavg / cpus) * 100);
+  const totalMem = os.totalmem();
+  const freeMem = os.freemem();
+  const memPct = Math.round(((totalMem - freeMem) / totalMem) * 100);
+  const cpuStatus = cpuPct > 85 ? 'red' : cpuPct > 70 ? 'yellow' : 'green';
+  const memStatus = memPct > 85 ? 'red' : memPct > 70 ? 'yellow' : 'green';
+  return { cpuPct, memPct, cpuStatus, memStatus, loadavg: loadavg.toFixed(2) };
+}
+
+function getTopProcesses() {
+  return new Promise((resolve) => {
+    exec("ps aux -r | awk 'NR>1 {print $2, $3, $4, $11}' | head -10", (err, stdout) => {
+      if (err) return resolve([]);
+      const procs = stdout.trim().split('\n').map(line => {
+        const parts = line.trim().split(/\s+/);
+        const name = (parts[3] || '').split('/').pop().substring(0, 20);
+        return { pid: parts[0], cpu: parts[1], mem: parts[2], name };
+      }).filter(p => p.name);
+      resolve(procs);
+    });
+  });
+}
+
+function getBootLog() {
+  try {
+    const content = fs.readFileSync('/tmp/boot-recovery.log', 'utf8');
+    const lines = content.split('\n');
+    return lines.slice(-50).join('\n');
+  } catch {
+    return '(no boot log found)';
+  }
+}
+
+app.get('/api/admin/ups-debug', requireAdmin, (req, res) => {
+  exec('pmset -g batt', (err, stdout) => {
+    res.json({ raw: stdout, err: err ? err.message : null });
+  });
+});
+
+app.get('/api/admin/health', requireAdmin, async (req, res) => {
+  try {
+    const [website, app_pm2, database, tunnel, disks, processes, ups] = await Promise.all([
+      checkWebsite(),
+      checkPm2(),
+      checkDatabase(),
+      checkTunnel(),
+      checkDisks(),
+      getTopProcesses(),
+      checkUps()
+    ]);
+    const system = checkSystem();
+    const bootLog = getBootLog();
+
+    const errors = [];
+    const now = new Date().toISOString();
+    const flag = (name, obj, msgFn) => {
+      if (obj.status === 'red' || obj.status === 'yellow') {
+        errors.push({ level: obj.status, component: name, message: msgFn(obj), timestamp: now });
+      }
+    };
+    flag('Website', website, o => `HTTP ${o.code || 'error'} in ${o.ms}ms${o.error ? ': ' + o.error : ''}`);
+    flag('Node App', app_pm2, o => `${o.detail}${o.restarts ? ', restarts: ' + o.restarts : ''}`);
+    flag('Database', database, o => `query ${o.ms}ms${o.error ? ': ' + o.error : ''}`);
+    flag('CF Tunnel', tunnel, o => o.detail);
+    if (disks.internal) flag('Internal 256GB', disks.internal, o => `${o.pct}% used`);
+    if (disks.ssd1tb) flag('1TB SSD', disks.ssd1tb, o => o.mounted ? `${o.pct}% used` : 'not mounted');
+    if (disks.hdd2tb) flag('2TB HDD', disks.hdd2tb, o => o.mounted ? `${o.pct}% used` : 'not mounted');
+    flag('CPU', { status: system.cpuStatus }, () => `${system.cpuPct}% load`);
+    flag('Memory', { status: system.memStatus }, () => `${system.memPct}% used`);
+    flag('UPS', ups, () => ups.source === 'battery' ? `On battery — ${ups.pct}%${ups.timeLeft ? ' (' + ups.timeLeft + ' left)' : ''}` : '');
+
+    res.json({ timestamp: now, website, app: app_pm2, database, tunnel, system, ups, disks, processes, bootLog, errors });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+const ALLOWED_ACTIONS = {
+  'pm2-restart':     'pm2 restart dg-softwash',
+  'pm2-reload':      'pm2 reload dg-softwash',
+  'pm2-stop':        'pm2 stop dg-softwash',
+  'pm2-start':       'pm2 start "/Volumes/1TB SSD/dg-softwash/server.js" --name dg-softwash',
+  'pm2-save':        'pm2 save',
+  'pg-start':        'pg_ctl -D /opt/homebrew/var/postgresql@15 start',
+  'pg-stop':         'pg_ctl -D /opt/homebrew/var/postgresql@15 stop',
+  'pg-restart':      'pg_ctl -D /opt/homebrew/var/postgresql@15 restart',
+  'pg-fix-pid':      'rm -f /opt/homebrew/var/postgresql@15/postmaster.pid',
+  'fix-permissions': 'chmod -R 755 "/Volumes/1TB SSD/dg-softwash"',
+  'run-basic-test':  'bash "/Volumes/1TB SSD/dg-softwash/test-basic.sh"',
+  'boot-recovery':   'bash /Users/david/boot-recovery.sh'
+};
+
+app.post('/api/admin/server/action', requireAdmin, async (req, res) => {
+  const { action } = req.body;
+  const cmd = ALLOWED_ACTIONS[action];
+  if (!cmd) return res.status(400).json({ success: false, error: 'Unknown action: ' + action });
+  try {
+    const env = {
+      ...process.env,
+      PATH: '/opt/homebrew/opt/postgresql@15/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/opt/homebrew/lib/node_modules/pm2/bin:/usr/local/bin:/usr/bin:/bin'
+    };
+    const { stdout, stderr } = await execPromise(cmd, { timeout: 30000, env });
+    res.json({ success: true, output: stdout + (stderr ? '\n' + stderr : '') });
+  } catch (e) {
+    res.json({ success: false, output: e.stdout || '', error: e.stderr || (e.err ? e.err.message : String(e)) });
+  }
+});
+
+// --- Backup API ---
+const BACKUP_STATUS_FILE = '/tmp/backup-status.json';
+const BACKUP_SCRIPT = '/Volumes/1TB SSD/backup.sh';
+
+app.get('/api/admin/backup/status', requireAdmin, (req, res) => {
+  try {
+    if (fs.existsSync(BACKUP_STATUS_FILE)) {
+      const raw = fs.readFileSync(BACKUP_STATUS_FILE, 'utf8');
+      res.json(JSON.parse(raw));
+    } else {
+      // Read last backup time from log file
+      let lastBackup = null;
+      try {
+        const log = fs.readFileSync('/Volumes/2TB HDD/backup_log.txt', 'utf8');
+        const lines = log.split('\n').filter(l => l.includes('Backup complete'));
+        if (lines.length) {
+          const last = lines[lines.length - 1];
+          const m = last.match(/\[(.+?)\]/);
+          if (m) lastBackup = new Date(m[1]).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' at ' + new Date(m[1]).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        }
+      } catch {}
+      res.json({ running: false, step: 'idle', stepLabel: 'Ready', pct: 0, log: [], lastBackup });
+    }
+  } catch (e) {
+    res.json({ running: false, step: 'error', stepLabel: 'Status error', pct: 0, log: [], lastBackup: null });
+  }
+});
+
+app.post('/api/admin/backup/run', requireAdmin, (req, res) => {
+  try {
+    if (fs.existsSync(BACKUP_STATUS_FILE)) {
+      try {
+        const existing = JSON.parse(fs.readFileSync(BACKUP_STATUS_FILE, 'utf8'));
+        if (existing.running) return res.json({ success: false, error: 'Backup already running' });
+      } catch {}
+    }
+    const { items } = req.body;
+    const itemArg = Array.isArray(items) && items.length ? items.join(',') : '';
+    const env = { ...process.env, PATH: '/opt/homebrew/opt/postgresql@15/bin:/opt/homebrew/bin:/usr/bin:/bin' };
+    const child = require('child_process').spawn('bash', [BACKUP_SCRIPT, itemArg], { env, detached: true, stdio: 'ignore' });
+    child.unref();
+    res.json({ success: true });
+  } catch (e) {
+    res.json({ success: false, error: e.message });
+  }
+});
 
 // --- Start server ---
 initDb().then(() => {

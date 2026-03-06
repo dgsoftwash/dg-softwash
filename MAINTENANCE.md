@@ -75,7 +75,9 @@ files, **bump the cache version** so browsers drop stale content:
 const CACHE = 'dg-softwash-v3';  // increment each time HTML changes
 ```
 
-Current version: **v10** (bumped 2026-02-28 after adding Share button to all public pages)
+Current version: **v11** (bumped 2026-03-06 after new logo — public/images/logo.png replaced)
+
+Widget refresh interval: **10s** (reduced from 30s for faster UPS status updates)
 
 Also add `/reviews` to `STATIC_ASSETS` array when adding new public pages.
 
@@ -88,15 +90,16 @@ Also add `/reviews` to `STATIC_ASSETS` array when adding new public pages.
 | Site down | Server crashed | Check `pm2 logs`, then `pm2 reload` |
 | "Cannot connect to database" errors | PostgreSQL not running | `brew services start postgresql@15` |
 | Cloudflare Tunnel down (Error 1033) | cloudflared stopped or broken | Stop service, reinstall, restart: see Cloudflare Tunnel section below |
-| Emails not sending | Zoho not yet configured or Yahoo app password expired | Once Zoho is verified, update SMTP settings in `server.js` and `.env`. Until then, email warnings in `test-full.sh` are expected. |
+| Emails not sending | Zoho SMTP auth failed or password changed | Check `ZOHO_APP_PASSWORD` in `.env` — host is `smtp.zoho.com`, port 465, user `service@dgsoftwash.com` |
 | Admin login fails | Password missing from .env | Check `ADMIN_PASSWORD` in `.env` |
 | Gallery images not loading | Image stored as bad base64 | Delete item in admin gallery tab, re-upload |
 | Changes not appearing after deploy | Server not reloaded | `pm2 reload dg-softwash` |
 | Old pages showing after HTML update | Service worker serving stale cache | Bump cache version in `public/service-worker.js`, then `pm2 reload` |
 | Email popup appears every page visit | localStorage `dgEmailPopupDone` not set | Check browser isn't in incognito; open DevTools → Application → Local Storage to verify |
 | Need to re-test popup (reset flag) | `dgEmailPopupDone` set in localStorage | DevTools → Application → Local Storage → delete `dgEmailPopupDone` |
-| Site doesn't come back after reboot | PM2 or cloudflared autostart not set | Re-run `pm2 startup && pm2 save` and `sudo cloudflared service install` |
-| PM2 shows "errored" after reboot (EPERM on 1TB SSD) | PM2 daemon lacks disk access | Run `chmod -R 755 /Volumes/1TB\ SSD/dg-softwash` then `pm2 kill` then `cd /Volumes/1TB\ SSD/dg-softwash && pm2 start ecosystem.config.js && pm2 save` |
+| Site doesn't come back after reboot | Auto-boot script failed | Check `cat /tmp/boot-recovery.log` for errors; run `bash /Users/david/boot-recovery.sh` manually |
+| PM2 shows "errored" after reboot (EPERM on 1TB SSD) | PM2 daemon launched by LaunchAgent has restricted SSD access | Kill and restart daemon from terminal: `pm2 kill && cd "/Volumes/1TB SSD/dg-softwash" && pm2 start server.js --name dg-softwash && pm2 save` |
+| PostgreSQL won't start after reboot (stale PID) | Hard reboot left postmaster.pid behind | `rm /opt/homebrew/var/postgresql@15/postmaster.pid` then `pg_ctl -D /opt/homebrew/var/postgresql@15 start` |
 | Cloudflare Tunnel not running after reboot | launchd timing issue | Run `sudo cloudflared service uninstall && sudo cloudflared service install` then reboot |
 
 ---
@@ -131,12 +134,26 @@ Also add `/reviews` to `STATIC_ASSETS` array when adding new public pages.
 The app runs on the Mac Mini 24/7 via:
 - **PM2** — keeps Node/Express running, auto-restarts on crash, starts on Mac login
 - **Cloudflare Tunnel** (`cloudflared`) — exposes localhost:3000 to the internet as https://dgsoftwash.com without port forwarding or a static IP
-- **PostgreSQL 15** (Homebrew) — local database, starts on Mac login via `brew services`
+- **PostgreSQL 15** (Homebrew) — local database, started by boot-recovery.sh on login
+
+### Auto-Boot Script (added 2026-03-04)
+`/Users/david/boot-recovery.sh` runs at login via `~/Library/LaunchAgents/pm2.david.plist`.
+
+Handles boot-order issues automatically:
+1. Waits up to 60s for the 1TB SSD to mount
+2. Fixes permissions (`chmod -R 755`)
+3. Removes stale Postgres `postmaster.pid` if left by a hard reboot
+4. Starts PostgreSQL and waits until ready
+5. Resurrects PM2 processes
+6. Opens ICloud Backup Manager and Activity Monitor via `open -a`
+
+**Check boot log:** `cat /tmp/boot-recovery.log`
+**Run manually:** `bash /Users/david/boot-recovery.sh`
 
 Environment variables are in `.env` in the project root (not a hosting dashboard):
 - `DATABASE_URL` — `postgresql://localhost/dgsoftwash`
 - `ADMIN_PASSWORD` — Admin login password
-- `YAHOO_APP_PASSWORD` — Yahoo SMTP app password for emails
+- `ZOHO_APP_PASSWORD` — Zoho SMTP password for service@dgsoftwash.com (switched from Yahoo 2026-03-06, tested OK)
 - `GOOGLE_REVIEW_URL` — Your Google review link (optional)
 - `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM_NUMBER` — SMS (optional)
 
@@ -196,4 +213,104 @@ Email links on all public pages use standard `mailto:service@dgsoftwash.com`.
 
 ---
 
-*Last updated: 2026-03-04 (tunnel stability fixes, Yahoo SMTP, PostgreSQL on internal SSD confirmed)*
+---
+
+## SERVER HEALTH WIDGET (added 2026-03-04, updated 2026-03-04)
+
+A one-stop GUI for monitoring and controlling the full server stack.
+
+**Access:** Open `http://localhost:3000/widget` in any browser (served by Node app — no file:// issues).
+Enter admin password once → stored in `localStorage` → auto-refreshes every 30s.
+
+**Native Desktop App:** `/Applications/DG Softwash Monitor.app`
+- Floating always-on-top native macOS window (built with Swift + WKWebView)
+- Remembers size and position across reboots automatically
+- Opens automatically at login via LaunchAgent `com.dgsoftwash.widget.plist` with **KeepAlive** (auto-restarts if it crashes)
+- Drag to Dock for quick access
+- Built from: `/tmp/dgmonitor-build/main.swift` (recompile with `swiftc -framework Cocoa -framework WebKit main.swift -o DGMonitor`)
+
+**Widget files:**
+- Source: `/Volumes/1TB SSD/server-widget/ServerWidget.html`
+- After editing widget HTML: `cp "/Volumes/1TB SSD/server-widget/ServerWidget.html" ~/Desktop/ServerWidget.html` (desktop copy kept in sync)
+
+**What it shows:**
+- Services: Website (HTTPS + latency), Node App (PM2 status/restarts/uptime), PostgreSQL (query latency), Cloudflare Tunnel
+- Storage: Internal 256GB, 1TB SSD, 2TB HDD (usage bars), 4TB SSD placeholder
+- System: CPU load %, memory %, 1-min load average
+- Top Processes: top 10 by CPU with name, CPU%, MEM%, PID (Activity Monitor style)
+- Controls: PM2 and PostgreSQL start/stop/restart, Cloudflare copy-to-clipboard commands, Tools (fix perms, fix PG PID, basic test, boot recovery)
+- Error log: rolling last 200 entries (FIFO), always visible, scrollable, with Clear button — persisted in localStorage
+- Boot log: expandable, scrollable (220px)
+
+**Remote access (phone/cellular):** `https://dgsoftwash.com/widget` — works from anywhere, password protected. BASE URL is now dynamic (`window.location.origin`) so the same widget works locally and remotely. Widget is also mobile-responsive.
+
+**API endpoints added to server.js:**
+- `GET /api/admin/health` — full health snapshot (requires admin token)
+- `POST /api/admin/server/action` — run server management commands (requires admin token)
+- `GET /widget` — serves the widget HTML (avoids Safari file:// restrictions)
+
+---
+
+## UPS (added 2026-03-06)
+
+CyberPower CP1000PFCLCD — monitored via `pmset -g batt` (macOS detects it natively).
+
+**Auto-shutdown at 10% battery:**
+- Monitor script: `/Users/david/ups-monitor.sh` — runs continuously, checks every 30s
+- **Note:** CyberPower reports `UPS Power` (not `Battery Power`) when on battery — both handled in code
+- LaunchAgent: `com.dgsoftwash.ups-monitor` (KeepAlive) — starts at login
+- Shutdown script: `/Users/david/ups-shutdown.sh` — runs final DB backup, stops PM2, stops PostgreSQL, shuts down Mac
+- Monitor log: `cat /tmp/ups-monitor.log`
+- Shutdown log: `cat /tmp/ups-shutdown.log`
+
+**Widget:** UPS row in SERVICES section — shows AC Power / ON BATTERY, battery %, time remaining. Turns yellow on battery, red at ≤10%.
+
+---
+
+## SLEEP / ALWAYS-ON (updated 2026-03-04)
+
+Mac Mini is configured to never sleep so the server stays up 24/7.
+
+Sleep is enforced by a LaunchDaemon that reapplies settings at every boot:
+`/Library/LaunchDaemons/com.dgsoftwash.nosleep.plist`
+
+Current settings: `sleep 0, disksleep 0, hibernatemode 0, standby 0, powernap 0`
+(Display sleep at 10 min is fine — does not affect the server.)
+
+**If sleep settings ever reset manually:**
+```bash
+sudo pmset -a sleep 0 disksleep 0 hibernatemode 0 standby 0 powernap 0
+```
+
+**Activity Monitor** and **ICloud Backup Manager** open automatically at every login via `boot-recovery.sh` (step 7 — `open -a` calls at end of script). These are launched this way because macOS blocks Fluid apps from being spawned directly by launchd.
+
+---
+
+---
+
+## BACKUP SYSTEM (added 2026-03-04)
+
+Real backups to 2TB HDD via the Backup Widget on the Desktop.
+
+**Backup script:** `/Users/david/backup.sh [items]` (home dir copy — LaunchAgent uses this; 1TB SSD original at `/Volumes/1TB SSD/backup.sh` — keep in sync if editing)
+- Items: `photos,documents,desktop,dg-softwash,database` (default: all)
+- Destination: `/Volumes/2TB HDD/Backups/`
+- DB dumps: `/Volumes/2TB HDD/Backups/database/` (keeps last 7)
+- Log: `/Volumes/2TB HDD/backup_log.txt`
+
+**API endpoints (require admin token):**
+- `GET /api/admin/backup/status` — current status (running/pct/log/lastBackup)
+- `POST /api/admin/backup/run` — start backup `{ items: [...] }`
+
+**Backup Widget App:** `/Applications/Backup Widget.app`
+- Opens automatically at login via LaunchAgent `com.dgsoftwash.backup-widget.plist` with **KeepAlive** (auto-restarts if it crashes)
+- Login with admin password → token stored in localStorage
+- If widget shows "Loading..." after server restart, it will now auto-show login form (token cleared on 401)
+- Toggle items on/off, click Run Now — polls status every 2s while running
+- Shows real progress, step-by-step log, last backup time
+
+**4TB SSD:** Now live in server widget (`/Volumes/4TB SSD` — connected 2026-03-04)
+
+---
+
+*Last updated: 2026-03-06 (Zoho SMTP live — service@dgsoftwash.com tested OK; new logo deployed; security headers added to Express for government/strict browser compatibility: HSTS, X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, Referrer-Policy, Permissions-Policy)*
