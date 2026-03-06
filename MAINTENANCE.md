@@ -7,6 +7,18 @@ cd /Volumes/1TB\ SSD/dg-softwash
 
 ---
 
+## GIT / GITHUB
+
+| What | Command |
+|------|---------|
+| **Push changes** | `cd "/Volumes/1TB SSD/dg-softwash" && git add -A && git commit -m "message" && git push origin main` |
+| **Check status** | `git status` |
+
+SSH key: `~/.ssh/id_ed25519_dgsoftwash` (linked to dgsoftwash GitHub account)
+Remote: `git@github-dgsoftwash:dgsoftwash/dg-softwash.git`
+
+---
+
 ## SERVER MANAGEMENT
 
 | What | Command |
@@ -313,4 +325,4 @@ Real backups to 2TB HDD via the Backup Widget on the Desktop.
 
 ---
 
-*Last updated: 2026-03-06 (Zoho SMTP live — service@dgsoftwash.com tested OK; new logo deployed; security headers added to Express for government/strict browser compatibility: HSTS, X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, Referrer-Policy, Permissions-Policy)*
+*Last updated: 2026-03-06 (Zoho SMTP; new logo; security headers; UPS monitoring + auto-shutdown at 10%; health widget: process monitor + UPS row + 10s refresh + remote/mobile access; backup widget 401 fix; backup script moved to ~/backup.sh; SSH keys configured for git push — dgsoftwash key at ~/.ssh/id_ed25519_dgsoftwash, remote: git@github-dgsoftwash:dgsoftwash/dg-softwash.git)*
