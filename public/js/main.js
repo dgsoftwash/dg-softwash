@@ -26,44 +26,78 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Mobile Menu Toggle
-document.addEventListener('DOMContentLoaded', function() {
-  const hamburger = document.querySelector('.hamburger');
-  const navLinks = document.querySelector('.nav-links');
+(function() {
+  var menuOpen = false;
 
-  if (hamburger) {
-    hamburger.addEventListener('click', function(e) {
-      e.stopPropagation();
-      hamburger.classList.toggle('active');
-      navLinks.classList.toggle('open');
-    });
+  function openMenu() {
+    var hamburger = document.querySelector('.hamburger');
+    var navLinks = document.querySelector('.nav-links');
+    if (hamburger && navLinks) {
+      hamburger.classList.add('active');
+      navLinks.style.display = 'flex';
+      menuOpen = true;
+    }
+  }
 
-    // Close menu when a link is clicked
-    navLinks.querySelectorAll('a').forEach(link => {
-      link.addEventListener('click', function() {
-        hamburger.classList.remove('active');
-        navLinks.classList.remove('open');
+  function closeMenu() {
+    var hamburger = document.querySelector('.hamburger');
+    var navLinks = document.querySelector('.nav-links');
+    if (hamburger && navLinks) {
+      hamburger.classList.remove('active');
+      navLinks.style.display = '';
+      menuOpen = false;
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    var hamburger = document.querySelector('.hamburger');
+    var navLinks = document.querySelector('.nav-links');
+
+    if (hamburger) {
+      hamburger.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (menuOpen) {
+          closeMenu();
+        } else {
+          openMenu();
+        }
       });
-    });
 
-    // Close menu when tapping outside
-    document.addEventListener('click', function(e) {
-      if (!navLinks.contains(e.target) && !hamburger.contains(e.target)) {
-        hamburger.classList.remove('active');
-        navLinks.classList.remove('open');
+      // Also handle touch for Safari iOS
+      hamburger.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (menuOpen) {
+          closeMenu();
+        } else {
+          openMenu();
+        }
+      });
+
+      // Close menu when a link is clicked
+      if (navLinks) {
+        navLinks.querySelectorAll('a').forEach(function(link) {
+          link.addEventListener('click', function() {
+            closeMenu();
+          });
+        });
       }
-    });
-  }
-});
 
-// Reset menu state on page show (back-forward cache)
-window.addEventListener('pageshow', function() {
-  var hamburger = document.querySelector('.hamburger');
-  var navLinks = document.querySelector('.nav-links');
-  if (hamburger && navLinks) {
-    hamburger.classList.remove('active');
-    navLinks.classList.remove('open');
-  }
-});
+      // Close menu when tapping outside
+      document.addEventListener('click', function(e) {
+        if (menuOpen && !navLinks.contains(e.target) && !hamburger.contains(e.target)) {
+          closeMenu();
+        }
+      });
+    }
+  });
+
+  // Reset on page show (back-forward cache)
+  window.addEventListener('pageshow', function() {
+    closeMenu();
+  });
+})();
 
 // Contact Form Handler
 document.addEventListener('DOMContentLoaded', function() {
