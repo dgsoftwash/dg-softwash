@@ -226,6 +226,13 @@ Email links on all public pages use standard `mailto:service@dgsoftwash.com`.
 - JS logic in `public/js/main.js`, styles in `public/css/styles.css` (.share-btn)
 - **Fix (2026-03-06):** URL updated from old Render URL to `https://dgsoftwash.com`; added `.catch()` to `navigator.share()` Promise — unhandled rejection was freezing the page when user cancelled/dismissed the share dialog; also added clipboard fallback with `window.prompt()`
 
+### Flag Background Image (fixed 2026-03-07)
+- Flag was loaded from Wikimedia Commons (external URL) — they started returning HTTP 429 (rate limited)
+- Downloaded flag as SVG and now hosted locally at `/images/flag.svg`
+- Both `.hero::before` and `.page-header::before` in `styles.css` updated to use local path
+- SVG scales perfectly at any resolution, only 765 bytes
+- Service worker bumped to v15
+
 ### Error Log Thresholds (updated 2026-03-07)
 - Widget error log shows **red** (critical) and **yellow** (warning) level errors only
 - CPU alert thresholds: >80% = yellow, >90% = red (was 70/85)
