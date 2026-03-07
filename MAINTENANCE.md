@@ -226,6 +226,16 @@ Email links on all public pages use standard `mailto:service@dgsoftwash.com`.
 - JS logic in `public/js/main.js`, styles in `public/css/styles.css` (.share-btn)
 - **Fix (2026-03-06):** URL updated from old Render URL to `https://dgsoftwash.com`; added `.catch()` to `navigator.share()` Promise — unhandled rejection was freezing the page when user cancelled/dismissed the share dialog; also added clipboard fallback with `window.prompt()`
 
+### Error Log Thresholds (updated 2026-03-07)
+- Widget error log shows **red** (critical) and **yellow** (warning) level errors only
+- CPU alert thresholds: >80% = yellow, >90% = red (was 70/85)
+- Memory alert thresholds: >80% = yellow, >90% = red (was 70/85)
+- This reduces noise from normal system memory fluctuations
+
+### BackupWidget Path (fixed 2026-03-07)
+- Backup widget route `/backup-widget` was pointing to old path `~/Desktop/Misc Script Files /BackupWidget.html`
+- Fixed to new path: `~/Desktop/D&G Soft Wash/Misc Script Files /BackupWidget.html`
+
 ### Mobile Hamburger Menu (fixed 2026-03-06)
 - Hamburger (☰) was getting stuck after first use on Safari iOS — second tap did nothing
 - Root cause: Safari iOS has quirks with `classList.toggle` — replaced with explicit open/close state tracking via JS variable
