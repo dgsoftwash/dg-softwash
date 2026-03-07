@@ -644,7 +644,7 @@ app.get('/widget', (req, res) => {
 });
 app.get('/backup-widget', (req, res) => {
   res.set('Cache-Control', 'no-store');
-  res.sendFile('/Users/david/Desktop/Misc Script Files /BackupWidget.html');
+  res.sendFile('/Users/david/Desktop/D&G Soft Wash/Misc Script Files /BackupWidget.html');
 });
 
 app.get('/', (req, res) => {
@@ -2526,8 +2526,8 @@ function checkSystem() {
   const totalMem = os.totalmem();
   const freeMem = os.freemem();
   const memPct = Math.round(((totalMem - freeMem) / totalMem) * 100);
-  const cpuStatus = cpuPct > 85 ? 'red' : cpuPct > 70 ? 'yellow' : 'green';
-  const memStatus = memPct > 85 ? 'red' : memPct > 70 ? 'yellow' : 'green';
+  const cpuStatus = cpuPct > 90 ? 'red' : cpuPct > 80 ? 'yellow' : 'green';
+  const memStatus = memPct > 90 ? 'red' : memPct > 80 ? 'yellow' : 'green';
   return { cpuPct, memPct, cpuStatus, memStatus, loadavg: loadavg.toFixed(2) };
 }
 
