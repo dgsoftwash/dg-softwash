@@ -6,14 +6,19 @@ document.addEventListener('DOMContentLoaded', function() {
       var shareData = {
         title: 'D&G Soft Wash',
         text: 'Check out D&G Soft Wash — professional exterior cleaning services!',
-        url: 'https://dg-softwash.onrender.com'
+        url: 'https://dgsoftwash.com'
       };
       if (navigator.share) {
-        navigator.share(shareData);
+        navigator.share(shareData).catch(function() {
+          // User cancelled or share failed — do nothing
+        });
       } else {
         navigator.clipboard.writeText(shareData.url).then(function() {
           shareBtn.textContent = '✓ Link Copied!';
           setTimeout(function() { shareBtn.textContent = '📤 Share Our Site'; }, 2000);
+        }).catch(function() {
+          // Clipboard failed — fallback alert
+          window.prompt('Copy this link:', shareData.url);
         });
       }
     });

@@ -1,4 +1,4 @@
-const CACHE = 'dg-softwash-v11';
+const CACHE = 'dg-softwash-v13';
 
 const STATIC_ASSETS = [
   '/',
@@ -34,7 +34,7 @@ self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
   // Always go network-first for API calls and admin page (authenticated)
-  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/admin')) {
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/admin') || url.pathname.startsWith('/js/') || url.pathname.startsWith('/css/')) {
     event.respondWith(
       fetch(event.request).catch(() => caches.match(event.request))
     );

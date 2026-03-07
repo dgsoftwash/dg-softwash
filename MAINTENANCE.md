@@ -87,7 +87,7 @@ files, **bump the cache version** so browsers drop stale content:
 const CACHE = 'dg-softwash-v3';  // increment each time HTML changes
 ```
 
-Current version: **v11** (bumped 2026-03-06 after new logo — public/images/logo.png replaced)
+Current version: **v13** (bumped 2026-03-06 — share button fix + deck pricing dimensions)
 
 Widget refresh interval: **10s** (reduced from 30s for faster UPS status updates)
 
@@ -102,6 +102,7 @@ Also add `/reviews` to `STATIC_ASSETS` array when adding new public pages.
 | Site down | Server crashed | Check `pm2 logs`, then `pm2 reload` |
 | "Cannot connect to database" errors | PostgreSQL not running | `brew services start postgresql@15` |
 | Cloudflare Tunnel down (Error 1033) | cloudflared stopped or broken | Stop service, reinstall, restart: see Cloudflare Tunnel section below |
+| Site shows "Not Secure" in Safari | HTTP not redirecting to HTTPS | Enable "Always Use HTTPS" in Cloudflare: dash.cloudflare.com → SSL/TLS → Edge Certificates. Server also redirects via X-Forwarded-Proto header. |
 | Emails not sending | Zoho SMTP auth failed or password changed | Check `ZOHO_APP_PASSWORD` in `.env` — host is `smtp.zoho.com`, port 465, user `service@dgsoftwash.com` |
 | Admin login fails | Password missing from .env | Check `ADMIN_PASSWORD` in `.env` |
 | Gallery images not loading | Image stored as bad base64 | Delete item in admin gallery tab, re-upload |
@@ -217,11 +218,12 @@ Email links on all public pages use standard `mailto:service@dgsoftwash.com`.
 
 ---
 
-### Share Button (added 2026-02-28)
+### Share Button (added 2026-02-28, fixed 2026-03-06)
 - "📤 Share Our Site" button in the footer-bottom of all 6 public pages
 - On mobile (iOS/Android): opens native share sheet via Web Share API
 - On desktop: copies site URL to clipboard, button text changes to "✓ Link Copied!" for 2 seconds
 - JS logic in `public/js/main.js`, styles in `public/css/styles.css` (.share-btn)
+- **Fix (2026-03-06):** URL updated from old Render URL to `https://dgsoftwash.com`; added `.catch()` to `navigator.share()` Promise — unhandled rejection was freezing the page when user cancelled/dismissed the share dialog; also added clipboard fallback with `window.prompt()`
 
 ---
 
@@ -279,6 +281,63 @@ CyberPower CP1000PFCLCD — monitored via `pmset -g batt` (macOS detects it nati
 
 ---
 
+## OPENCLAW AI AGENT (added 2026-03-06)
+
+Workflow automation AI agent — all data on 1TB SSD.
+
+**Install:** `npm install -g openclaw` (v2026.3.2 installed at `/opt/homebrew/bin/openclaw`)
+
+**Data location:** `~/.openclaw` → symlinked to `/Volumes/1TB SSD/openclaw/state`
+- Workspace: `/Volumes/1TB SSD/openclaw/workspace`
+- Config: `~/.openclaw/openclaw.json`
+- Gateway log: `/Volumes/1TB SSD/openclaw/state/logs/gateway.log`
+
+**Gateway (WebSocket server — required for agents to run):**
+- Starts automatically at login via `boot-recovery.sh` (step 7)
+- Manual start: `nohup /opt/homebrew/opt/node/bin/node /opt/homebrew/lib/node_modules/openclaw/dist/index.js gateway run --port 18789 >> "/Volumes/1TB SSD/openclaw/state/logs/gateway.log" 2>&1 &` — or use **Start Gateway** button in widget Controls
+- Health check: `openclaw gateway health`
+- Token: in `~/.openclaw/openclaw.json` → `gateway.auth.token`
+- Note: LaunchAgent removed (macOS launchd throttles it with EX_CONFIG permanently). Gateway runs via `nohup` from boot-recovery.sh — fully detached from shell so it stays up
+- If config gets corrupted (invalid keys): `openclaw doctor --fix` then restart gateway
+- Telegram channel removed from config — was causing invalid key crashes
+
+**Key commands:**
+| What | Command |
+|------|---------|
+| Check health | `openclaw gateway health` |
+| Run diagnostics | `openclaw doctor` |
+| Check model/API key | `openclaw models status` |
+| Open dashboard | `openclaw dashboard` |
+| List agents | `openclaw agents` |
+
+**Model:** `anthropic/claude-opus-4-6` (API key stored in `~/.openclaw/agents/main/agent/auth-profiles.json`)
+
+---
+
+## BACKBLAZE CLOUD BACKUP (added 2026-03-06)
+
+Offsite cloud backup via Backblaze Personal Backup — $99/year, unlimited storage.
+
+**Drives backed up:**
+- Internal 256GB SSD (/) ✓
+- 1TB SSD ✓
+- 2TB HDD ✓
+- 4TB SSD ✗ — intentionally excluded (it's the Time Machine destination; Backblaze blocks TM drives by design — data is already covered via source drives above)
+
+**Auto-start:** Runs as root LaunchDaemon (`com.backblaze.bzserv`, KeepAlive) — starts at boot, no login needed
+**Schedule:** Once per day (continuous when active)
+**Status file:** `/Library/Backblaze.bzpkg/bzdata/overviewstatus.xml`
+**Config file:** `/Library/Backblaze.bzpkg/bzdata/bzinfo.xml`
+**Widget:** Backblaze row in SERVICES section — green=running, red=not running
+
+**If Backblaze stops backing up:**
+1. Check menu bar icon or System Settings → Backblaze
+2. Verify drives are still listed under Settings → Drives
+3. Check account status at backblaze.com (login: dbemish82@yahoo.com)
+4. Restart service: `sudo launchctl kickstart -k system/com.backblaze.bzserv`
+
+---
+
 ## SLEEP / ALWAYS-ON (updated 2026-03-04)
 
 Mac Mini is configured to never sleep so the server stays up 24/7.
@@ -325,4 +384,4 @@ Real backups to 2TB HDD via the Backup Widget on the Desktop.
 
 ---
 
-*Last updated: 2026-03-06 (Zoho SMTP; new logo; security headers; UPS monitoring + auto-shutdown at 10%; health widget: process monitor + UPS row + 10s refresh + remote/mobile access; backup widget 401 fix; backup script moved to ~/backup.sh; SSH keys configured for git push — dgsoftwash key at ~/.ssh/id_ed25519_dgsoftwash, remote: git@github-dgsoftwash:dgsoftwash/dg-softwash.git)*
+*Last updated: 2026-03-06 (deck pricing: added sq ft dimensions for all tiers + "Over 500 sq ft: Call for Estimate"; share button fix: updated URL to dgsoftwash.com + added .catch() for navigator.share Promise that was freezing the page; service worker bumped to v13; Zoho SMTP; new logo; security headers; UPS monitoring + auto-shutdown at 10%; health widget: process monitor + UPS row + OpenClaw row + 10s refresh + remote/mobile access + OpenClaw Start/Stop controls; backup widget 401 fix; backup script moved to ~/backup.sh; SSH keys configured for git push — dgsoftwash key at ~/.ssh/id_ed25519_dgsoftwash, remote: git@github-dgsoftwash:dgsoftwash/dg-softwash.git; OpenClaw AI agent v2026.3.2 installed — data on 1TB SSD, gateway runs via nohup from boot-recovery.sh, LaunchAgent removed, Telegram channel config removed; expense date fixed — expenses were saving correctly but PostgreSQL date column returned as full ISO timestamp causing "Invalid Date" display; fixed by casting date to YYYY-MM-DD in SQL query and adding .split('T')[0] safety in display code; HTTP→HTTPS redirect enabled — Cloudflare Always Use HTTPS on + server-side X-Forwarded-Proto 301 redirect, http://dgsoftwash.com now redirects to https://)*

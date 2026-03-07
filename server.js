@@ -30,6 +30,14 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Security headers
+// Redirect HTTP to HTTPS (via Cloudflare X-Forwarded-Proto header)
+app.use((req, res, next) => {
+  if (req.headers['x-forwarded-proto'] === 'http') {
+    return res.redirect(301, 'https://' + req.headers.host + req.url);
+  }
+  next();
+});
+
 app.use((req, res, next) => {
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -303,9 +311,10 @@ async function initDb() {
     { key: 'house-addon-uv-plus', label: 'UV Protectant', category: 'house-addon', parent_key: 'house-plus', price: 100, duration: 1, sort_order: 4, bookable_group: null },
     { key: 'house-addon-windows-plus', label: 'Streak-Free Window Cleaning', category: 'house-addon', parent_key: 'house-plus', price: 85, duration: 0.75, sort_order: 5, bookable_group: null },
     // Deck Cleaning
-    { key: 'deck-little', label: 'Little Deck', category: 'deck', parent_key: null, price: 75, duration: 2, sort_order: 1, bookable_group: null },
-    { key: 'deck-medium', label: 'Medium Deck', category: 'deck', parent_key: null, price: 115, duration: 2, sort_order: 2, bookable_group: null },
-    { key: 'deck-large', label: 'Large/Big Deck', category: 'deck', parent_key: null, price: 150, duration: 2, sort_order: 3, bookable_group: null },
+    { key: 'deck-little', label: 'Little Deck (up to 100 sq ft)', category: 'deck', parent_key: null, price: 75, duration: 2, sort_order: 1, bookable_group: null },
+    { key: 'deck-medium', label: 'Medium Deck (100–200 sq ft)', category: 'deck', parent_key: null, price: 115, duration: 2, sort_order: 2, bookable_group: null },
+    { key: 'deck-large', label: 'Large Deck (200–350 sq ft)', category: 'deck', parent_key: null, price: 150, duration: 2, sort_order: 3, bookable_group: null },
+    { key: 'deck-big', label: 'Big Deck (350–500 sq ft)', category: 'deck', parent_key: null, price: 150, duration: 3, sort_order: 4, bookable_group: null },
     // Fence Cleaning
     { key: 'fence-standard', label: 'Standard (1/4 Acre Lot)', category: 'fence', parent_key: null, price: 100, duration: 2, sort_order: 1, bookable_group: null },
     { key: 'fence-large', label: 'Large (Up to 1/2 Acre)', category: 'fence', parent_key: null, price: 175, duration: 2, sort_order: 2, bookable_group: null },
@@ -1657,7 +1666,7 @@ app.get('/api/admin/expenses', requireAdmin, async (req, res) => {
   try {
     const year = req.query.year ? parseInt(req.query.year) : null;
     const month = req.query.month ? parseInt(req.query.month) : null;
-    let query = 'SELECT * FROM expenses';
+    let query = "SELECT id, to_char(date, 'YYYY-MM-DD') as date, category, amount, notes, created_at FROM expenses";
     const params = [];
     const conditions = [];
     if (year) { params.push(year); conditions.push(`EXTRACT(YEAR FROM date) = $${params.length}`); }
@@ -1679,12 +1688,13 @@ app.post('/api/admin/expenses', requireAdmin, async (req, res) => {
   if (isNaN(numAmount) || numAmount <= 0) return res.status(400).json({ error: 'Amount must be a positive number' });
   try {
     const { rows: [expense] } = await pool.query(
-      'INSERT INTO expenses (date, category, amount, notes) VALUES ($1,$2,$3,$4) RETURNING *',
+      "INSERT INTO expenses (date, category, amount, notes) VALUES ($1,$2,$3,$4) RETURNING id, to_char(date, 'YYYY-MM-DD') as date, category, amount, notes, created_at",
       [date, category || '', numAmount, notes || '']
     );
     res.json({ success: true, expense });
   } catch (e) {
-    res.status(500).json({ error: 'Failed to add expense' });
+    console.error('Expense insert error:', e.message);
+    res.status(500).json({ error: 'Failed to add expense: ' + e.message });
   }
 });
 
@@ -2457,6 +2467,58 @@ function checkUps() {
   });
 }
 
+function checkOpenClaw() {
+  return new Promise((resolve) => {
+    const start = Date.now();
+    const req = http.get('http://127.0.0.1:18789/', { timeout: 3000 }, (res) => {
+      const ms = Date.now() - start;
+      if (res.statusCode === 200) {
+        resolve({ status: 'green', detail: 'running', ms });
+      } else {
+        resolve({ status: 'yellow', detail: 'HTTP ' + res.statusCode, ms });
+      }
+      res.resume();
+    });
+    req.on('error', () => resolve({ status: 'red', detail: 'offline', ms: null }));
+    req.on('timeout', () => { req.destroy(); resolve({ status: 'red', detail: 'timeout', ms: null }); });
+  });
+}
+
+
+function checkBackblaze() {
+  return new Promise((resolve) => {
+    // Check if bzserv process is running
+    exec("pgrep -x bzserv", (err, stdout) => {
+      const running = !err && stdout.trim().length > 0;
+      if (!running) return resolve({ status: 'red', detail: 'not running', lastBackup: null });
+
+      // Read overviewstatus.xml for current state
+      try {
+        const xml = fs.readFileSync('/Library/Backblaze.bzpkg/bzdata/overviewstatus.xml', 'utf8');
+        const stateMatch = xml.match(/cur_state="([^"]+)"/);
+        const state = stateMatch ? stateMatch[1] : 'unknown';
+
+        // Read bzinfo.xml for last backup time (bztransmit millisFileWasWritten)
+        const info = fs.readFileSync('/Library/Backblaze.bzpkg/bzdata/overviewstatus.xml', 'utf8');
+        const msMatch = xml.match(/millisFileWasWritten="([^"]+)"/);
+        let lastBackup = null;
+        if (msMatch) {
+          const d = new Date(parseInt(msMatch[1]));
+          lastBackup = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        }
+
+        let status = 'green';
+        let detail = state === 'not_running' ? 'idle' : state;
+        if (state === 'error') status = 'red';
+
+        resolve({ status, detail, lastBackup });
+      } catch(e) {
+        resolve({ status: 'yellow', detail: 'running (no status)', lastBackup: null });
+      }
+    });
+  });
+}
+
 function checkSystem() {
   const loadavg = os.loadavg()[0];
   const cpus = os.cpus().length;
@@ -2501,14 +2563,16 @@ app.get('/api/admin/ups-debug', requireAdmin, (req, res) => {
 
 app.get('/api/admin/health', requireAdmin, async (req, res) => {
   try {
-    const [website, app_pm2, database, tunnel, disks, processes, ups] = await Promise.all([
+    const [website, app_pm2, database, tunnel, disks, processes, ups, openclaw, backblaze] = await Promise.all([
       checkWebsite(),
       checkPm2(),
       checkDatabase(),
       checkTunnel(),
       checkDisks(),
       getTopProcesses(),
-      checkUps()
+      checkUps(),
+      checkOpenClaw(),
+      checkBackblaze()
     ]);
     const system = checkSystem();
     const bootLog = getBootLog();
@@ -2530,8 +2594,10 @@ app.get('/api/admin/health', requireAdmin, async (req, res) => {
     flag('CPU', { status: system.cpuStatus }, () => `${system.cpuPct}% load`);
     flag('Memory', { status: system.memStatus }, () => `${system.memPct}% used`);
     flag('UPS', ups, () => ups.source === 'battery' ? `On battery — ${ups.pct}%${ups.timeLeft ? ' (' + ups.timeLeft + ' left)' : ''}` : '');
+    flag('OpenClaw', openclaw, o => `gateway ${o.detail}`);
+    flag('Backblaze', backblaze, o => `backup ${o.detail}`);
 
-    res.json({ timestamp: now, website, app: app_pm2, database, tunnel, system, ups, disks, processes, bootLog, errors });
+    res.json({ timestamp: now, website, app: app_pm2, database, tunnel, system, ups, openclaw, backblaze, disks, processes, bootLog, errors });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -2549,7 +2615,9 @@ const ALLOWED_ACTIONS = {
   'pg-fix-pid':      'rm -f /opt/homebrew/var/postgresql@15/postmaster.pid',
   'fix-permissions': 'chmod -R 755 "/Volumes/1TB SSD/dg-softwash"',
   'run-basic-test':  'bash "/Volumes/1TB SSD/dg-softwash/test-basic.sh"',
-  'boot-recovery':   'bash /Users/david/boot-recovery.sh'
+  'boot-recovery':   'bash /Users/david/boot-recovery.sh',
+  'openclaw-start':  'nohup /opt/homebrew/opt/node/bin/node /opt/homebrew/lib/node_modules/openclaw/dist/index.js gateway run --port 18789 >> "/Volumes/1TB SSD/openclaw/state/logs/gateway.log" 2>&1 &',
+  'openclaw-stop':   'pkill -f openclaw-gateway || true'
 };
 
 app.post('/api/admin/server/action', requireAdmin, async (req, res) => {

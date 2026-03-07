@@ -2620,7 +2620,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add expense form
     html += '<div class="bookings-table-container" style="margin-bottom:24px;"><h3>Add Expense</h3>' +
       '<form id="add-expense-form"><div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; align-items:end; flex-wrap:wrap;">' +
-      '<div class="form-group"><label>Date *</label><input type="date" id="exp-date" required style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;" value="' + new Date().toISOString().split('T')[0] + '"></div>' +
+      '<div class="form-group"><label>Date *</label><input type="text" id="exp-date" placeholder="MM/DD/YYYY" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;" value="' + (function(){var d=new Date();return (d.getMonth()+1).toString().padStart(2,'0')+'/'+d.getDate().toString().padStart(2,'0')+'/'+d.getFullYear();})() + '"></div>' +
       '<div class="form-group"><label>Category</label><select id="exp-category" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;">' +
       categories.map(function(c) { return '<option>' + c + '</option>'; }).join('') +
       '</select></div>' +
@@ -2654,7 +2654,7 @@ document.addEventListener('DOMContentLoaded', function() {
     } else {
       html += '<div style="overflow-x:auto;"><table class="bookings-table"><thead><tr><th>Date</th><th>Category</th><th>Amount</th><th>Notes</th><th></th></tr></thead><tbody>';
       expenses.forEach(function(e) {
-        var dateLabel = new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        var dateLabel = new Date((e.date + '').split('T')[0] + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         html += '<tr>' +
           '<td>' + dateLabel + '</td>' +
           '<td>' + escapeHtml(e.category) + '</td>' +
@@ -2768,8 +2768,18 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         var errEl = document.getElementById('exp-error');
         errEl.textContent = '';
+        var rawDate = document.getElementById('exp-date').value.trim();
+        // Normalize MM/DD/YYYY or M/D/YYYY to YYYY-MM-DD
+        if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(rawDate)) {
+          var dp = rawDate.split('/');
+          rawDate = dp[2] + '-' + dp[0].padStart(2,'0') + '-' + dp[1].padStart(2,'0');
+        }
+        if (!rawDate || !/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
+          errEl.textContent = 'Please enter a valid date (MM/DD/YYYY or use the date picker).';
+          return;
+        }
         var body = {
-          date: document.getElementById('exp-date').value,
+          date: rawDate,
           category: document.getElementById('exp-category').value,
           amount: document.getElementById('exp-amount').value,
           notes: document.getElementById('exp-notes').value.trim()
