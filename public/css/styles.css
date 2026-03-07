@@ -135,7 +135,7 @@ body {
   height: 120%;
   background:
     linear-gradient(135deg, rgba(10, 30, 100, 0.15) 0%, rgba(15, 25, 80, 0.2) 100%),
-    url('https://upload.wikimedia.org/wikipedia/commons/thumb/a/a4/Flag_of_the_United_States.svg/2560px-Flag_of_the_United_States.svg.png');
+    url('/images/flag.svg');
   background-size: cover, cover;
   background-position: center, center;
   background-repeat: no-repeat, no-repeat;
@@ -252,7 +252,7 @@ body {
   height: 120%;
   background:
     linear-gradient(135deg, rgba(10, 30, 100, 0.15) 0%, rgba(15, 25, 80, 0.2) 100%),
-    url('https://upload.wikimedia.org/wikipedia/commons/thumb/a/a4/Flag_of_the_United_States.svg/2560px-Flag_of_the_United_States.svg.png');
+    url('/images/flag.svg');
   background-size: cover, cover;
   background-position: center, center;
   background-repeat: no-repeat, no-repeat;
