@@ -87,7 +87,7 @@ files, **bump the cache version** so browsers drop stale content:
 const CACHE = 'dg-softwash-v3';  // increment each time HTML changes
 ```
 
-Current version: **v13** (bumped 2026-03-06 — share button fix + deck pricing dimensions)
+Current version: **v14** (bumped 2026-03-06 — hamburger menu fix + share button fix + deck pricing dimensions)
 
 Widget refresh interval: **10s** (reduced from 30s for faster UPS status updates)
 
@@ -108,6 +108,7 @@ Also add `/reviews` to `STATIC_ASSETS` array when adding new public pages.
 | Gallery images not loading | Image stored as bad base64 | Delete item in admin gallery tab, re-upload |
 | Changes not appearing after deploy | Server not reloaded | `pm2 reload dg-softwash` |
 | Old pages showing after HTML update | Service worker serving stale cache | Bump cache version in `public/service-worker.js`, then `pm2 reload` |
+| Hamburger menu stuck on mobile | Old JS cached or Safari iOS quirk | Close Safari fully (swipe away), reopen site; if persists check `public/js/main.js` menu code |
 | Email popup appears every page visit | localStorage `dgEmailPopupDone` not set | Check browser isn't in incognito; open DevTools → Application → Local Storage to verify |
 | Need to re-test popup (reset flag) | `dgEmailPopupDone` set in localStorage | DevTools → Application → Local Storage → delete `dgEmailPopupDone` |
 | Site doesn't come back after reboot | Auto-boot script failed | Check `cat /tmp/boot-recovery.log` for errors; run `bash /Users/david/boot-recovery.sh` manually |
@@ -224,6 +225,13 @@ Email links on all public pages use standard `mailto:service@dgsoftwash.com`.
 - On desktop: copies site URL to clipboard, button text changes to "✓ Link Copied!" for 2 seconds
 - JS logic in `public/js/main.js`, styles in `public/css/styles.css` (.share-btn)
 - **Fix (2026-03-06):** URL updated from old Render URL to `https://dgsoftwash.com`; added `.catch()` to `navigator.share()` Promise — unhandled rejection was freezing the page when user cancelled/dismissed the share dialog; also added clipboard fallback with `window.prompt()`
+
+### Mobile Hamburger Menu (fixed 2026-03-06)
+- Hamburger (☰) was getting stuck after first use on Safari iOS — second tap did nothing
+- Root cause: Safari iOS has quirks with `classList.toggle` — replaced with explicit open/close state tracking via JS variable
+- Added dedicated `touchend` handler for iOS alongside `click`
+- Added tap-outside-to-close and `pageshow` reset for back-forward cache
+- Code in `public/js/main.js` — uses IIFE with `menuOpen` boolean, `openMenu()`/`closeMenu()` functions, inline `style.display` instead of CSS class toggling
 
 ---
 
@@ -384,4 +392,4 @@ Real backups to 2TB HDD via the Backup Widget on the Desktop.
 
 ---
 
-*Last updated: 2026-03-06 (deck pricing: added sq ft dimensions for all tiers + "Over 500 sq ft: Call for Estimate"; share button fix: updated URL to dgsoftwash.com + added .catch() for navigator.share Promise that was freezing the page; service worker bumped to v13; Zoho SMTP; new logo; security headers; UPS monitoring + auto-shutdown at 10%; health widget: process monitor + UPS row + OpenClaw row + 10s refresh + remote/mobile access + OpenClaw Start/Stop controls; backup widget 401 fix; backup script moved to ~/backup.sh; SSH keys configured for git push — dgsoftwash key at ~/.ssh/id_ed25519_dgsoftwash, remote: git@github-dgsoftwash:dgsoftwash/dg-softwash.git; OpenClaw AI agent v2026.3.2 installed — data on 1TB SSD, gateway runs via nohup from boot-recovery.sh, LaunchAgent removed, Telegram channel config removed; expense date fixed — expenses were saving correctly but PostgreSQL date column returned as full ISO timestamp causing "Invalid Date" display; fixed by casting date to YYYY-MM-DD in SQL query and adding .split('T')[0] safety in display code; HTTP→HTTPS redirect enabled — Cloudflare Always Use HTTPS on + server-side X-Forwarded-Proto 301 redirect, http://dgsoftwash.com now redirects to https://)*
+*Last updated: 2026-03-06 (mobile hamburger menu fix — Safari iOS classList.toggle quirk, rewrote with explicit state tracking; deck pricing: added sq ft dimensions for all tiers + "Over 500 sq ft: Call for Estimate"; share button fix: updated URL to dgsoftwash.com + added .catch() for navigator.share Promise that was freezing the page; service worker bumped to v14; Zoho SMTP; new logo; security headers; UPS monitoring + auto-shutdown at 10%; health widget: process monitor + UPS row + OpenClaw row + 10s refresh + remote/mobile access + OpenClaw Start/Stop controls; backup widget 401 fix; backup script moved to ~/backup.sh; SSH keys configured for git push — dgsoftwash key at ~/.ssh/id_ed25519_dgsoftwash, remote: git@github-dgsoftwash:dgsoftwash/dg-softwash.git; OpenClaw AI agent v2026.3.2 installed — data on 1TB SSD, gateway runs via nohup from boot-recovery.sh, LaunchAgent removed, Telegram channel config removed; expense date fixed — expenses were saving correctly but PostgreSQL date column returned as full ISO timestamp causing "Invalid Date" display; fixed by casting date to YYYY-MM-DD in SQL query and adding .split('T')[0] safety in display code; HTTP→HTTPS redirect enabled — Cloudflare Always Use HTTPS on + server-side X-Forwarded-Proto 301 redirect, http://dgsoftwash.com now redirects to https://)*
