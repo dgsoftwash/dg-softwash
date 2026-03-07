@@ -31,7 +31,8 @@ document.addEventListener('DOMContentLoaded', function() {
   const navLinks = document.querySelector('.nav-links');
 
   if (hamburger) {
-    hamburger.addEventListener('click', function() {
+    hamburger.addEventListener('click', function(e) {
+      e.stopPropagation();
       hamburger.classList.toggle('active');
       navLinks.classList.toggle('open');
     });
@@ -43,6 +44,24 @@ document.addEventListener('DOMContentLoaded', function() {
         navLinks.classList.remove('open');
       });
     });
+
+    // Close menu when tapping outside
+    document.addEventListener('click', function(e) {
+      if (!navLinks.contains(e.target) && !hamburger.contains(e.target)) {
+        hamburger.classList.remove('active');
+        navLinks.classList.remove('open');
+      }
+    });
+  }
+});
+
+// Reset menu state on page show (back-forward cache)
+window.addEventListener('pageshow', function() {
+  var hamburger = document.querySelector('.hamburger');
+  var navLinks = document.querySelector('.nav-links');
+  if (hamburger && navLinks) {
+    hamburger.classList.remove('active');
+    navLinks.classList.remove('open');
   }
 });
 
