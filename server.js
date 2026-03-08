@@ -2617,36 +2617,40 @@ function checkOpenClaw() {
 }
 
 
-function checkBackblaze() {
+function checkTimeMachine() {
   return new Promise((resolve) => {
-    // Check if bzserv process is running
-    exec("pgrep -x bzserv", (err, stdout) => {
-      const running = !err && stdout.trim().length > 0;
-      if (!running) return resolve({ status: 'red', detail: 'not running', lastBackup: null });
-
-      // Read overviewstatus.xml for current state
-      try {
-        const xml = fs.readFileSync('/Library/Backblaze.bzpkg/bzdata/overviewstatus.xml', 'utf8');
-        const stateMatch = xml.match(/cur_state="([^"]+)"/);
-        const state = stateMatch ? stateMatch[1] : 'unknown';
-
-        // Read bzinfo.xml for last backup time (bztransmit millisFileWasWritten)
-        const info = fs.readFileSync('/Library/Backblaze.bzpkg/bzdata/overviewstatus.xml', 'utf8');
-        const msMatch = xml.match(/millisFileWasWritten="([^"]+)"/);
-        let lastBackup = null;
-        if (msMatch) {
-          const d = new Date(parseInt(msMatch[1]));
-          lastBackup = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-        }
-
-        let status = 'green';
-        let detail = state === 'not_running' ? 'idle' : state;
-        if (state === 'error') status = 'red';
-
-        resolve({ status, detail, lastBackup });
-      } catch(e) {
-        resolve({ status: 'yellow', detail: 'running (no status)', lastBackup: null });
+    // Get latest backup timestamp
+    exec("tmutil latestbackup 2>/dev/null", (err, stdout) => {
+      if (err || !stdout.trim()) {
+        // Check if TM is enabled
+        exec("tmutil status 2>/dev/null", (err2, status) => {
+          if (status && status.includes('Running = 1')) {
+            return resolve({ status: 'green', detail: 'running now', lastBackup: null });
+          }
+          return resolve({ status: 'yellow', detail: 'no recent backup', lastBackup: null });
+        });
+        return;
       }
+
+      // Parse backup path for date — format: /Volumes/.timemachine/.../YYYY-MM-DD-HHMMSS.backup
+      const match = stdout.trim().match(/(\d{4}-\d{2}-\d{2}-\d{6})\.backup/);
+      let lastBackup = null;
+      let status = 'green';
+      let detail = 'OK';
+
+      if (match) {
+        const parts = match[1].split('-');
+        const d = new Date(parts[0], parts[1] - 1, parts[2], parts[3].slice(0,2), parts[3].slice(2,4));
+        lastBackup = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+        // Check age — warn if older than 25 hours
+        const ageHrs = (Date.now() - d.getTime()) / (1000 * 60 * 60);
+        if (ageHrs > 48) { status = 'red'; detail = 'stale (' + Math.round(ageHrs) + 'h old)'; }
+        else if (ageHrs > 25) { status = 'yellow'; detail = 'aging (' + Math.round(ageHrs) + 'h old)'; }
+        else { detail = 'OK'; }
+      }
+
+      resolve({ status, detail, lastBackup });
     });
   });
 }
@@ -2695,7 +2699,7 @@ app.get('/api/admin/ups-debug', requireAdmin, (req, res) => {
 
 app.get('/api/admin/health', requireAdmin, async (req, res) => {
   try {
-    const [website, app_pm2, database, tunnel, disks, processes, ups, openclaw, backblaze] = await Promise.all([
+    const [website, app_pm2, database, tunnel, disks, processes, ups, openclaw, timemachine] = await Promise.all([
       checkWebsite(),
       checkPm2(),
       checkDatabase(),
@@ -2704,7 +2708,7 @@ app.get('/api/admin/health', requireAdmin, async (req, res) => {
       getTopProcesses(),
       checkUps(),
       checkOpenClaw(),
-      checkBackblaze()
+      checkTimeMachine()
     ]);
     const system = checkSystem();
     const bootLog = getBootLog();
@@ -2727,9 +2731,9 @@ app.get('/api/admin/health', requireAdmin, async (req, res) => {
     flag('Memory', { status: system.memStatus }, () => `${system.memPct}% used`);
     flag('UPS', ups, () => ups.source === 'battery' ? `On battery — ${ups.pct}%${ups.timeLeft ? ' (' + ups.timeLeft + ' left)' : ''}` : '');
     flag('OpenClaw', openclaw, o => `gateway ${o.detail}`);
-    flag('Backblaze', backblaze, o => `backup ${o.detail}`);
+    flag('Time Machine', timemachine, o => `backup ${o.detail}`);
 
-    res.json({ timestamp: now, website, app: app_pm2, database, tunnel, system, ups, openclaw, backblaze, disks, processes, bootLog, errors });
+    res.json({ timestamp: now, website, app: app_pm2, database, tunnel, system, ups, openclaw, timemachine, disks, processes, bootLog, errors });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
