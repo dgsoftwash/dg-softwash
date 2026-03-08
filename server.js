@@ -2733,7 +2733,22 @@ app.get('/api/admin/health', requireAdmin, async (req, res) => {
     flag('OpenClaw', openclaw, o => `gateway ${o.detail}`);
     flag('Time Machine', timemachine, o => `backup ${o.detail}`);
 
-    res.json({ timestamp: now, website, app: app_pm2, database, tunnel, system, ups, openclaw, timemachine, disks, processes, bootLog, errors });
+    // Get iCloud backup info
+    let icloudBackup = { status: 'grey', detail: 'no history', lastBackup: null };
+    try {
+      const hFile = '/Volumes/2TB HDD/backup-history.json';
+      if (fs.existsSync(hFile)) {
+        const hist = JSON.parse(fs.readFileSync(hFile, 'utf8'));
+        if (hist.length > 0) {
+          icloudBackup.lastBackup = hist[0].display;
+          icloudBackup.detail = hist[0].items;
+          const age = (Date.now() - new Date(hist[0].timestamp).getTime()) / (1000*60*60);
+          icloudBackup.status = age > 48 ? 'red' : age > 25 ? 'yellow' : 'green';
+        }
+      }
+    } catch(e) {}
+
+    res.json({ timestamp: now, website, app: app_pm2, database, tunnel, system, ups, openclaw, timemachine, icloudBackup, disks, processes, bootLog, errors });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -2775,6 +2790,20 @@ app.post('/api/admin/server/action', requireAdmin, async (req, res) => {
 // --- Backup API ---
 const BACKUP_STATUS_FILE = '/tmp/backup-status.json';
 const BACKUP_SCRIPT = '/Volumes/1TB SSD/backup.sh';
+
+app.get('/api/admin/backup/history', requireAdmin, (req, res) => {
+  const historyFile = '/Volumes/2TB HDD/backup-history.json';
+  try {
+    if (fs.existsSync(historyFile)) {
+      const history = JSON.parse(fs.readFileSync(historyFile, 'utf8'));
+      res.json(history);
+    } else {
+      res.json([]);
+    }
+  } catch(e) {
+    res.json([]);
+  }
+});
 
 app.get('/api/admin/backup/status', requireAdmin, (req, res) => {
   try {
