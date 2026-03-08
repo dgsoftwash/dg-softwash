@@ -2479,6 +2479,11 @@ Return ONLY a valid JSON array (no markdown fences, no explanation text), where 
 // ── End Scholarship Guide ────────────────────────────────────────────────────
 
 // Serve the server health widget
+app.get('/chappie-widget', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.sendFile('/Volumes/1TB SSD/server-widget/ChappieWidget.html');
+});
+
 app.get('/server-widget', (req, res) => {
   res.sendFile('/Volumes/1TB SSD/server-widget/ServerWidget.html');
 });
