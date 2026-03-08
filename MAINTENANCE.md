@@ -226,6 +226,15 @@ Email links on all public pages use standard `mailto:service@dgsoftwash.com`.
 - JS logic in `public/js/main.js`, styles in `public/css/styles.css` (.share-btn)
 - **Fix (2026-03-06):** URL updated from old Render URL to `https://dgsoftwash.com`; added `.catch()` to `navigator.share()` Promise — unhandled rejection was freezing the page when user cancelled/dismissed the share dialog; also added clipboard fallback with `window.prompt()`
 
+### Backup Strategy (updated 2026-03-08)
+- **Time Machine** → 4TB SSD: automatic, backs up Mac mini internal + 1TB SSD
+- 1TB SSD was previously excluded from Time Machine — fixed 2026-03-08
+- Replaced Backblaze health check with Time Machine check in server widget
+- Widget now shows Time Machine status: green (< 25h), yellow (25-48h stale), red (> 48h stale)
+- Last backup time shown in widget
+- `checkTimeMachine()` in server.js runs `tmutil latestbackup` to get status
+- No more scheduled backup.sh cron — Time Machine handles everything
+
 ### Gabe's Scholarship Guide (added 2026-03-08)
 - Integrated scholarship guide at `/gabe` (public) and `/gabe/admin` (admin panel)
 - Originally a standalone app at `~/Desktop/Gabe College /scholarship-guide/`
