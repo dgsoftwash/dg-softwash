@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Virginia Scholarship Guide — D&G Family</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f4f8; color: #1a1a2e; min-height: 100vh; }
+    .header { background: linear-gradient(135deg, #1a1a2e 0%, #2d6a4f 100%); color: #fff; padding: 32px 20px 28px; text-align: center; }
+    .header h1 { font-size: 1.6em; font-weight: 700; margin-bottom: 6px; }
+    .header p  { font-size: 0.95em; opacity: 0.85; line-height: 1.5; }
+    .header .badge { display: inline-block; background: rgba(255,255,255,0.15); border-radius: 20px; padding: 4px 14px; font-size: 0.8em; margin-top: 10px; letter-spacing: 0.03em; }
+    .admin-link { display: inline-block; margin-top: 12px; font-size: 0.78em; color: rgba(255,255,255,0.55); text-decoration: none; }
+    .admin-link:hover { color: rgba(255,255,255,0.85); }
+    .container { max-width: 680px; margin: 0 auto; padding: 20px 16px 48px; }
+    .section-label { display: flex; align-items: center; gap: 10px; margin: 28px 0 12px; font-size: 0.78em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; }
+    .section-label::after { content: ''; flex: 1; height: 1px; background: #cbd5e1; }
+    .card { background: #fff; border-radius: 14px; padding: 18px 18px 16px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); border-left: 4px solid #2d6a4f; }
+    .card.gold   { border-left-color: #d97706; }
+    .card.blue   { border-left-color: #2563eb; }
+    .card.purple { border-left-color: #7c3aed; }
+    .card.orange { border-left-color: #ea580c; }
+    .card.teal   { border-left-color: #0891b2; }
+    .card-title { font-size: 1em; font-weight: 700; margin-bottom: 6px; line-height: 1.35; }
+    .card-desc  { font-size: 0.88em; color: #475569; line-height: 1.55; margin-bottom: 10px; }
+    .card-meta  { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .pill { font-size: 0.75em; font-weight: 600; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
+    .pill-amount   { background: #dcfce7; color: #166534; }
+    .pill-deadline { background: #fef9c3; color: #854d0e; }
+    .btn-link { display: inline-flex; align-items: center; gap: 5px; background: #2d6a4f; color: #fff; text-decoration: none; font-size: 0.85em; font-weight: 600; padding: 8px 16px; border-radius: 8px; transition: background 0.2s; }
+    .btn-link:hover { background: #1b4332; }
+    .card.gold   .btn-link { background: #d97706; }  .card.gold   .btn-link:hover { background: #b45309; }
+    .card.blue   .btn-link { background: #2563eb; }  .card.blue   .btn-link:hover { background: #1d4ed8; }
+    .card.purple .btn-link { background: #7c3aed; }  .card.purple .btn-link:hover { background: #6d28d9; }
+    .card.orange .btn-link { background: #ea580c; }  .card.orange .btn-link:hover { background: #c2410c; }
+    .card.teal   .btn-link { background: #0891b2; }  .card.teal   .btn-link:hover { background: #0e7490; }
+    .tip-box { background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; font-size: 0.88em; color: #1e40af; line-height: 1.55; }
+    .tip-box strong { display: block; margin-bottom: 4px; }
+    /* Forms */
+    .forms-section { margin-top: 36px; }
+    .forms-label { font-size: 1em; font-weight: 700; color: #1a1a2e; margin: 0 0 12px; display: flex; align-items: center; gap: 10px; }
+    .forms-label::after { content: ''; flex: 1; height: 1px; background: #cbd5e1; }
+    details { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); margin-bottom: 10px; overflow: hidden; }
+    summary { cursor: pointer; padding: 15px 18px; font-weight: 700; font-size: 0.95em; list-style: none; display: flex; align-items: center; justify-content: space-between; user-select: none; }
+    summary::-webkit-details-marker { display: none; }
+    summary::after { content: '+'; font-size: 1.2em; font-weight: 400; color: #9ca3af; }
+    details[open] summary::after { content: '−'; }
+    details[open] summary { border-bottom: 1px solid #f0f0f0; }
+    .details-body { padding: 16px 18px 18px; }
+    .details-body h4 { font-size: 0.82em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin: 14px 0 8px; }
+    .details-body h4:first-child { margin-top: 0; }
+    .details-body ul { padding-left: 18px; }
+    .details-body li { font-size: 0.88em; color: #374151; line-height: 1.6; margin-bottom: 4px; }
+    .tip-inline { background: #f0fdf4; border-left: 3px solid #16a34a; padding: 8px 12px; border-radius: 0 8px 8px 0; font-size: 0.85em; color: #166534; margin-top: 10px; line-height: 1.5; }
+    .page-footer { text-align: center; padding: 24px 16px; font-size: 0.8em; color: #94a3b8; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🎓 Virginia Scholarship Guide</h1>
+  <p>GI Bill benefits, state scholarships, and local Hampton Roads resources</p>
+  <span class="badge">Public School Students · Hampton Roads, VA</span><br>
+  <a href="/gabe/admin" class="admin-link">⚙ Admin</a>
+</div>
+
+<div class="container">
+
+  <div class="section-label">🪖 GI Bill Benefits (Your #1 Resource)</div>
+  <div class="tip-box">
+    <strong>💡 Start here first.</strong>
+    With a transferred Post-9/11 GI Bill, Virginia public universities are essentially
+    <strong>free</strong> — tuition, fees, a monthly housing allowance, and $1,000/yr for books.
+    Stack scholarships on top to cover living expenses and private school gaps.
+  </div>
+
+  <div id="cards-container">
+    <p style="color:#666;text-align:center;padding:20px 0;">Loading scholarships…</p>
+  </div>
+
+  <!-- Forms & Documents Guide (static) -->
+  <div class="forms-section">
+    <div class="forms-label">📋 Forms &amp; Documents Guide</div>
+
+    <details>
+      <summary>VA Form 22-1990e — Transfer of Entitlement</summary>
+      <div class="details-body">
+        <h4>What you need before you start</h4>
+        <ul>
+          <li>Your VA file number <em>or</em> sponsor's Social Security Number</li>
+          <li>Sponsor's branch of service and discharge date (from DD-214)</li>
+          <li>School name, address, and VA certifying official contact</li>
+          <li>Intended major / program of education</li>
+          <li>Anticipated start date</li>
+        </ul>
+        <h4>Step-by-step</h4>
+        <ul>
+          <li><strong>Find your VA file number:</strong> Log in to VA.gov → My VA → look for "VA file number" in your profile, or call 1-800-827-1000.</li>
+          <li><strong>Find your school's VA certifying official:</strong> Call the financial aid or registrar's office and ask specifically for the "VA certifying official" or "SCO."</li>
+          <li><strong>"Program of education"</strong> just means your degree/certificate program (e.g., "B.S. in Computer Science"). Use the catalog name from the school's website.</li>
+          <li><strong>Processing takes 4–6 weeks.</strong> Apply as early as possible before the semester starts.</li>
+        </ul>
+        <div class="tip-inline">Once approved, you'll get a Certificate of Eligibility (COE). Keep this — you'll need it for Yellow Ribbon and other VA programs.</div>
+      </div>
+    </details>
+
+    <details>
+      <summary>FAFSA — Free Application for Federal Student Aid</summary>
+      <div class="details-body">
+        <h4>What you need before you start</h4>
+        <ul>
+          <li>Student's Social Security Number</li>
+          <li>Prior-year federal tax return (use IRS Data Retrieval Tool for auto-fill)</li>
+          <li>Bank account and investment totals (as of the day you file)</li>
+          <li>VA benefit award letter (shows monthly benefit amount)</li>
+          <li>FSA ID — create at StudentAid.gov before you sit down</li>
+        </ul>
+        <h4>Key things to know</h4>
+        <ul>
+          <li><strong>VA benefits are NOT counted as income</strong> for the Pell Grant calculation — fill out FAFSA even with GI Bill benefits.</li>
+          <li><strong>Opens October 1</strong> every year for the following academic year. File as early as possible — some state aid (like VGAP) is first-come, first-served.</li>
+          <li><strong>After filing,</strong> you'll get a Student Aid Report (SAR) — many scholarship applications require it.</li>
+        </ul>
+        <div class="tip-inline">File every year even after freshman year. Aid packages change based on your family's financial situation.</div>
+      </div>
+    </details>
+
+    <details>
+      <summary>Yellow Ribbon Program</summary>
+      <div class="details-body">
+        <h4>What you need before you start</h4>
+        <ul>
+          <li>Certificate of Eligibility (COE) from VA — received after approving your 22-1990e</li>
+          <li>School's Yellow Ribbon application form (each school has their own)</li>
+          <li>Copy of 22-1990e approval letter</li>
+        </ul>
+        <h4>Step-by-step</h4>
+        <ul>
+          <li><strong>Confirm 100% entitlement:</strong> Yellow Ribbon is only available with 100% Post-9/11 GI Bill eligibility. Verify your COE shows 100%.</li>
+          <li><strong>Request your COE online:</strong> Download from VA.gov → Education Benefits, or call 1-888-442-4551 if not received within 6 weeks.</li>
+          <li><strong>Apply early — seats are limited:</strong> Schools set their own caps. Apply as soon as you have your COE.</li>
+        </ul>
+        <div class="tip-inline">Not all schools participate. Check the VA's Yellow Ribbon school search tool at va.gov before committing to a school.</div>
+      </div>
+    </details>
+
+    <details>
+      <summary>General Scholarship Applications — Standard Checklist</summary>
+      <div class="details-body">
+        <h4>Documents to prepare</h4>
+        <ul>
+          <li><strong>Official transcripts</strong> — request from your high school registrar at least 2 weeks before deadlines.</li>
+          <li><strong>2 recommendation letters</strong> — ask teachers, coaches, or counselors at least <em>6 weeks</em> before the deadline.</li>
+          <li><strong>Personal essay</strong> — most scholarships ask for 200–500 words. Draft early and have someone proofread.</li>
+          <li><strong>FAFSA Student Aid Report (SAR)</strong> — downloaded from StudentAid.gov after filing FAFSA.</li>
+          <li><strong>Proof of military affiliation</strong> — copy of sponsor's DD-214 or military ID.</li>
+        </ul>
+        <h4>Tips</h4>
+        <ul>
+          <li>Keep a folder with all documents so you can reuse them across multiple applications.</li>
+          <li>Apply for everything you qualify for — $500–$1,000 scholarships add up and are less competitive.</li>
+        </ul>
+      </div>
+    </details>
+  </div>
+
+</div>
+
+<div class="page-footer">
+  Built for D&amp;G Family · February 2026 &nbsp;·&nbsp;
+  Questions? <a href="tel:7575259508" style="color:#2d6a4f;">(757) 525-9508</a>
+</div>
+
+<script>
+  var CATEGORY_ORDER = ['gi-bill','state','military','local','tools','general'];
+  var CATEGORY_LABELS = {
+    'gi-bill':  '🪖 GI Bill Benefits',
+    'state':    '🏛️ State of Virginia',
+    'military': '⭐ Military & Veteran-Specific',
+    'local':    '📍 Hampton Roads Local',
+    'tools':    '🔍 Scholarship Search Tools',
+    'general':  '📋 Other Scholarships'
+  };
+
+  function esc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function renderCards(items) {
+    var container = document.getElementById('cards-container');
+    if (!items.length) {
+      container.innerHTML = '<p style="color:#666;text-align:center;padding:20px 0;">No scholarships yet. Add some in the admin panel.</p>';
+      return;
+    }
+    var groups = {};
+    items.forEach(function(item) {
+      var cat = item.category || 'general';
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(item);
+    });
+    var html = '';
+    CATEGORY_ORDER.forEach(function(cat) {
+      if (!groups[cat] || !groups[cat].length) return;
+      html += '<div class="section-label">' + (CATEGORY_LABELS[cat] || cat) + '</div>';
+      groups[cat].forEach(function(item) {
+        var cls = item.color_class ? ' ' + esc(item.color_class) : '';
+        html += '<div class="card' + cls + '">';
+        html += '<div class="card-title">' + esc(item.title) + '</div>';
+        if (item.description) html += '<div class="card-desc">' + esc(item.description) + '</div>';
+        var hasMeta = (item.amount && item.amount !== 'See website') || (item.deadline && item.deadline !== 'See website');
+        if (hasMeta) {
+          html += '<div class="card-meta">';
+          if (item.amount && item.amount !== 'See website') html += '<span class="pill pill-amount">' + esc(item.amount) + '</span>';
+          if (item.deadline && item.deadline !== 'See website') html += '<span class="pill pill-deadline">' + esc(item.deadline) + '</span>';
+          html += '</div>';
+        }
+        if (item.url) html += '<a href="' + esc(item.url) + '" target="_blank" class="btn-link">Visit →</a>';
+        html += '</div>';
+      });
+    });
+    container.innerHTML = html;
+  }
+
+  fetch('/gabe/api/scholarships')
+    .then(function(r) { return r.json(); })
+    .then(renderCards)
+    .catch(function() {
+      document.getElementById('cards-container').innerHTML =
+        '<p style="color:#dc2626;text-align:center;padding:20px 0;">Could not load scholarships. Is the server running?</p>';
+    });
+</script>
+</body>
+</html>

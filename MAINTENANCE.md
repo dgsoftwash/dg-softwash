@@ -226,6 +226,16 @@ Email links on all public pages use standard `mailto:service@dgsoftwash.com`.
 - JS logic in `public/js/main.js`, styles in `public/css/styles.css` (.share-btn)
 - **Fix (2026-03-06):** URL updated from old Render URL to `https://dgsoftwash.com`; added `.catch()` to `navigator.share()` Promise — unhandled rejection was freezing the page when user cancelled/dismissed the share dialog; also added clipboard fallback with `window.prompt()`
 
+### Gabe's Scholarship Guide (added 2026-03-08)
+- Integrated scholarship guide at `/gabe` (public) and `/gabe/admin` (admin panel)
+- Originally a standalone app at `~/Desktop/Gabe College /scholarship-guide/`
+- Data stored in `data/scholarships.json` (JSON file, not PostgreSQL)
+- Admin password: `bemish2026`
+- AI-powered scholarship discovery uses Anthropic API (key in `.env` as `ANTHROPIC_API_KEY`)
+- Uses `@anthropic-ai/sdk` npm package with `claude-haiku-4-5-20251001` model
+- All routes prefixed with `/gabe/`: `/gabe/api/scholarships`, `/gabe/api/admin/*`
+- Service worker bumped to v16
+
 ### Flag Background Image (fixed 2026-03-07)
 - Flag was loaded from Wikimedia Commons (external URL) — they started returning HTTP 429 (rate limited)
 - Downloaded flag as SVG and now hosted locally at `/images/flag.svg`

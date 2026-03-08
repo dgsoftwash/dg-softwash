@@ -2346,6 +2346,138 @@ async function expireUnapprovedReviews() {
   }
 }
 
+// ── Gabe's Scholarship Guide (/gabe) ─────────────────────────────────────────
+const GABE_ADMIN_PASSWORD = 'bemish2026';
+const GABE_DB_FILE = path.join(__dirname, 'data', 'scholarships.json');
+
+function gabeReadDb() {
+  if (!fs.existsSync(GABE_DB_FILE)) return { nextId: 1, scholarships: [] };
+  try { return JSON.parse(fs.readFileSync(GABE_DB_FILE, 'utf8')); }
+  catch(e) { return { nextId: 1, scholarships: [] }; }
+}
+
+function gabeWriteDb(data) {
+  fs.writeFileSync(GABE_DB_FILE, JSON.stringify(data, null, 2), 'utf8');
+}
+
+function requireGabeAdmin(req, res, next) {
+  if (req.headers['x-admin-password'] !== GABE_ADMIN_PASSWORD) {
+    return res.status(401).json({ error: 'Wrong password' });
+  }
+  next();
+}
+
+// Pages
+app.get('/gabe',       (req, res) => res.sendFile(path.join(__dirname, 'views', 'gabe.html')));
+app.get('/gabe/admin', (req, res) => res.sendFile(path.join(__dirname, 'views', 'gabe-admin.html')));
+
+// Public API
+app.get('/gabe/api/scholarships', (req, res) => {
+  const { scholarships } = gabeReadDb();
+  const ORDER = ['gi-bill','state','military','local','tools','general'];
+  const active = scholarships.filter(s => s.active).sort((a, b) => {
+    const ca = ORDER.indexOf(a.category), cb = ORDER.indexOf(b.category);
+    if (ca !== cb) return (ca === -1 ? 99 : ca) - (cb === -1 ? 99 : cb);
+    return (a.sort_order || 0) - (b.sort_order || 0);
+  });
+  res.json(active);
+});
+
+// Admin API
+app.post('/gabe/api/admin/login', (req, res) => {
+  if (req.body.password === GABE_ADMIN_PASSWORD) res.json({ success: true });
+  else res.status(401).json({ error: 'Wrong password' });
+});
+
+app.get('/gabe/api/admin/scholarships', requireGabeAdmin, (req, res) => {
+  const { scholarships } = gabeReadDb();
+  res.json(scholarships);
+});
+
+app.post('/gabe/api/admin/scholarships', requireGabeAdmin, (req, res) => {
+  const { title, description, amount, deadline, url, category, color_class } = req.body;
+  if (!title || !url) return res.status(400).json({ error: 'Title and URL are required' });
+  const data = gabeReadDb();
+  const newItem = {
+    id: data.nextId++, title, url,
+    description: description || '', amount: amount || 'See website',
+    deadline: deadline || 'See website', category: category || 'general',
+    color_class: color_class || '', sort_order: 0, active: true
+  };
+  data.scholarships.push(newItem);
+  gabeWriteDb(data);
+  res.json({ success: true, id: newItem.id });
+});
+
+app.patch('/gabe/api/admin/scholarships/:id', requireGabeAdmin, (req, res) => {
+  const id = parseInt(req.params.id);
+  const data = gabeReadDb();
+  const idx = data.scholarships.findIndex(s => s.id === id);
+  if (idx === -1) return res.status(404).json({ error: 'Not found' });
+  const allowed = ['title', 'description', 'amount', 'deadline', 'url', 'category', 'color_class', 'sort_order', 'active'];
+  allowed.forEach(f => { if (req.body[f] !== undefined) data.scholarships[idx][f] = req.body[f]; });
+  gabeWriteDb(data);
+  res.json({ success: true });
+});
+
+app.delete('/gabe/api/admin/scholarships/:id', requireGabeAdmin, (req, res) => {
+  const id = parseInt(req.params.id);
+  const data = gabeReadDb();
+  data.scholarships = data.scholarships.filter(s => s.id !== id);
+  gabeWriteDb(data);
+  res.json({ success: true });
+});
+
+// AI Discovery
+app.post('/gabe/api/admin/discover', requireGabeAdmin, async (req, res) => {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) return res.status(503).json({ error: 'ANTHROPIC_API_KEY not set' });
+
+  const { scholarships } = gabeReadDb();
+  const existingTitles = scholarships.map(s => '- ' + s.title).join('\n');
+
+  const prompt = `Search the web for scholarship opportunities specifically for:
+- Military dependents and children of veterans
+- Virginia college students (especially Hampton Roads area)
+- Students who may also have GI Bill benefits to stack on top of
+
+We already have these scholarships — do NOT include them:
+${existingTitles}
+
+Find 5-8 NEW scholarships not in that list above. Focus on currently-active, real scholarships with real application URLs.
+
+Return ONLY a valid JSON array (no markdown fences, no explanation text), where each object has exactly these fields:
+{
+  "title": "Full scholarship name",
+  "description": "2-3 sentences describing eligibility and what it covers",
+  "amount": "Dollar amount or range (e.g. 'Up to $5,000/yr') or 'See website'",
+  "deadline": "Deadline info (e.g. 'March 1 each year') or 'See website'",
+  "url": "Direct URL to the scholarship application or info page",
+  "category": "one of: gi-bill, state, military, local, tools, general"
+}`;
+
+  try {
+    const Anthropic = require('@anthropic-ai/sdk');
+    const client = new Anthropic({ apiKey: key });
+    const response = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 4096,
+      tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }],
+      messages: [{ role: 'user', content: prompt }]
+    });
+    const textBlocks = response.content.filter(b => b.type === 'text');
+    const text = textBlocks.map(b => b.text).join('');
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) return res.status(500).json({ error: 'Could not parse scholarships from AI response. Try again.' });
+    const discovered = JSON.parse(jsonMatch[0]);
+    res.json({ scholarships: Array.isArray(discovered) ? discovered : [] });
+  } catch (e) {
+    console.error('Discover error:', e.message);
+    res.status(500).json({ error: e.message || 'Search failed' });
+  }
+});
+// ── End Scholarship Guide ────────────────────────────────────────────────────
+
 // Serve the server health widget
 app.get('/server-widget', (req, res) => {
   res.sendFile('/Volumes/1TB SSD/server-widget/ServerWidget.html');

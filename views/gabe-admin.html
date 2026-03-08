@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scholarship Admin</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f4f8; color: #1a1a2e; min-height: 100vh; }
+    .header { background: linear-gradient(135deg, #1a1a2e 0%, #2d6a4f 100%); color: #fff; padding: 20px 20px 18px; display: flex; align-items: center; justify-content: space-between; }
+    .header h1 { font-size: 1.2em; font-weight: 700; }
+    .header a  { color: rgba(255,255,255,0.75); text-decoration: none; font-size: 0.88em; }
+    .header a:hover { color: #fff; }
+    .container { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
+
+    /* Login */
+    #login-screen { max-width: 340px; margin: 80px auto; background: #fff; border-radius: 14px; padding: 32px 28px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); text-align: center; }
+    #login-screen h2 { font-size: 1.2em; margin-bottom: 20px; }
+    #login-screen input { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 1em; margin-bottom: 12px; text-align: center; letter-spacing: 0.1em; }
+    #login-screen button { width: 100%; padding: 10px; background: #2d6a4f; color: #fff; border: none; border-radius: 8px; font-size: 1em; font-weight: 600; cursor: pointer; }
+    #login-screen button:hover { background: #1b4332; }
+    #login-error { color: #dc2626; font-size: 0.88em; margin-top: 8px; min-height: 1.2em; }
+
+    /* Cards */
+    .panel { background: #fff; border-radius: 14px; padding: 22px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); margin-bottom: 20px; }
+    .panel h2 { font-size: 1.1em; font-weight: 700; margin-bottom: 18px; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .form-group { display: flex; flex-direction: column; gap: 4px; }
+    .form-group.full { grid-column: 1 / -1; }
+    label { font-size: 0.82em; font-weight: 600; color: #475569; }
+    input[type=text], select, textarea {
+      padding: 8px 10px; border: 1px solid #ddd; border-radius: 7px;
+      font-size: 0.92em; font-family: inherit; width: 100%;
+    }
+    input[type=text]:focus, select:focus, textarea:focus {
+      outline: none; border-color: #2d6a4f; box-shadow: 0 0 0 2px rgba(45,106,79,0.15);
+    }
+    textarea { resize: vertical; }
+    .btn-primary { background: #2d6a4f; color: #fff; border: none; border-radius: 8px; padding: 9px 24px; font-size: 0.92em; font-weight: 600; cursor: pointer; }
+    .btn-primary:hover { background: #1b4332; }
+    .btn-secondary { background: #f1f5f9; color: #374151; border: 1px solid #e2e8f0; border-radius: 7px; padding: 6px 14px; font-size: 0.85em; font-weight: 600; cursor: pointer; }
+    .btn-secondary:hover { background: #e2e8f0; }
+    .btn-danger { background: #fee2e2; color: #991b1b; border: none; border-radius: 7px; padding: 6px 12px; font-size: 0.82em; font-weight: 600; cursor: pointer; }
+    .btn-danger:hover { background: #fecaca; }
+    .form-msg { font-size: 0.85em; min-height: 1.2em; margin: 8px 0 4px; }
+    .form-msg.error { color: #dc2626; }
+    .form-msg.ok    { color: #166534; }
+
+    /* Table */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+    th { text-align: left; padding: 8px 10px; background: #f8fafc; border-bottom: 2px solid #e5e7eb; font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; }
+    td { padding: 9px 10px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+    tr:hover td { background: #fafafa; }
+    .status-badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.78em; font-weight: 700; }
+    .status-active { background: #dcfce7; color: #166534; }
+    .status-hidden { background: #f1f5f9; color: #64748b; }
+    .color-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+
+    /* Edit row */
+    .edit-row td { background: #f8fafc; padding: 16px; }
+    .edit-row .form-grid { grid-template-columns: 1fr 1fr; }
+
+    /* Discover */
+    .discover-card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin-bottom: 14px; transition: opacity 0.2s; }
+    .discover-card.processed { opacity: 0.4; pointer-events: none; }
+    .btn-discover { background: #1d4ed8; color: #fff; border: none; border-radius: 8px; padding: 9px 18px; font-size: 0.9em; font-weight: 600; cursor: pointer; }
+    .btn-discover:hover:not(:disabled) { background: #1e40af; }
+    .btn-discover:disabled { opacity: 0.6; cursor: default; }
+
+    @media (max-width: 600px) {
+      .form-grid { grid-template-columns: 1fr; }
+      .edit-row .form-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🎓 Scholarship Admin</h1>
+  <a href="/gabe">← View Guide</a>
+</div>
+
+<!-- Login screen -->
+<div id="login-screen">
+  <h2>🔒 Admin Login</h2>
+  <input type="password" id="pw-input" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()">
+  <button onclick="doLogin()">Log In</button>
+  <div id="login-error"></div>
+</div>
+
+<!-- Admin panel (hidden until logged in) -->
+<div id="admin-panel" style="display:none;">
+  <div class="container">
+
+    <!-- Add form -->
+    <div class="panel">
+      <h2>+ Add New Scholarship</h2>
+      <div class="form-grid">
+        <div class="form-group"><label>Title *</label><input type="text" id="new-title" placeholder="e.g. Fastweb"></div>
+        <div class="form-group"><label>URL *</label><input type="text" id="new-url" placeholder="https://..."></div>
+        <div class="form-group"><label>Amount</label><input type="text" id="new-amount" placeholder="e.g. Up to $3,000/yr"></div>
+        <div class="form-group"><label>Deadline</label><input type="text" id="new-deadline" placeholder="e.g. April 15 each year"></div>
+        <div class="form-group">
+          <label>Category</label>
+          <select id="new-category">
+            <option value="gi-bill">GI Bill</option>
+            <option value="state">State of Virginia</option>
+            <option value="military">Military / Veteran</option>
+            <option value="local">Hampton Roads Local</option>
+            <option value="tools">Search Tools</option>
+            <option value="general">General</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Card Color</label>
+          <select id="new-color">
+            <option value="">Green (default)</option>
+            <option value="gold">Gold</option>
+            <option value="blue">Blue</option>
+            <option value="purple">Purple</option>
+            <option value="orange">Orange</option>
+            <option value="teal">Teal</option>
+          </select>
+        </div>
+        <div class="form-group full"><label>Description</label><textarea id="new-desc" rows="3" placeholder="Brief description shown on the card…"></textarea></div>
+      </div>
+      <div id="add-msg" class="form-msg"></div>
+      <button class="btn-primary" onclick="addScholarship()">Add Scholarship</button>
+    </div>
+
+    <!-- Discover -->
+    <div class="panel" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+      <div>
+        <div style="font-weight:700;font-size:1em;margin-bottom:3px;">🔍 Find New Scholarships</div>
+        <div style="font-size:0.84em;color:#64748b;">Search the web for scholarships we don't have yet — review and add with one click.</div>
+      </div>
+      <button id="discover-btn" class="btn-discover" onclick="discoverScholarships()">🔍 Find New Scholarships</button>
+    </div>
+
+    <!-- Discover results panel -->
+    <div id="discover-panel" class="panel" style="display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:8px;flex-wrap:wrap;">
+        <h2 style="margin:0;">Discovered Scholarships</h2>
+        <button class="btn-secondary" onclick="closeDiscover()">✕ Close</button>
+      </div>
+      <p id="discover-subtitle" style="color:#64748b;font-size:0.88em;margin-bottom:16px;"></p>
+      <div id="discover-results"></div>
+    </div>
+
+    <!-- Table -->
+    <div class="panel">
+      <h2 id="table-heading">All Scholarships</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Category</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="scholarships-tbody">
+            <tr><td colspan="5" style="color:#666;text-align:center;padding:20px;">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  var adminPassword = '';
+  var CAT_LABELS = { 'gi-bill':'GI Bill', 'state':'State of VA', 'military':'Military/Veteran', 'local':'Hampton Roads', 'tools':'Search Tools', 'general':'General' };
+  var COLOR_HEX  = { '':'#2d6a4f', 'gold':'#d97706', 'blue':'#2563eb', 'purple':'#7c3aed', 'orange':'#ea580c', 'teal':'#0891b2' };
+
+  function esc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  async function doLogin() {
+    var pw = document.getElementById('pw-input').value.trim();
+    var errEl = document.getElementById('login-error');
+    errEl.textContent = '';
+    try {
+      var res = await fetch('/gabe/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw })
+      });
+      if (res.ok) {
+        adminPassword = pw;
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('admin-panel').style.display = '';
+        loadScholarships();
+      } else {
+        errEl.textContent = 'Wrong password. Try again.';
+      }
+    } catch(e) { errEl.textContent = 'Server not reachable.'; }
+  }
+
+  function authHeaders() {
+    return { 'Content-Type': 'application/json', 'x-admin-password': adminPassword };
+  }
+
+  async function loadScholarships() {
+    var res = await fetch('/gabe/api/admin/scholarships', { headers: authHeaders() });
+    var items = await res.json();
+    document.getElementById('table-heading').textContent = 'All Scholarships (' + items.length + ')';
+    renderTable(items);
+  }
+
+  function renderTable(items) {
+    var tbody = document.getElementById('scholarships-tbody');
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="color:#666;text-align:center;padding:20px;">No scholarships yet. Add one above.</td></tr>';
+      return;
+    }
+    var html = '';
+    items.forEach(function(item) {
+      var dot = '<span class="color-dot" style="background:' + (COLOR_HEX[item.color_class] || COLOR_HEX['']) + '"></span>';
+      var status = item.active
+        ? '<span class="status-badge status-active">Visible</span>'
+        : '<span class="status-badge status-hidden">Hidden</span>';
+      html += '<tr id="row-' + item.id + '">';
+      html += '<td style="max-width:220px;"><strong style="font-size:0.92em;">' + esc(item.title) + '</strong>'
+            + (item.url ? '<div style="font-size:0.76em;color:#94a3b8;margin-top:2px;">' + esc(item.url.replace(/^https?:\/\//,'').split('/')[0]) + '</div>' : '')
+            + '</td>';
+      html += '<td style="white-space:nowrap;">' + dot + esc(CAT_LABELS[item.category] || item.category) + '</td>';
+      html += '<td style="font-size:0.88em;color:#475569;">' + esc(item.amount !== 'See website' ? item.amount : '—') + '</td>';
+      html += '<td>' + status + '</td>';
+      html += '<td style="white-space:nowrap;">';
+      html += '<button class="btn-secondary" style="margin-right:6px;" onclick="toggleEdit(' + item.id + ')">Edit</button>';
+      if (item.active) {
+        html += '<button class="btn-secondary" style="margin-right:6px;" onclick="setActive(' + item.id + ',0)">Hide</button>';
+      } else {
+        html += '<button class="btn-secondary" style="margin-right:6px;" onclick="setActive(' + item.id + ',1)">Show</button>';
+      }
+      html += '<button class="btn-danger" onclick="deleteScholarship(' + item.id + ')">Delete</button>';
+      html += '</td></tr>';
+
+      // Edit row (hidden by default)
+      html += '<tr id="edit-row-' + item.id + '" class="edit-row" style="display:none;"><td colspan="5">';
+      html += '<div class="form-grid">';
+      html += '<div class="form-group"><label>Title *</label><input type="text" id="e-title-' + item.id + '" value="' + esc(item.title) + '"></div>';
+      html += '<div class="form-group"><label>URL *</label><input type="text" id="e-url-' + item.id + '" value="' + esc(item.url) + '"></div>';
+      html += '<div class="form-group"><label>Amount</label><input type="text" id="e-amount-' + item.id + '" value="' + esc(item.amount) + '"></div>';
+      html += '<div class="form-group"><label>Deadline</label><input type="text" id="e-deadline-' + item.id + '" value="' + esc(item.deadline) + '"></div>';
+      html += '<div class="form-group"><label>Category</label><select id="e-category-' + item.id + '">';
+      ['gi-bill','state','military','local','tools','general'].forEach(function(c) {
+        html += '<option value="' + c + '"' + (item.category === c ? ' selected' : '') + '>' + (CAT_LABELS[c]||c) + '</option>';
+      });
+      html += '</select></div>';
+      html += '<div class="form-group"><label>Color</label><select id="e-color-' + item.id + '">';
+      [['','Green (default)'],['gold','Gold'],['blue','Blue'],['purple','Purple'],['orange','Orange'],['teal','Teal']].forEach(function(pair) {
+        html += '<option value="' + pair[0] + '"' + (item.color_class === pair[0] ? ' selected' : '') + '>' + pair[1] + '</option>';
+      });
+      html += '</select></div>';
+      html += '<div class="form-group full"><label>Description</label><textarea id="e-desc-' + item.id + '" rows="3">' + esc(item.description) + '</textarea></div>';
+      html += '</div>';
+      html += '<div id="e-msg-' + item.id + '" class="form-msg"></div>';
+      html += '<button class="btn-primary" style="margin-right:8px;" onclick="saveEdit(' + item.id + ')">Save</button>';
+      html += '<button class="btn-secondary" onclick="toggleEdit(' + item.id + ')">Cancel</button>';
+      html += '</td></tr>';
+    });
+    tbody.innerHTML = html;
+  }
+
+  function toggleEdit(id) {
+    var row = document.getElementById('edit-row-' + id);
+    row.style.display = row.style.display === 'none' ? '' : 'none';
+  }
+
+  async function saveEdit(id) {
+    var title = document.getElementById('e-title-' + id).value.trim();
+    var url   = document.getElementById('e-url-' + id).value.trim();
+    var msgEl = document.getElementById('e-msg-' + id);
+    if (!title || !url) { msgEl.className = 'form-msg error'; msgEl.textContent = 'Title and URL are required.'; return; }
+    msgEl.textContent = '';
+    var res = await fetch('/gabe/api/admin/scholarships/' + id, {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        title:       title,
+        url:         url,
+        description: document.getElementById('e-desc-' + id).value.trim(),
+        amount:      document.getElementById('e-amount-' + id).value.trim() || 'See website',
+        deadline:    document.getElementById('e-deadline-' + id).value.trim() || 'See website',
+        category:    document.getElementById('e-category-' + id).value,
+        color_class: document.getElementById('e-color-' + id).value
+      })
+    });
+    if (res.ok) { loadScholarships(); }
+    else { msgEl.className = 'form-msg error'; msgEl.textContent = 'Save failed.'; }
+  }
+
+  async function setActive(id, val) {
+    await fetch('/gabe/api/admin/scholarships/' + id, {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify({ active: val })
+    });
+    loadScholarships();
+  }
+
+  async function deleteScholarship(id) {
+    if (!confirm('Delete this scholarship? Cannot be undone.')) return;
+    await fetch('/gabe/api/admin/scholarships/' + id, { method: 'DELETE', headers: authHeaders() });
+    loadScholarships();
+  }
+
+  var discoveredItems = [];
+
+  async function discoverScholarships() {
+    var btn = document.getElementById('discover-btn');
+    var panel = document.getElementById('discover-panel');
+    var results = document.getElementById('discover-results');
+    var subtitle = document.getElementById('discover-subtitle');
+    btn.textContent = '⏳ Searching the web…';
+    btn.disabled = true;
+    panel.style.display = '';
+    subtitle.textContent = 'Searching the web — this takes about 15–30 seconds…';
+    results.innerHTML = '<div style="color:#64748b;padding:20px 0;text-align:center;">🔍 Looking for scholarships…</div>';
+
+    try {
+      var res = await fetch('/gabe/api/admin/discover', { headers: authHeaders() });
+      var data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Search failed');
+      discoveredItems = data.scholarships || [];
+      subtitle.textContent = 'Found ' + discoveredItems.length + ' potential scholarships. Add the ones that look relevant.';
+      renderDiscovered();
+    } catch(e) {
+      subtitle.textContent = '';
+      results.innerHTML = '<div style="color:#dc2626;padding:8px 0;">⚠ ' + esc(e.message) + '</div>';
+    } finally {
+      btn.textContent = '🔍 Find New Scholarships';
+      btn.disabled = false;
+    }
+  }
+
+  function closeDiscover() {
+    document.getElementById('discover-panel').style.display = 'none';
+    discoveredItems = [];
+  }
+
+  function renderDiscovered() {
+    var container = document.getElementById('discover-results');
+    if (!discoveredItems.length) {
+      container.innerHTML = '<p style="color:#64748b;">No new scholarships found. Try again later.</p>';
+      return;
+    }
+    var catColors = { 'gi-bill':'#d97706','state':'#2563eb','military':'#7c3aed','local':'#0891b2','tools':'#ea580c','general':'#2d6a4f' };
+    var html = '';
+    discoveredItems.forEach(function(item, i) {
+      var color = catColors[item.category] || '#2d6a4f';
+      var domain = item.url ? item.url.replace(/^https?:\/\//, '').split('/')[0] : '';
+      html += '<div class="discover-card" id="dc-' + i + '">';
+      html += '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px;">';
+      html += '<strong style="font-size:0.95em;line-height:1.3;">' + esc(item.title) + '</strong>';
+      html += '<span style="background:' + color + '20;color:' + color + ';padding:2px 8px;border-radius:10px;font-size:0.76em;font-weight:700;white-space:nowrap;">' + esc(item.category || 'general') + '</span>';
+      html += '</div>';
+      if (item.description) html += '<p style="font-size:0.85em;color:#475569;margin:0 0 8px;line-height:1.5;">' + esc(item.description) + '</p>';
+      html += '<div style="font-size:0.82em;color:#64748b;margin-bottom:10px;">';
+      if (item.amount && item.amount !== 'See website') html += '💰 ' + esc(item.amount) + '&nbsp;&nbsp;';
+      if (item.deadline && item.deadline !== 'See website') html += '📅 ' + esc(item.deadline) + '&nbsp;&nbsp;';
+      if (domain) html += '<a href="' + esc(item.url) + '" target="_blank" style="color:#2563eb;">' + esc(domain) + ' ↗</a>';
+      html += '</div>';
+      html += '<div id="dc-msg-' + i + '" style="font-size:0.85em;min-height:1em;margin-bottom:6px;"></div>';
+      html += '<button class="btn-primary" style="margin-right:8px;" onclick="addDiscovered(' + i + ')">+ Add This</button>';
+      html += '<button class="btn-secondary" onclick="skipDiscovered(' + i + ')">Skip</button>';
+      html += '</div>';
+    });
+    container.innerHTML = html;
+  }
+
+  async function addDiscovered(i) {
+    var item = discoveredItems[i];
+    var msgEl = document.getElementById('dc-msg-' + i);
+    msgEl.style.color = '#64748b';
+    msgEl.textContent = 'Adding…';
+    var res = await fetch('/gabe/api/admin/scholarships', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        title:       item.title || '',
+        url:         item.url || '',
+        description: item.description || '',
+        amount:      item.amount || 'See website',
+        deadline:    item.deadline || 'See website',
+        category:    item.category || 'general',
+        color_class: ''
+      })
+    });
+    if (res.ok) {
+      msgEl.style.color = '#166534';
+      msgEl.textContent = '✓ Added to your guide!';
+      document.getElementById('dc-' + i).classList.add('processed');
+      loadScholarships();
+    } else {
+      var d = await res.json();
+      msgEl.style.color = '#dc2626';
+      msgEl.textContent = d.error || 'Failed to add.';
+    }
+  }
+
+  function skipDiscovered(i) {
+    var el = document.getElementById('dc-' + i);
+    if (el) el.classList.add('processed');
+  }
+
+  async function addScholarship() {
+    var title = document.getElementById('new-title').value.trim();
+    var url   = document.getElementById('new-url').value.trim();
+    var msgEl = document.getElementById('add-msg');
+    if (!title || !url) { msgEl.className = 'form-msg error'; msgEl.textContent = 'Title and URL are required.'; return; }
+    msgEl.textContent = '';
+    var res = await fetch('/gabe/api/admin/scholarships', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        title:       title,
+        url:         url,
+        description: document.getElementById('new-desc').value.trim(),
+        amount:      document.getElementById('new-amount').value.trim() || 'See website',
+        deadline:    document.getElementById('new-deadline').value.trim() || 'See website',
+        category:    document.getElementById('new-category').value,
+        color_class: document.getElementById('new-color').value
+      })
+    });
+    if (res.ok) {
+      msgEl.className = 'form-msg ok'; msgEl.textContent = 'Added!';
+      ['new-title','new-url','new-amount','new-deadline','new-desc'].forEach(function(id) { document.getElementById(id).value = ''; });
+      document.getElementById('new-category').value = 'gi-bill';
+      document.getElementById('new-color').value = '';
+      loadScholarships();
+      setTimeout(function() { msgEl.textContent = ''; }, 3000);
+    } else {
+      var d = await res.json();
+      msgEl.className = 'form-msg error'; msgEl.textContent = d.error || 'Failed to add.';
+    }
+  }
+</script>
+</body>
+</html>
