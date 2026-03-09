@@ -2479,6 +2479,54 @@ Return ONLY a valid JSON array (no markdown fences, no explanation text), where 
 // ── End Scholarship Guide ────────────────────────────────────────────────────
 
 // Serve the server health widget
+app.get('/api/chappie-status', (req, res) => {
+  const net = require('net');
+  const sock = new net.Socket();
+  sock.setTimeout(3000);
+  sock.connect(18789, '127.0.0.1', () => {
+    sock.destroy();
+    res.json({ status: 'online' });
+  });
+  sock.on('error', () => {
+    sock.destroy();
+    res.json({ status: 'offline' });
+  });
+  sock.on('timeout', () => {
+    sock.destroy();
+    res.json({ status: 'offline' });
+  });
+});
+
+app.get('/file-dock', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.sendFile('/Volumes/1TB SSD/server-widget/FileDock.html');
+});
+
+app.get('/api/dock-config', (req, res) => {
+  const fs = require('fs');
+  try {
+    const data = fs.readFileSync('/Volumes/1TB SSD/server-widget/docks-config.json', 'utf8');
+    res.json(JSON.parse(data));
+  } catch(e) {
+    res.json({ fileDock: [] });
+  }
+});
+
+app.post('/api/dock-config', (req, res) => {
+  const fs = require('fs');
+  try {
+    fs.writeFileSync('/Volumes/1TB SSD/server-widget/docks-config.json', JSON.stringify(req.body, null, 2));
+    res.json({ ok: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/chappie-dock', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.sendFile('/Volumes/1TB SSD/server-widget/ChappieDock.html');
+});
+
 app.get('/chappie-widget', (req, res) => {
   res.set('Cache-Control', 'no-store');
   res.sendFile('/Volumes/1TB SSD/server-widget/ChappieWidget.html');
