@@ -428,4 +428,75 @@ Real backups to 2TB HDD via the Backup Widget on the Desktop.
 
 ---
 
-*Last updated: 2026-03-06 (mobile hamburger menu fix — Safari iOS classList.toggle quirk, rewrote with explicit state tracking; deck pricing: added sq ft dimensions for all tiers + "Over 500 sq ft: Call for Estimate"; share button fix: updated URL to dgsoftwash.com + added .catch() for navigator.share Promise that was freezing the page; service worker bumped to v14; Zoho SMTP; new logo; security headers; UPS monitoring + auto-shutdown at 10%; health widget: process monitor + UPS row + OpenClaw row + 10s refresh + remote/mobile access + OpenClaw Start/Stop controls; backup widget 401 fix; backup script moved to ~/backup.sh; SSH keys configured for git push — dgsoftwash key at ~/.ssh/id_ed25519_dgsoftwash, remote: git@github-dgsoftwash:dgsoftwash/dg-softwash.git; OpenClaw AI agent v2026.3.2 installed — data on 1TB SSD, gateway runs via nohup from boot-recovery.sh, LaunchAgent removed, Telegram channel config removed; expense date fixed — expenses were saving correctly but PostgreSQL date column returned as full ISO timestamp causing "Invalid Date" display; fixed by casting date to YYYY-MM-DD in SQL query and adding .split('T')[0] safety in display code; HTTP→HTTPS redirect enabled — Cloudflare Always Use HTTPS on + server-side X-Forwarded-Proto 301 redirect, http://dgsoftwash.com now redirects to https://)*
+---
+
+## FLOATING WIDGET SYSTEM (added 2026-03-08)
+
+All desktop widgets are floating, borderless, always-on-top macOS apps built with Swift + WKWebView. Each has a drag handle (dark bar with dots at the top).
+
+### Architecture
+- **Inline HTML pattern** (docks): Full HTML embedded in Swift binary via string concatenation + HTML entities. Drag + button clicks work via `window.webkit.messageHandlers`.
+- **Iframe wrapper pattern** (server/backup/chappie widgets): Inline HTML wrapper with drag grip bar + `<iframe>` loading content from localhost:3000. Drag works on the wrapper; interaction (typing passwords, clicking) works in the iframe.
+- **WKUserScript injection** (email sync): Grip bar injected via `WKUserScript` at document end.
+- **Key requirement**: `loadHTMLString` (inline) works for messageHandlers. Loading from URL does NOT reliably support `window.webkit.messageHandlers` — use iframe wrapper instead.
+
+### Window Configuration (required for all widgets)
+```swift
+// KeyWindow subclass — required for keyboard input in borderless windows
+class KeyWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+}
+// FirstMouseWebView — required for click-to-focus without activation
+class FirstMouseWebView: WKWebView {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override func mouseDown(with event: NSEvent) {
+        window?.makeKey(); NSApp.activate(ignoringOtherApps: true)
+        super.mouseDown(with: event)
+    }
+}
+```
+All apps use `LSUIElement = true` (hidden from Dock), `.borderless` style, `.floating` level, `.nonPersistent()` data store.
+
+### Widget Apps (6 total)
+
+| App | LaunchAgent | Type | Content Source |
+|-----|-------------|------|----------------|
+| Chappie Dock | `com.chappie.dock` | Inline HTML | 9 launch buttons (Chat, Server, Backup, Email, Admin, Website, Gabe, Activity, Terminal) |
+| File Dock | `com.chappie.filedock` | Inline HTML | 8 file/app buttons (D&G Soft, Gabe, Brochure, Site Data, Commands, Telegram, Backblaze, Tools) |
+| DG Softwash Monitor | `com.dgsoftwash.widget` | Iframe wrapper | `http://localhost:3000/widget` |
+| Backup Widget | `com.dgsoftwash.backup-widget` | Iframe wrapper | `http://localhost:3000/backup-widget` |
+| Chappie Widget | `com.chappie.widget` | Iframe wrapper | `http://localhost:3000/chappie-widget` (status dot) |
+| Email Sync Widget | `com.chappie.emailsyncwidget` | WKUserScript | `http://127.0.0.1:18789/__openclaw__/canvas/email-sync-widget.html` |
+
+### Server Routes (added for widgets)
+- `GET /chappie-dock` — ChappieDock.html
+- `GET /file-dock` — FileDock.html
+- `GET /chappie-widget` — ChappieWidget.html (status indicator)
+- `GET /api/chappie-status` — TCP probe to port 18789, returns `{status:"online"|"offline"}`
+- `GET /api/dock-config` — reads `/Volumes/1TB SSD/server-widget/docks-config.json`
+- `POST /api/dock-config` — writes dock config
+
+### Files
+- Widget HTML: `/Volumes/1TB SSD/server-widget/ChappieDock.html`, `FileDock.html`, `ChappieWidget.html`
+- Dock config: `/Volumes/1TB SSD/server-widget/docks-config.json`
+- Swift sources (permanent): `/Volumes/1TB SSD/openclaw/workspace/widget-sources/*.swift`
+- Compiled binaries: `/Applications/*.app/Contents/MacOS/`
+
+### Recompiling a Widget
+```bash
+cd "/Volumes/1TB SSD/openclaw/workspace/widget-sources"
+swiftc -o OutputBin WidgetName.swift -framework Cocoa -framework WebKit
+pkill -f "BinaryName"
+cp OutputBin "/Applications/AppName.app/Contents/MacOS/BinaryName"
+# LaunchAgent auto-restarts it
+```
+
+### Desktop Organization
+- All files moved to `~/Desktop/Davids Desktop/` (single folder)
+- Utility apps in `~/Desktop/Davids Desktop/Chappie Tools/`
+- Desktop is clean — everything accessed via floating docks
+
+---
+
+*Last updated: 2026-03-08 (mobile hamburger menu fix — Safari iOS classList.toggle quirk, rewrote with explicit state tracking; deck pricing: added sq ft dimensions for all tiers + "Over 500 sq ft: Call for Estimate"; share button fix: updated URL to dgsoftwash.com + added .catch() for navigator.share Promise that was freezing the page; service worker bumped to v14; Zoho SMTP; new logo; security headers; UPS monitoring + auto-shutdown at 10%; health widget: process monitor + UPS row + OpenClaw row + 10s refresh + remote/mobile access + OpenClaw Start/Stop controls; backup widget 401 fix; backup script moved to ~/backup.sh; SSH keys configured for git push — dgsoftwash key at ~/.ssh/id_ed25519_dgsoftwash, remote: git@github-dgsoftwash:dgsoftwash/dg-softwash.git; OpenClaw AI agent v2026.3.2 installed — data on 1TB SSD, gateway runs via nohup from boot-recovery.sh, LaunchAgent removed, Telegram channel config removed; expense date fixed — expenses were saving correctly but PostgreSQL date column returned as full ISO timestamp causing "Invalid Date" display; fixed by casting date to YYYY-MM-DD in SQL query and adding .split('T')[0] safety in display code; HTTP→HTTPS redirect enabled — Cloudflare Always Use HTTPS on + server-side X-Forwarded-Proto 301 redirect, http://dgsoftwash.com now redirects to https://)*
