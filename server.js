@@ -2479,6 +2479,34 @@ Return ONLY a valid JSON array (no markdown fences, no explanation text), where 
 // ── End Scholarship Guide ────────────────────────────────────────────────────
 
 // Serve the server health widget
+app.get('/api/timemachine-status', (req, res) => {
+  const { execSync } = require('child_process');
+  try {
+    const latest = execSync('tmutil latestbackup 2>/dev/null', { encoding: 'utf8' }).trim();
+    const match = latest.match(/(\d{4}-\d{2}-\d{2})-(\d{2})(\d{2})(\d{2})\.backup/);
+    let status = 'unknown', lastBackup = null, age = null;
+    if (match) {
+      const dt = new Date(match[1] + 'T' + match[2] + ':' + match[3] + ':' + match[4]);
+      lastBackup = dt.toISOString();
+      age = (Date.now() - dt.getTime()) / 3600000;
+      status = age < 25 ? 'green' : age < 48 ? 'yellow' : 'red';
+    }
+    let running = false;
+    try {
+      const tmStatus = execSync('tmutil status 2>/dev/null', { encoding: 'utf8' });
+      running = tmStatus.includes('Running = 1');
+    } catch(e) {}
+    res.json({ status, lastBackup, ageHours: age ? Math.round(age * 10) / 10 : null, running });
+  } catch(e) {
+    res.json({ status: 'red', lastBackup: null, ageHours: null, running: false });
+  }
+});
+
+app.get('/tm-widget', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.sendFile('/Volumes/1TB SSD/server-widget/TMWidget.html');
+});
+
 app.get('/api/chappie-status', (req, res) => {
   const net = require('net');
   const sock = new net.Socket();
