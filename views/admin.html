@@ -297,15 +297,18 @@
         </div>
         <div style="margin-bottom:16px;">
           <label style="font-weight:600; display:block; margin-bottom:8px;">Discounts</label>
-          <div style="display:flex; gap:16px; flex-wrap:wrap;">
+          <div style="display:flex; gap:12px; flex-wrap:wrap;">
             <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:400;">
-              <input type="checkbox" id="qt-disc-cash" onchange="recalcQt()"> Cash Payment (10%)
+              <input type="checkbox" id="qt-disc-cash" onchange="recalcQt()"> Cash <input type="number" id="qt-disc-cash-pct" value="10" min="0" max="100" style="width:45px; padding:2px 4px; border:1px solid #ddd; border-radius:4px; text-align:center;" onchange="recalcQt()">%
             </label>
             <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:400;">
-              <input type="checkbox" id="qt-disc-return" onchange="recalcQt()"> Return Customer (10%)
+              <input type="checkbox" id="qt-disc-return" onchange="recalcQt()"> Return <input type="number" id="qt-disc-return-pct" value="10" min="0" max="100" style="width:45px; padding:2px 4px; border:1px solid #ddd; border-radius:4px; text-align:center;" onchange="recalcQt()">%
             </label>
             <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:400;">
-              <input type="checkbox" id="qt-disc-email" onchange="recalcQt()"> Email List – 1st Service (10%)
+              <input type="checkbox" id="qt-disc-email" onchange="recalcQt()"> Email List <input type="number" id="qt-disc-email-pct" value="10" min="0" max="100" style="width:45px; padding:2px 4px; border:1px solid #ddd; border-radius:4px; text-align:center;" onchange="recalcQt()">%
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:400;">
+              <input type="checkbox" id="qt-disc-multi" onchange="recalcQt()"> 3+ Services <input type="number" id="qt-disc-multi-pct" value="15" min="0" max="100" style="width:45px; padding:2px 4px; border:1px solid #ddd; border-radius:4px; text-align:center;" onchange="recalcQt()">%
             </label>
           </div>
         </div>
@@ -436,15 +439,18 @@
         </div>
         <div style="margin-bottom:16px;">
           <label style="font-weight:600; display:block; margin-bottom:8px;">Discounts</label>
-          <div style="display:flex; gap:16px; flex-wrap:wrap;">
+          <div style="display:flex; gap:12px; flex-wrap:wrap;">
             <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:400;">
-              <input type="checkbox" id="gwo-disc-cash" onchange="recalcGwo()"> Cash Payment (10%)
+              <input type="checkbox" id="gwo-disc-cash" onchange="recalcGwo()"> Cash <input type="number" id="gwo-disc-cash-pct" value="10" min="0" max="100" style="width:45px; padding:2px 4px; border:1px solid #ddd; border-radius:4px; text-align:center;" onchange="recalcGwo()">%
             </label>
             <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:400;">
-              <input type="checkbox" id="gwo-disc-return" onchange="recalcGwo()"> Return Customer (10%)
+              <input type="checkbox" id="gwo-disc-return" onchange="recalcGwo()"> Return <input type="number" id="gwo-disc-return-pct" value="10" min="0" max="100" style="width:45px; padding:2px 4px; border:1px solid #ddd; border-radius:4px; text-align:center;" onchange="recalcGwo()">%
             </label>
             <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:400;">
-              <input type="checkbox" id="gwo-disc-email" onchange="recalcGwo()"> Email List – 1st Service (10%)
+              <input type="checkbox" id="gwo-disc-email" onchange="recalcGwo()"> Email List <input type="number" id="gwo-disc-email-pct" value="10" min="0" max="100" style="width:45px; padding:2px 4px; border:1px solid #ddd; border-radius:4px; text-align:center;" onchange="recalcGwo()">%
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:400;">
+              <input type="checkbox" id="gwo-disc-multi" onchange="recalcGwo()"> 3+ Services <input type="number" id="gwo-disc-multi-pct" value="15" min="0" max="100" style="width:45px; padding:2px 4px; border:1px solid #ddd; border-radius:4px; text-align:center;" onchange="recalcGwo()">%
             </label>
           </div>
         </div>

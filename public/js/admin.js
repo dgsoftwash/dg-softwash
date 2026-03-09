@@ -3272,17 +3272,19 @@ document.addEventListener('DOMContentLoaded', function() {
       if (addon) { subtotal += addon.price; lines.push('  + ' + addon.label + ': $' + addon.price); }
     });
     var manualPct = 0;
-    if (document.getElementById('qt-disc-cash').checked) manualPct += 10;
-    if (document.getElementById('qt-disc-return').checked) manualPct += 10;
-    if (document.getElementById('qt-disc-email').checked) manualPct += 10;
+    var discDetails = [];
+    if (document.getElementById('qt-disc-cash').checked) { var p = parseInt(document.getElementById('qt-disc-cash-pct').value) || 0; manualPct += p; discDetails.push('Cash ' + p + '%'); }
+    if (document.getElementById('qt-disc-return').checked) { var p = parseInt(document.getElementById('qt-disc-return-pct').value) || 0; manualPct += p; discDetails.push('Return ' + p + '%'); }
+    if (document.getElementById('qt-disc-email').checked) { var p = parseInt(document.getElementById('qt-disc-email-pct').value) || 0; manualPct += p; discDetails.push('Email ' + p + '%'); }
+    if (document.getElementById('qt-disc-multi').checked) { var p = parseInt(document.getElementById('qt-disc-multi-pct').value) || 0; manualPct += p; discDetails.push('3+ Services ' + p + '%'); }
     var savings = Math.round(subtotal * manualPct / 100);
     var total = subtotal - savings;
     var notesLines = lines.slice();
-    if (savings > 0) notesLines.push('Savings: -$' + savings);
+    if (savings > 0) notesLines.push('Discounts (' + discDetails.join(' + ') + '): -$' + savings);
     notesLines.push('Total: $' + total);
     document.getElementById('qt-notes-preview').textContent = notesLines.join('\n');
     var priceHtml = '<div style="font-size:1.3em; font-weight:700; color:#2d6a4f;">Estimate: $' + total + '</div>';
-    if (savings > 0) priceHtml += '<div style="color:#888; font-size:0.9em; margin-top:4px;">Subtotal: $' + subtotal + ' &mdash; Savings: -$' + savings + '</div>';
+    if (savings > 0) priceHtml += '<div style="color:#888; font-size:0.9em; margin-top:4px;">Subtotal: $' + subtotal + ' &mdash; Savings: -$' + savings + ' (' + manualPct + '% off)</div>';
     document.getElementById('qt-price-display').innerHTML = priceHtml;
   };
 
@@ -3304,13 +3306,15 @@ document.addEventListener('DOMContentLoaded', function() {
         if (addon) { subtotal += addon.price; lines.push('  + ' + addon.label + ': $' + addon.price); serviceLabel += ' + ' + addon.label; }
       });
       var manualPct = 0;
-      if (document.getElementById('qt-disc-cash').checked) manualPct += 10;
-      if (document.getElementById('qt-disc-return').checked) manualPct += 10;
-      if (document.getElementById('qt-disc-email').checked) manualPct += 10;
+      var discDetails = [];
+      if (document.getElementById('qt-disc-cash').checked) { var p = parseInt(document.getElementById('qt-disc-cash-pct').value) || 0; manualPct += p; discDetails.push('Cash ' + p + '%'); }
+      if (document.getElementById('qt-disc-return').checked) { var p = parseInt(document.getElementById('qt-disc-return-pct').value) || 0; manualPct += p; discDetails.push('Return ' + p + '%'); }
+      if (document.getElementById('qt-disc-email').checked) { var p = parseInt(document.getElementById('qt-disc-email-pct').value) || 0; manualPct += p; discDetails.push('Email ' + p + '%'); }
+      if (document.getElementById('qt-disc-multi').checked) { var p = parseInt(document.getElementById('qt-disc-multi-pct').value) || 0; manualPct += p; discDetails.push('3+ Services ' + p + '%'); }
       var savings = Math.round(subtotal * manualPct / 100);
       var total = subtotal - savings;
       var notesLines = lines.slice();
-      if (savings > 0) notesLines.push('Savings: -$' + savings);
+      if (savings > 0) notesLines.push('Discounts (' + discDetails.join(' + ') + '): -$' + savings);
       notesLines.push('Total: $' + total);
       var body = {
         name: document.getElementById('qt-name').value.trim(),
@@ -3518,14 +3522,16 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     var manualPct = 0;
-    if (document.getElementById('gwo-disc-cash').checked) manualPct += 10;
-    if (document.getElementById('gwo-disc-return').checked) manualPct += 10;
-    if (document.getElementById('gwo-disc-email').checked) manualPct += 10;
+    var discDetails = [];
+    if (document.getElementById('gwo-disc-cash').checked) { var p = parseInt(document.getElementById('gwo-disc-cash-pct').value) || 0; manualPct += p; discDetails.push('Cash ' + p + '%'); }
+    if (document.getElementById('gwo-disc-return').checked) { var p = parseInt(document.getElementById('gwo-disc-return-pct').value) || 0; manualPct += p; discDetails.push('Return ' + p + '%'); }
+    if (document.getElementById('gwo-disc-email').checked) { var p = parseInt(document.getElementById('gwo-disc-email-pct').value) || 0; manualPct += p; discDetails.push('Email ' + p + '%'); }
+    if (document.getElementById('gwo-disc-multi').checked) { var p = parseInt(document.getElementById('gwo-disc-multi-pct').value) || 0; manualPct += p; discDetails.push('3+ Services ' + p + '%'); }
     var savings = Math.round(subtotal * manualPct / 100);
     var total = subtotal - savings;
 
     var notesLines = lines.slice();
-    if (savings > 0) notesLines.push('Savings: -$' + savings);
+    if (savings > 0) notesLines.push('Discounts (' + discDetails.join(' + ') + '): -$' + savings);
     notesLines.push('Total: $' + total);
 
     document.getElementById('gwo-notes-preview').textContent = notesLines.join('\n');
@@ -3561,14 +3567,16 @@ document.addEventListener('DOMContentLoaded', function() {
       });
 
       var manualPct = 0;
-      if (document.getElementById('gwo-disc-cash').checked) manualPct += 10;
-      if (document.getElementById('gwo-disc-return').checked) manualPct += 10;
-      if (document.getElementById('gwo-disc-email').checked) manualPct += 10;
+      var discDetails = [];
+      if (document.getElementById('gwo-disc-cash').checked) { var p = parseInt(document.getElementById('gwo-disc-cash-pct').value) || 0; manualPct += p; discDetails.push('Cash ' + p + '%'); }
+      if (document.getElementById('gwo-disc-return').checked) { var p = parseInt(document.getElementById('gwo-disc-return-pct').value) || 0; manualPct += p; discDetails.push('Return ' + p + '%'); }
+      if (document.getElementById('gwo-disc-email').checked) { var p = parseInt(document.getElementById('gwo-disc-email-pct').value) || 0; manualPct += p; discDetails.push('Email ' + p + '%'); }
+      if (document.getElementById('gwo-disc-multi').checked) { var p = parseInt(document.getElementById('gwo-disc-multi-pct').value) || 0; manualPct += p; discDetails.push('3+ Services ' + p + '%'); }
       var savings = Math.round(subtotal * manualPct / 100);
       var total = subtotal - savings;
 
       var notesLines = lines.slice();
-      if (savings > 0) notesLines.push('Savings: -$' + savings);
+      if (savings > 0) notesLines.push('Discounts (' + discDetails.join(' + ') + '): -$' + savings);
       notesLines.push('Total: $' + total);
 
       var body = {
