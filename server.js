@@ -2479,6 +2479,44 @@ Return ONLY a valid JSON array (no markdown fences, no explanation text), where 
 // ── End Scholarship Guide ────────────────────────────────────────────────────
 
 // Serve the server health widget
+app.get('/api/backblaze-status', (req, res) => {
+  const { execSync } = require('child_process');
+  try {
+    let license = 'unknown', plan = '', transmitting = false, lastFile = '', lastPush = '';
+    try {
+      const sync = execSync('cat /Library/Backblaze.bzpkg/bzdata/bzreports/bzdc_synchostinfo.xml 2>/dev/null', { encoding: 'utf8' });
+      const lm = sync.match(/bzlicense_status="([^"]*)"/);
+      if (lm) {
+        if (lm[1].includes('billing_active')) license = 'active';
+        else if (lm[1].includes('expired')) license = 'expired';
+        else if (lm[1].includes('deleted')) license = 'deleted';
+        else license = lm[1];
+      }
+      const pm = sync.match(/bzlicense="([^"]*)"/);
+      if (pm && pm[1] !== 'deleted' && pm[1] !== 'none') plan = pm[1].replace('unlimitedstorage_billing', 'Unlimited').replace('_', ' ');
+    } catch(e) {}
+    try {
+      const ov = execSync('cat /Library/Backblaze.bzpkg/bzdata/overviewstatus.xml 2>/dev/null', { encoding: 'utf8' });
+      transmitting = ov.includes('cur_state="transmitting"');
+      const fm = ov.match(/current_file="([^"]*)"/);
+      if (fm && fm[1] !== 'none') lastFile = fm[1].length > 30 ? '...' + fm[1].slice(-30) : fm[1];
+    } catch(e) {}
+    try {
+      const defcon = execSync('cat /Library/Backblaze.bzpkg/bzdata/bzreports/bzdefcon.xml 2>/dev/null', { encoding: 'utf8' });
+      const dm = defcon.match(/vol_last_file_pushed_in_days="(\d+)"/);
+      if (dm) lastPush = dm[1] === '0' ? 'Today' : dm[1] + 'd ago';
+    } catch(e) {}
+    res.json({ license, plan, transmitting, lastFile, lastPush });
+  } catch(e) {
+    res.json({ license: 'error', plan: '', transmitting: false, lastFile: '', lastPush: '' });
+  }
+});
+
+app.get('/bb-widget', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.sendFile('/Volumes/1TB SSD/server-widget/BBWidget.html');
+});
+
 app.get('/api/timemachine-status', (req, res) => {
   const { execSync } = require('child_process');
   try {
