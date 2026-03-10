@@ -515,7 +515,7 @@ function generateInvoiceEmail(wo, woId, dateLabel, deadlineLabel) {
     '</table>' + notesBlock +
     '<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:12px 18px;margin-bottom:20px;text-align:center;">' +
     '<span style="color:#dc2626;font-weight:700;font-size:1em;">PAYMENT STATUS: NOT PAID</span></div>' +
-    '<p style="color:#555;">Payment is due within 5 business days. We accept cash, check, and major credit cards.</p>' +
+    '<p style="color:#555;">Payment is due within 30 days. We accept Cash, Check, Card, PayPal (@dgsoftwash), or Venmo (@dgsoftwash). To pay by phone, call <strong>(757) 330-4260</strong>.</p>' +
     '<p style="color:#555;">If you have any questions, please call or text us at <strong>(757) 330-4260</strong> or email <strong>service@dgsoftwash.com</strong>.</p>' +
     '</div>' +
     '<div style="background:#f8f9fa;padding:16px 30px;text-align:center;color:#888;font-size:0.85em;border-top:1px solid #e5e7eb;">' +
@@ -1402,11 +1402,12 @@ app.patch('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
     values.push(id);
     await pool.query(`UPDATE work_orders SET ${updates.join(', ')} WHERE id = $${idx}`, values);
 
-    // Detect if invoiced or invoice_paid flipped false→true and send email
+    // Detect status changes and send emails
     let email_sent = null;
     const jobCompleteChanged = status_job_complete === true && !before.status_job_complete;
     const invoicedChanged = status_invoiced === true && !before.status_invoiced;
     const paidChanged = status_invoice_paid === true && !before.status_invoice_paid;
+    const statusPaidChanged = status_paid === true && !before.status_paid;
 
     if (jobCompleteChanged) {
       const { rows: woRows } = await pool.query(`
@@ -1492,7 +1493,7 @@ app.patch('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
 
         if (invoicedChanged && recipientEmail) {
           const deadline = new Date();
-          deadline.setDate(deadline.getDate() + 5);
+          deadline.setDate(deadline.getDate() + 30);
           const deadlineLabel = deadline.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
           try {
             await transporter.sendMail({
@@ -1516,6 +1517,58 @@ app.patch('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
             email_sent = 'paid';
           } catch (emailErr) {
             console.error('Paid receipt email failed:', emailErr.message);
+          }
+        }
+      }
+    }
+
+    if (statusPaidChanged && !email_sent) {
+      const { rows: woRows } = await pool.query(`
+        SELECT wo.*,
+          b.name as booking_name, b.email as booking_email,
+          b.address as booking_address,
+          COALESCE(b.service, wo.service) as service,
+          COALESCE(b.price, wo.price) as price,
+          c.name as customer_name, c.email as customer_email
+        FROM work_orders wo
+        LEFT JOIN bookings b ON wo.booking_id = b.id
+        LEFT JOIN customers c ON wo.customer_id = c.id
+        WHERE wo.id = $1
+      `, [id]);
+      if (woRows.length) {
+        const wo = woRows[0];
+        const recipientEmail = wo.booking_email || wo.customer_email;
+        const customerName = wo.booking_name || wo.customer_name || 'Valued Customer';
+        const service = wo.service || 'your service';
+        if (recipientEmail) {
+          try {
+            await transporter.sendMail({
+              from: '"D&G Soft Wash" <service@dgsoftwash.com>',
+              to: recipientEmail,
+              subject: 'Payment Received — Thank You! — D&G Soft Wash',
+              html:
+                '<div style="font-family:Arial,sans-serif; max-width:600px; margin:0 auto;">' +
+                '<div style="background:#2d6a4f; color:#fff; padding:24px; text-align:center; border-radius:8px 8px 0 0;">' +
+                '<h2 style="margin:0;">💰 Payment Received!</h2></div>' +
+                '<div style="padding:24px; border:1px solid #e5e7eb; border-top:none; border-radius:0 0 8px 8px;">' +
+                '<p style="font-size:1.1em;">Hi ' + customerName + ',</p>' +
+                '<p>We have received your payment for <strong>' + service + '</strong>. Thank you!</p>' +
+                '<div style="background:#f0fdf4; border-radius:8px; padding:16px; margin:16px 0;">' +
+                '<table style="width:100%; border-collapse:collapse;">' +
+                '<tr><td style="padding:5px 8px; color:#555;">Service</td><td style="padding:5px 8px; font-weight:600;">' + service + '</td></tr>' +
+                '<tr><td style="padding:5px 8px; color:#555;">Amount Paid</td><td style="padding:5px 8px; font-weight:700; color:#2d6a4f; font-size:1.2em;">' + (wo.price || '—') + '</td></tr>' +
+                '<tr><td style="padding:5px 8px; color:#555;">Status</td><td style="padding:5px 8px; font-weight:600; color:#2d6a4f;">✅ Paid in Full</td></tr>' +
+                '</table></div>' +
+                '<p>We appreciate your business! If you were happy with our work, we\'d love a review:</p>' +
+                '<p style="text-align:center; margin:16px 0;"><a href="https://dgsoftwash.com/reviews" style="display:inline-block; background:#1a1a2e; color:#fff; padding:10px 24px; border-radius:8px; text-decoration:none; font-weight:600;">⭐ Leave a Review</a></p>' +
+                '<p style="color:#555;">Questions? Call us at <strong>(757) 330-4260</strong> or email <strong>service@dgsoftwash.com</strong></p>' +
+                '<div style="margin-top:24px; padding-top:16px; border-top:1px solid #e5e7eb; text-align:center; color:#888; font-size:0.85em;">' +
+                'D&amp;G Soft Wash &mdash; Integrity You Can See &mdash; Veteran Owned &amp; Operated</div>' +
+                '</div></div>'
+            });
+            email_sent = 'status_paid';
+          } catch (emailErr) {
+            console.error('Paid email failed:', emailErr.message);
           }
         }
       }
