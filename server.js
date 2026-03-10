@@ -185,6 +185,9 @@ async function initDb() {
     )
   `);
 
+  // Migration: vendor_email on purchase_orders
+  await pool.query(`ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS vendor_email TEXT NOT NULL DEFAULT ''`);
+
   // Recurring expenses table
   await pool.query(`
     CREATE TABLE IF NOT EXISTS recurring_expenses (
@@ -2376,7 +2379,7 @@ app.delete('/api/admin/recurring/:id', requireAdmin, async (req, res) => {
 // GET /api/admin/purchase-orders
 app.get('/api/admin/purchase-orders', requireAdmin, async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT id, po_number, date, vendor, total, status, notes, expense_id, created_at FROM purchase_orders ORDER BY date DESC, created_at DESC');
+    const { rows } = await pool.query('SELECT id, po_number, date, vendor, vendor_email, total, status, notes, expense_id, created_at FROM purchase_orders ORDER BY date DESC, created_at DESC');
     res.json(rows);
   } catch (e) {
     res.status(500).json({ error: 'Failed to load purchase orders' });
@@ -2386,7 +2389,7 @@ app.get('/api/admin/purchase-orders', requireAdmin, async (req, res) => {
 // POST /api/admin/purchase-orders
 app.post('/api/admin/purchase-orders', requireAdmin, async (req, res) => {
   try {
-    const { date, vendor, items, total, status, notes } = req.body;
+    const { date, vendor, vendor_email, items, total, status, notes } = req.body;
     const year = (date || new Date().toISOString().split('T')[0]).substring(0, 4);
     const { rows: countRow } = await pool.query(
       "SELECT COALESCE(MAX(CAST(SUBSTRING(po_number FROM 9) AS INTEGER)), 0) + 1 AS next_seq FROM purchase_orders WHERE po_number LIKE $1",
@@ -2396,8 +2399,8 @@ app.post('/api/admin/purchase-orders', requireAdmin, async (req, res) => {
     const po_number = `PO-${year}-${seq}`;
     const itemsJson = typeof items === 'string' ? items : JSON.stringify(items || []);
     const { rows: [po] } = await pool.query(
-      'INSERT INTO purchase_orders (po_number, date, vendor, items, total, status, notes) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *',
-      [po_number, date || new Date().toISOString().split('T')[0], vendor || '', itemsJson, parseFloat(total) || 0, status || 'draft', notes || '']
+      'INSERT INTO purchase_orders (po_number, date, vendor, vendor_email, items, total, status, notes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
+      [po_number, date || new Date().toISOString().split('T')[0], vendor || '', vendor_email || '', itemsJson, parseFloat(total) || 0, status || 'draft', notes || '']
     );
     res.json({ success: true, po });
   } catch (e) {
@@ -2421,13 +2424,14 @@ app.get('/api/admin/purchase-orders/:id', requireAdmin, async (req, res) => {
 app.patch('/api/admin/purchase-orders/:id', requireAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const { status, notes, vendor, items, total, expense_id } = req.body;
+    const { status, notes, vendor, vendor_email, items, total, expense_id } = req.body;
     const updates = [];
     const values = [];
     let idx = 1;
     if (status !== undefined) { updates.push(`status = $${idx++}`); values.push(status); }
     if (notes !== undefined) { updates.push(`notes = $${idx++}`); values.push(notes); }
     if (vendor !== undefined) { updates.push(`vendor = $${idx++}`); values.push(vendor); }
+    if (vendor_email !== undefined) { updates.push(`vendor_email = $${idx++}`); values.push(vendor_email); }
     if (items !== undefined) {
       const itemsJson = typeof items === 'string' ? items : JSON.stringify(items);
       updates.push(`items = $${idx++}`); values.push(itemsJson);

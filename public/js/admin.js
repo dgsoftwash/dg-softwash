@@ -2945,7 +2945,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (poEmailBtn && poId && po) {
       poEmailBtn.style.display = '';
       poEmailBtn.onclick = function() {
-        var email = prompt('Send PO ' + (po.po_number || '#' + po.id) + ' to:');
+        var defaultEmail = po.vendor_email || '';
+        var email = prompt('Send PO ' + (po.po_number || '#' + po.id) + ' to:', defaultEmail);
         if (!email) return;
         poEmailBtn.disabled = true;
         poEmailBtn.textContent = 'Sending...';
@@ -2987,6 +2988,7 @@ document.addEventListener('DOMContentLoaded', function() {
       '<tr><td style="padding:5px 8px; color:#555; width:100px;">PO Number</td><td style="padding:5px 8px; font-weight:600;">' + (po ? escapeHtml(po.po_number) : 'Auto-assigned') + '</td></tr>' +
       '<tr><td style="padding:5px 8px; color:#555;">Date</td><td style="padding:5px 8px;"><input type="date" id="po-date" value="' + (po ? po.date : todayStr) + '" style="padding:4px 6px; border:1px solid #ddd; border-radius:4px;"></td></tr>' +
       '<tr><td style="padding:5px 8px; color:#555;">Vendor</td><td style="padding:5px 8px;"><input type="text" id="po-vendor" value="' + escapeHtml(po ? (po.vendor || '') : '') + '" placeholder="Vendor name" style="width:100%; padding:4px 6px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></td></tr>' +
+      '<tr><td style="padding:5px 8px; color:#555;">Vendor Email</td><td style="padding:5px 8px;"><input type="email" id="po-vendor-email" value="' + escapeHtml(po ? (po.vendor_email || '') : '') + '" placeholder="vendor@email.com" style="width:100%; padding:4px 6px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></td></tr>' +
       '<tr><td style="padding:5px 8px; color:#555;">Status</td><td style="padding:5px 8px;"><select id="po-status" style="padding:4px 8px; border:1px solid #ddd; border-radius:4px;">' + statusOpts + '</select></td></tr>' +
       '<tr><td style="padding:5px 8px; color:#555;">Notes</td><td style="padding:5px 8px;"><input type="text" id="po-notes" value="' + escapeHtml(po ? (po.notes || '') : '') + '" placeholder="Optional notes" style="width:100%; padding:4px 6px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></td></tr>' +
       '</table>';
@@ -3063,6 +3065,7 @@ document.addEventListener('DOMContentLoaded', function() {
     return {
       date: document.getElementById('po-date').value,
       vendor: document.getElementById('po-vendor').value.trim(),
+      vendor_email: document.getElementById('po-vendor-email').value.trim(),
       status: document.getElementById('po-status').value,
       notes: document.getElementById('po-notes').value.trim(),
       items: poItems,
