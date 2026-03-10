@@ -497,6 +497,47 @@ cp OutputBin "/Applications/AppName.app/Contents/MacOS/BinaryName"
 - Utility apps in `~/Desktop/Davids Desktop/Chappie Tools/`
 - Desktop is clean — everything accessed via floating docks
 
+### Additional Floating Widgets (added 2026-03-09)
+
+| Widget | App | LaunchAgent | Route | HTML |
+|--------|-----|-------------|-------|------|
+| Time Machine | `/Applications/Time Machine Widget.app` | `com.chappie.tmwidget` | `GET /tm-widget`, `GET /api/timemachine-status` | `/Volumes/1TB SSD/server-widget/TMWidget.html` |
+| Backblaze | `/Applications/Backblaze Widget.app` | `com.chappie.bbwidget` | `GET /bb-widget`, `GET /api/backblaze-status` | `/Volumes/1TB SSD/server-widget/BBWidget.html` |
+
+- **Time Machine status API** (`/api/timemachine-status`): uses `tmutil latestbackup` + `tmutil status`, returns green/yellow/red based on age (25h/48h thresholds), blue when actively backing up
+- **Backblaze status API** (`/api/backblaze-status`): reads `/Library/Backblaze.bzpkg/bzdata/bzreports/bzdc_synchostinfo.xml` for license status, `overviewstatus.xml` for transmit state, `bzdefcon.xml` for last push age
+- Backup Widget (`com.dgsoftwash.backup-widget`) disabled — redundant with server widget; LaunchAgent still exists but unloaded
+- Swift sources saved to `/Volumes/1TB SSD/openclaw/workspace/widget-sources/TMWidget.swift` and `BBWidget.swift`
+
+### Credit Card Expense Exclusion (added 2026-03-09)
+- **Credit card payment categories** (`AMEX Prime`, `AMEX Blue`, `Chase Ink`, `Capital One Spark`) are **excluded from all expense totals**
+- These categories are for tracking PO payments — the actual expense is recorded when the PO is created
+- Affected endpoints: dashboard health (`monthly_expenses`, `ytd_expenses`), `/api/admin/year-end-report` (totals + monthly breakdown), `/api/admin/revenue-report` (monthly breakdown)
+- CC payments still appear in the expenses list but are visually marked (faded blue rows, "(CC)" tag, blue dollar amounts)
+- Summary badges show separate "Expenses" (red) and "CC Payments" (blue, with "not in totals" label)
+- Filter total shows "Total (excl CC)"
+
+### Discount Adjustments (added 2026-03-09)
+- All discount percentages in Quote and Work Order modals are now **editable** (number inputs instead of hardcoded 10%)
+- Added **3+ Services** discount option (default 15%) to both modals
+- Discounts: Cash (default 10%), Return (default 10%), Email List (default 10%), 3+ Services (default 15%)
+- Quote breakdown and work order notes now show individual discount names and percentages
+
+### Email Sync Fix (2026-03-09)
+- Email sync (Yahoo→Zoho) was stuck since March 6 due to **stale lockfile** (`/tmp/yahoo-zoho-sync.lock`)
+- Updated cron script to auto-clear lockfiles older than 30 minutes
+- Script: `/Volumes/1TB SSD/openclaw/workspace/scripts/yahoo-to-zoho-cron.sh`
+
+### Backblaze Recovery (2026-03-09)
+- Backblaze license was accidentally deleted when MacBook Air was removed from account
+- Required full uninstall + fresh install to re-register with new auth token
+- Account: `dbemish82@yahoo.com`, plan: unlimited yearly, backing up `/`, `/Volumes/1TB SSD/`, `/Volumes/2TB HDD/`
+- Schedule: continuous with auto-throttle
+
+### BackupWidget.html Path Fix (2026-03-09)
+- `/backup-widget` route was pointing to old path (`~/Desktop/D&G Soft Wash/Misc Script Files /BackupWidget.html`)
+- Updated to `~/Desktop/Davids Desktop/D&G Soft Wash/Misc Script Files /BackupWidget.html`
+
 ---
 
-*Last updated: 2026-03-08 (mobile hamburger menu fix — Safari iOS classList.toggle quirk, rewrote with explicit state tracking; deck pricing: added sq ft dimensions for all tiers + "Over 500 sq ft: Call for Estimate"; share button fix: updated URL to dgsoftwash.com + added .catch() for navigator.share Promise that was freezing the page; service worker bumped to v14; Zoho SMTP; new logo; security headers; UPS monitoring + auto-shutdown at 10%; health widget: process monitor + UPS row + OpenClaw row + 10s refresh + remote/mobile access + OpenClaw Start/Stop controls; backup widget 401 fix; backup script moved to ~/backup.sh; SSH keys configured for git push — dgsoftwash key at ~/.ssh/id_ed25519_dgsoftwash, remote: git@github-dgsoftwash:dgsoftwash/dg-softwash.git; OpenClaw AI agent v2026.3.2 installed — data on 1TB SSD, gateway runs via nohup from boot-recovery.sh, LaunchAgent removed, Telegram channel config removed; expense date fixed — expenses were saving correctly but PostgreSQL date column returned as full ISO timestamp causing "Invalid Date" display; fixed by casting date to YYYY-MM-DD in SQL query and adding .split('T')[0] safety in display code; HTTP→HTTPS redirect enabled — Cloudflare Always Use HTTPS on + server-side X-Forwarded-Proto 301 redirect, http://dgsoftwash.com now redirects to https://)*
+*Last updated: 2026-03-09 (adjustable discount percentages + 3+ Services option; credit card expense exclusion from totals; Time Machine + Backblaze floating widgets; email sync stale lockfile fix; Backblaze clean reinstall; BackupWidget path fix)*
