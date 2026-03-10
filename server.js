@@ -840,6 +840,7 @@ app.delete('/api/admin/reviews/:id', requireAdmin, async (req, res) => {
 });
 
 app.get('/admin', (req, res) => {
+  res.set('Cache-Control', 'no-store');
   res.sendFile(path.join(__dirname, 'views', 'admin.html'));
 });
 
@@ -1430,27 +1431,33 @@ app.patch('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
             await transporter.sendMail({
               from: '"D&G Soft Wash" <service@dgsoftwash.com>',
               to: recipientEmail,
-              subject: 'Service Complete — D&G Soft Wash',
-              html:
-                '<div style="font-family:Arial,sans-serif; max-width:600px; margin:0 auto;">' +
+              subject: 'Service Complete — Payment Due Within 10 Days — D&G Soft Wash',
+              html: (function() {
+                const deadline = new Date();
+                deadline.setDate(deadline.getDate() + 10);
+                const deadlineLabel = deadline.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                return '<div style="font-family:Arial,sans-serif; max-width:600px; margin:0 auto;">' +
                 '<div style="background:#2d6a4f; color:#fff; padding:24px; text-align:center; border-radius:8px 8px 0 0;">' +
                 '<h2 style="margin:0;">✅ Service Complete!</h2></div>' +
                 '<div style="padding:24px; border:1px solid #e5e7eb; border-top:none; border-radius:0 0 8px 8px;">' +
                 '<p style="font-size:1.1em;">Hi ' + customerName + ',</p>' +
-                '<p>Great news! Your <strong>' + service + '</strong> has been completed' +
+                '<p>Your <strong>' + service + '</strong> has been completed' +
                 (wo.booking_address ? ' at <strong>' + wo.booking_address + '</strong>' : '') + '.</p>' +
-                '<div style="background:#f8f9fa; border-radius:8px; padding:14px; margin:16px 0;">' +
+                '<div style="background:#f8f9fa; border-radius:8px; padding:16px; margin:16px 0;">' +
                 '<table style="width:100%; border-collapse:collapse;">' +
-                '<tr><td style="padding:4px 8px; color:#555;">Service</td><td style="padding:4px 8px; font-weight:600;">' + service + '</td></tr>' +
-                '<tr><td style="padding:4px 8px; color:#555;">Total</td><td style="padding:4px 8px; font-weight:700; color:#2d6a4f; font-size:1.1em;">' + (wo.price || '—') + '</td></tr>' +
+                '<tr><td style="padding:5px 8px; color:#555;">Service</td><td style="padding:5px 8px; font-weight:600;">' + service + '</td></tr>' +
+                '<tr><td style="padding:5px 8px; color:#555;">Total Due</td><td style="padding:5px 8px; font-weight:700; color:#2d6a4f; font-size:1.2em;">' + (wo.price || '—') + '</td></tr>' +
+                '<tr><td style="padding:5px 8px; color:#555;">Due By</td><td style="padding:5px 8px; font-weight:600; color:#dc2626;">' + deadlineLabel + '</td></tr>' +
                 '</table></div>' +
                 (wo.completion_notes ? '<div style="background:#f0fdf4; border-left:4px solid #2d6a4f; padding:12px 16px; margin:16px 0; border-radius:0 6px 6px 0;"><strong>Service Notes:</strong><br>' + wo.completion_notes + '</div>' : '') +
-                '<p>Thank you for choosing D&amp;G Soft Wash! We appreciate your business and hope you\'re happy with the results.</p>' +
-                '<p>If you have any questions or concerns, please don\'t hesitate to reach out:</p>' +
+                '<p><strong>Payment is due within 10 days.</strong> We accept Cash, Check, Card, or Zelle.</p>' +
+                '<p>If you have any questions, please don\'t hesitate to reach out:</p>' +
                 '<p>📞 <strong>(757) 330-4260</strong><br>📧 <strong>service@dgsoftwash.com</strong></p>' +
+                '<p>Thank you for choosing D&amp;G Soft Wash!</p>' +
                 '<div style="margin-top:24px; padding-top:16px; border-top:1px solid #e5e7eb; text-align:center; color:#888; font-size:0.85em;">' +
                 'D&amp;G Soft Wash &mdash; Integrity You Can See &mdash; Veteran Owned &amp; Operated</div>' +
-                '</div></div>'
+                '</div></div>';
+              })()
             });
             email_sent = 'job_complete';
           } catch (emailErr) {
