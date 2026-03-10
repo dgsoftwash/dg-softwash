@@ -2036,6 +2036,122 @@ app.post('/api/admin/work-orders/:id/review-request', requireAdmin, async (req, 
   }
 });
 
+app.post('/api/admin/work-orders/:id/email', requireAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const email = req.body.email;
+    if (!email) return res.status(400).json({ error: 'Email address required' });
+    const { rows } = await pool.query(`
+      SELECT wo.*,
+        b.name as booking_name, b.email as booking_email, b.phone as booking_phone,
+        b.address as booking_address, b.service as booking_service, b.date, b.time, b.notes as booking_notes,
+        c.name as customer_name, c.email as customer_email, c.phone as customer_phone, c.address as customer_address
+      FROM work_orders wo
+      LEFT JOIN bookings b ON wo.booking_id = b.id
+      LEFT JOIN customers c ON wo.customer_id = c.id
+      WHERE wo.id = $1
+    `, [id]);
+    if (!rows.length) return res.status(404).json({ error: 'Work order not found' });
+    const wo = rows[0];
+    const name = wo.booking_name || wo.customer_name || 'Valued Customer';
+    const service = wo.booking_service || wo.service || '—';
+    const addr = wo.booking_address || wo.customer_address || '—';
+    const dt = wo.date ? new Date(wo.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : '—';
+    const price = wo.price || '—';
+    const statusItems = [];
+    if (wo.status_job_complete) statusItems.push('✅ Job Complete');
+    if (wo.status_invoiced) statusItems.push('📄 Invoiced');
+    if (wo.status_invoice_paid) statusItems.push('💳 Invoice Paid');
+    if (wo.status_paid) statusItems.push('✅ Paid');
+    if (statusItems.length === 0) statusItems.push('⏳ Pending');
+    const statusHtml = statusItems.join(' &nbsp; ');
+
+    await transporter.sendMail({
+      from: '"D&G Soft Wash" <service@dgsoftwash.com>',
+      to: email,
+      subject: 'Work Order #' + id + ' — D&G Soft Wash',
+      html:
+        '<div style="font-family:Arial,sans-serif; max-width:600px; margin:0 auto;">' +
+        '<div style="background:#1a1a2e; color:#fff; padding:20px; text-align:center; border-radius:8px 8px 0 0;">' +
+        '<h2 style="margin:0;">D&amp;G Soft Wash</h2><p style="margin:4px 0 0; font-size:0.9em;">Work Order #' + id + '</p></div>' +
+        '<div style="padding:20px; border:1px solid #e5e7eb; border-top:none; border-radius:0 0 8px 8px;">' +
+        '<table style="width:100%; border-collapse:collapse; margin-bottom:16px;">' +
+        '<tr><td style="padding:6px 8px; color:#555; border-bottom:1px solid #f0f0f0;">Customer</td><td style="padding:6px 8px; font-weight:600; border-bottom:1px solid #f0f0f0;">' + name + '</td></tr>' +
+        '<tr><td style="padding:6px 8px; color:#555; border-bottom:1px solid #f0f0f0;">Service</td><td style="padding:6px 8px; border-bottom:1px solid #f0f0f0;">' + service + '</td></tr>' +
+        '<tr><td style="padding:6px 8px; color:#555; border-bottom:1px solid #f0f0f0;">Address</td><td style="padding:6px 8px; border-bottom:1px solid #f0f0f0;">' + addr + '</td></tr>' +
+        '<tr><td style="padding:6px 8px; color:#555; border-bottom:1px solid #f0f0f0;">Date</td><td style="padding:6px 8px; border-bottom:1px solid #f0f0f0;">' + dt + '</td></tr>' +
+        '<tr><td style="padding:6px 8px; color:#555; border-bottom:1px solid #f0f0f0;">Price</td><td style="padding:6px 8px; font-weight:700; color:#2d6a4f; border-bottom:1px solid #f0f0f0;">' + price + '</td></tr>' +
+        '<tr><td style="padding:6px 8px; color:#555;">Status</td><td style="padding:6px 8px;">' + statusHtml + '</td></tr>' +
+        '</table>' +
+        (wo.booking_notes ? '<div style="background:#f8f9fa; padding:12px; border-radius:6px; margin-bottom:16px; font-family:monospace; font-size:0.9em; white-space:pre-line;">' + wo.booking_notes + '</div>' : '') +
+        (wo.completion_notes ? '<div style="margin-bottom:16px;"><strong>Completion Notes:</strong><br>' + wo.completion_notes + '</div>' : '') +
+        '<p style="color:#555;">If you have any questions, please call or text us at <strong>(757) 330-4260</strong> or email <strong>service@dgsoftwash.com</strong>.</p>' +
+        '<div style="margin-top:20px; padding-top:16px; border-top:1px solid #e5e7eb; text-align:center; color:#888; font-size:0.85em;">' +
+        'D&amp;G Soft Wash &mdash; (757) 330-4260 &mdash; service@dgsoftwash.com</div>' +
+        '</div></div>'
+    });
+    res.json({ success: true });
+  } catch (e) {
+    console.error('WO email error:', e.message);
+    res.status(500).json({ error: 'Failed to send work order email' });
+  }
+});
+
+app.post('/api/admin/purchase-orders/:id/email', requireAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const email = req.body.email;
+    if (!email) return res.status(400).json({ error: 'Email address required' });
+    const { rows } = await pool.query('SELECT * FROM purchase_orders WHERE id = $1', [id]);
+    if (!rows.length) return res.status(404).json({ error: 'Purchase order not found' });
+    const po = rows[0];
+    const items = typeof po.items === 'string' ? JSON.parse(po.items) : (po.items || []);
+    const dt = po.date ? new Date(po.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '—';
+    const statusLabel = (po.status || 'draft').charAt(0).toUpperCase() + (po.status || 'draft').slice(1);
+
+    let itemsHtml = '';
+    if (items.length) {
+      itemsHtml = '<table style="width:100%; border-collapse:collapse; margin-bottom:16px; font-size:0.9em;">' +
+        '<thead><tr style="background:#f8f9fa;"><th style="padding:6px 8px; text-align:left; border-bottom:2px solid #e5e7eb;">Item</th><th style="padding:6px 8px; text-align:center; border-bottom:2px solid #e5e7eb;">Qty</th><th style="padding:6px 8px; text-align:right; border-bottom:2px solid #e5e7eb;">Unit Price</th><th style="padding:6px 8px; text-align:right; border-bottom:2px solid #e5e7eb;">Total</th></tr></thead><tbody>';
+      items.forEach(function(item) {
+        const lineTotal = (parseFloat(item.qty) || 0) * (parseFloat(item.unit_price) || 0);
+        itemsHtml += '<tr><td style="padding:5px 8px; border-bottom:1px solid #f0f0f0;">' + (item.description || '—') + '</td>' +
+          '<td style="padding:5px 8px; text-align:center; border-bottom:1px solid #f0f0f0;">' + (item.qty || 0) + '</td>' +
+          '<td style="padding:5px 8px; text-align:right; border-bottom:1px solid #f0f0f0;">$' + (parseFloat(item.unit_price) || 0).toFixed(2) + '</td>' +
+          '<td style="padding:5px 8px; text-align:right; border-bottom:1px solid #f0f0f0;">$' + lineTotal.toFixed(2) + '</td></tr>';
+      });
+      itemsHtml += '</tbody></table>';
+    }
+
+    await transporter.sendMail({
+      from: '"D&G Soft Wash" <service@dgsoftwash.com>',
+      to: email,
+      subject: 'Purchase Order ' + (po.po_number || '#' + id) + ' — D&G Soft Wash',
+      html:
+        '<div style="font-family:Arial,sans-serif; max-width:600px; margin:0 auto;">' +
+        '<div style="background:#1a1a2e; color:#fff; padding:20px; text-align:center; border-radius:8px 8px 0 0;">' +
+        '<h2 style="margin:0;">D&amp;G Soft Wash</h2><p style="margin:4px 0 0; font-size:0.9em;">Purchase Order ' + (po.po_number || '#' + id) + '</p></div>' +
+        '<div style="padding:20px; border:1px solid #e5e7eb; border-top:none; border-radius:0 0 8px 8px;">' +
+        '<table style="width:100%; border-collapse:collapse; margin-bottom:16px;">' +
+        '<tr><td style="padding:6px 8px; color:#555; border-bottom:1px solid #f0f0f0; width:100px;">PO Number</td><td style="padding:6px 8px; font-weight:600; border-bottom:1px solid #f0f0f0;">' + (po.po_number || '—') + '</td></tr>' +
+        '<tr><td style="padding:6px 8px; color:#555; border-bottom:1px solid #f0f0f0;">Date</td><td style="padding:6px 8px; border-bottom:1px solid #f0f0f0;">' + dt + '</td></tr>' +
+        '<tr><td style="padding:6px 8px; color:#555; border-bottom:1px solid #f0f0f0;">Vendor</td><td style="padding:6px 8px; border-bottom:1px solid #f0f0f0;">' + (po.vendor || '—') + '</td></tr>' +
+        '<tr><td style="padding:6px 8px; color:#555; border-bottom:1px solid #f0f0f0;">Status</td><td style="padding:6px 8px; border-bottom:1px solid #f0f0f0;">' + statusLabel + '</td></tr>' +
+        '<tr><td style="padding:6px 8px; color:#555;">Total</td><td style="padding:6px 8px; font-weight:700; color:#2d6a4f;">$' + parseFloat(po.total).toFixed(2) + '</td></tr>' +
+        '</table>' +
+        itemsHtml +
+        (po.notes ? '<div style="background:#f8f9fa; padding:12px; border-radius:6px; margin-bottom:16px;"><strong>Notes:</strong> ' + po.notes + '</div>' : '') +
+        '<div style="margin-top:20px; padding-top:16px; border-top:1px solid #e5e7eb; text-align:center; color:#888; font-size:0.85em;">' +
+        'D&amp;G Soft Wash &mdash; (757) 330-4260 &mdash; service@dgsoftwash.com</div>' +
+        '</div></div>'
+    });
+    res.json({ success: true });
+  } catch (e) {
+    console.error('PO email error:', e.message);
+    res.status(500).json({ error: 'Failed to send purchase order email' });
+  }
+});
+
 app.post('/api/admin/work-orders/:id/sms-reminder', requireAdmin, async (req, res) => {
   if (!twilioClient) {
     return res.status(503).json({ error: 'SMS not configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_FROM_NUMBER in your environment, then run: npm install twilio' });

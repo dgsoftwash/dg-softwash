@@ -912,6 +912,34 @@ document.addEventListener('DOMContentLoaded', function() {
       woPrintBtn.onclick = function() { printWorkOrder(wo); };
     }
 
+    var woEmailBtn = document.getElementById('wo-email-btn');
+    if (woEmailBtn) {
+      woEmailBtn.style.display = '';
+      woEmailBtn.onclick = function() {
+        var defaultEmail = wo.booking_email || wo.customer_email || '';
+        var email = prompt('Send Work Order #' + wo.id + ' to:', defaultEmail);
+        if (!email) return;
+        woEmailBtn.disabled = true;
+        woEmailBtn.textContent = 'Sending...';
+        fetch('/api/admin/work-orders/' + wo.id + '/email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+          body: JSON.stringify({ email: email })
+        }).then(function(r) { return r.json(); }).then(function(data) {
+          if (data.success) {
+            alert('Work order emailed to ' + email + '!');
+          } else {
+            alert(data.error || 'Failed to send email.');
+          }
+        }).catch(function() {
+          alert('Error sending email.');
+        }).finally(function() {
+          woEmailBtn.disabled = false;
+          woEmailBtn.textContent = '📧 Email';
+        });
+      };
+    }
+
     var woDeleteBtn = document.getElementById('wo-delete-btn');
     if (woDeleteBtn) {
       woDeleteBtn.addEventListener('click', async function() {
@@ -922,17 +950,21 @@ document.addEventListener('DOMContentLoaded', function() {
             headers: { 'x-admin-token': adminToken }
           });
           if (res.status === 401) { handleAuthExpired(); return; }
-          var data = await res.json();
-          if (data.success) {
-            document.getElementById('work-order-modal').style.display = 'none';
-            // Refresh whatever tab is active
-            var activeTab = document.querySelector('.admin-tab[style*="border-bottom:3px solid #1a1a2e"]');
-            if (activeTab) activeTab.click();
+          if (res.ok) {
+            var data = await res.json();
+            if (data.success) {
+              document.getElementById('work-order-modal').style.display = 'none';
+              var activeTab = document.querySelector('.admin-tab[style*="border-bottom:3px solid #1a1a2e"]');
+              if (activeTab) activeTab.click();
+            } else {
+              alert('Failed to delete: ' + (data.error || 'Unknown error'));
+            }
           } else {
-            alert('Failed to delete work order.');
+            var errData = await res.json().catch(function() { return {}; });
+            alert('Failed to delete work order (HTTP ' + res.status + '): ' + (errData.error || errData.message || 'Unknown error'));
           }
         } catch(e) {
-          alert('Error deleting work order.');
+          alert('Error deleting work order: ' + e.message);
         }
       });
     }
@@ -993,6 +1025,40 @@ document.addEventListener('DOMContentLoaded', function() {
       (wo.admin_notes ? '<div class="section"><strong>D&amp;G Comments:</strong><br><span style="white-space:pre-line;">' + escapeHtml(wo.admin_notes) + '</span></div>' : '') +
       (wo.completion_notes ? '<div class="section"><strong>Completion Notes:</strong><br><span style="white-space:pre-line;">' + escapeHtml(wo.completion_notes) + '</span></div>' : '') +
       (wo.mileage ? '<div class="section"><strong>Mileage:</strong> ' + wo.mileage + ' mi</div>' : '') +
+      '<div style="text-align:center; margin-top:40px; color:#aaa; font-size:0.85em;">D&amp;G Soft Wash &mdash; (757) 330-4260 &mdash; service@dgsoftwash.com</div>' +
+      '<div style="text-align:center; margin-top:16px;"><button onclick="window.print()" style="padding:10px 30px; font-size:1em; cursor:pointer;">Print</button></div>' +
+      '</body></html>');
+    printWindow.document.close();
+  }
+
+  function printPO(po) {
+    var items = typeof po.items === 'string' ? JSON.parse(po.items) : (po.items || []);
+    var dt = po.date ? new Date(po.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '—';
+    var statusLabel = (po.status || 'draft').charAt(0).toUpperCase() + (po.status || 'draft').slice(1);
+    var itemsHtml = '';
+    if (items.length) {
+      itemsHtml = '<table style="width:100%; border-collapse:collapse; margin:16px 0;"><thead><tr style="background:#f0f0f0;"><th style="padding:6px 8px; text-align:left;">Description</th><th style="padding:6px 8px; text-align:center; width:60px;">Qty</th><th style="padding:6px 8px; text-align:right; width:90px;">Unit Price</th><th style="padding:6px 8px; text-align:right; width:90px;">Total</th></tr></thead><tbody>';
+      items.forEach(function(item) {
+        var lineTotal = (parseFloat(item.qty) || 0) * (parseFloat(item.unit_price) || 0);
+        itemsHtml += '<tr><td style="padding:5px 8px; border-bottom:1px solid #eee;">' + escapeHtml(item.description || '—') + '</td>' +
+          '<td style="padding:5px 8px; text-align:center; border-bottom:1px solid #eee;">' + (item.qty || 0) + '</td>' +
+          '<td style="padding:5px 8px; text-align:right; border-bottom:1px solid #eee;">$' + (parseFloat(item.unit_price) || 0).toFixed(2) + '</td>' +
+          '<td style="padding:5px 8px; text-align:right; border-bottom:1px solid #eee;">$' + lineTotal.toFixed(2) + '</td></tr>';
+      });
+      itemsHtml += '</tbody></table>';
+    }
+    var printWindow = window.open('', '_blank');
+    printWindow.document.write('<!DOCTYPE html><html><head><title>PO ' + escapeHtml(po.po_number || '#' + po.id) + ' - D&amp;G Soft Wash</title>' +
+      '<style>body{font-family:Arial,sans-serif;margin:30px;color:#1a1a2e;} h1{margin:0;font-size:1.6em;} .header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1a1a2e;padding-bottom:12px;margin-bottom:24px;} table{width:100%;border-collapse:collapse;} td{padding:6px 8px;} .label{color:#555;width:130px;} @media print{button{display:none;}}</style>' +
+      '</head><body>' +
+      '<div class="header"><div><h1>D&amp;G Soft Wash</h1><div style="color:#555;">Purchase Order</div></div>' +
+      '<div style="text-align:right;"><strong>' + escapeHtml(po.po_number || 'PO #' + po.id) + '</strong><br>' + dt + '</div></div>' +
+      '<table><tr><td class="label">Vendor</td><td><strong>' + escapeHtml(po.vendor || '—') + '</strong></td></tr>' +
+      '<tr><td class="label">Status</td><td>' + statusLabel + '</td></tr>' +
+      '<tr><td class="label">Total</td><td><strong style="color:#2d6a4f;">$' + parseFloat(po.total).toFixed(2) + '</strong></td></tr>' +
+      '</table>' +
+      itemsHtml +
+      (po.notes ? '<div style="background:#f8f9fa; border-radius:8px; padding:14px; margin:16px 0;"><strong>Notes:</strong> ' + escapeHtml(po.notes) + '</div>' : '') +
       '<div style="text-align:center; margin-top:40px; color:#aaa; font-size:0.85em;">D&amp;G Soft Wash &mdash; (757) 330-4260 &mdash; service@dgsoftwash.com</div>' +
       '<div style="text-align:center; margin-top:16px;"><button onclick="window.print()" style="padding:10px 30px; font-size:1em; cursor:pointer;">Print</button></div>' +
       '</body></html>');
@@ -2862,6 +2928,7 @@ document.addEventListener('DOMContentLoaded', function() {
     titleEl.textContent = poId ? 'Purchase Order' : 'New Purchase Order';
     content.innerHTML = '<p style="color:#666;">Loading...</p>';
     document.getElementById('wo-print-btn').style.display = 'none';
+    document.getElementById('wo-email-btn').style.display = poId ? '' : 'none';
 
     var po = null;
     if (poId) {
@@ -2872,6 +2939,41 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     poItems = po ? (typeof po.items === 'string' ? JSON.parse(po.items) : po.items) || [] : [];
     renderPoModal(po);
+
+    // PO email button
+    var poEmailBtn = document.getElementById('wo-email-btn');
+    if (poEmailBtn && poId && po) {
+      poEmailBtn.style.display = '';
+      poEmailBtn.onclick = function() {
+        var email = prompt('Send PO ' + (po.po_number || '#' + po.id) + ' to:');
+        if (!email) return;
+        poEmailBtn.disabled = true;
+        poEmailBtn.textContent = 'Sending...';
+        fetch('/api/admin/purchase-orders/' + po.id + '/email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+          body: JSON.stringify({ email: email })
+        }).then(function(r) { return r.json(); }).then(function(data) {
+          if (data.success) {
+            alert('PO emailed to ' + email + '!');
+          } else {
+            alert(data.error || 'Failed to send email.');
+          }
+        }).catch(function() {
+          alert('Error sending email.');
+        }).finally(function() {
+          poEmailBtn.disabled = false;
+          poEmailBtn.textContent = '📧 Email';
+        });
+      };
+
+      // PO print button
+      var poPrintBtn = document.getElementById('wo-print-btn');
+      if (poPrintBtn) {
+        poPrintBtn.style.display = '';
+        poPrintBtn.onclick = function() { printPO(po); };
+      }
+    }
   };
 
   function renderPoModal(po) {
