@@ -1451,8 +1451,9 @@ app.patch('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
                 '</table></div>' +
                 (wo.completion_notes ? '<div style="background:#f0fdf4; border-left:4px solid #2d6a4f; padding:12px 16px; margin:16px 0; border-radius:0 6px 6px 0;"><strong>Service Notes:</strong><br>' + wo.completion_notes + '</div>' : '') +
                 '<p><strong>Payment is due within 10 days.</strong> We accept Cash, Check, Card, or Zelle.</p>' +
-                '<p>If you have any questions, please don\'t hesitate to reach out:</p>' +
-                '<p>📞 <strong>(757) 330-4260</strong><br>📧 <strong>service@dgsoftwash.com</strong></p>' +
+                '<p>To make a payment or if you have any questions, please give us a call:</p>' +
+                '<p style="text-align:center; margin:20px 0;"><a href="tel:7573304260" style="display:inline-block; background:#1a1a2e; color:#fff; padding:12px 28px; border-radius:8px; text-decoration:none; font-weight:600; font-size:1.1em;">📞 Call (757) 330-4260</a></p>' +
+                '<p style="color:#555;">You can also text us or email <strong>service@dgsoftwash.com</strong></p>' +
                 '<p>Thank you for choosing D&amp;G Soft Wash!</p>' +
                 '<div style="margin-top:24px; padding-top:16px; border-top:1px solid #e5e7eb; text-align:center; color:#888; font-size:0.85em;">' +
                 'D&amp;G Soft Wash &mdash; Integrity You Can See &mdash; Veteran Owned &amp; Operated</div>' +
