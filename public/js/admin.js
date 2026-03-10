@@ -2640,13 +2640,27 @@ document.addEventListener('DOMContentLoaded', function() {
     var monthOptions = monthNames.map(function(m, i) {
       return '<option value="' + (i+1) + '"' + ((i+1) === currentExpenseMonth ? ' selected' : '') + '>' + m + '</option>';
     }).join('');
+
+    // Separate CC payments from real expenses
+    var ccCategories = ['AMEX Prime','AMEX Blue','Chase Ink','Capital One Spark'];
+    var realExpenses = expenses.filter(function(e) { return ccCategories.indexOf(e.category) === -1; });
+    var ccPayments = expenses.filter(function(e) { return ccCategories.indexOf(e.category) !== -1; });
+    var realTotal = realExpenses.reduce(function(s, e) { return s + parseFloat(e.amount); }, 0);
+    var ccTotal = ccPayments.reduce(function(s, e) { return s + parseFloat(e.amount); }, 0);
+
     html += '<div style="display:flex; gap:10px; align-items:center; margin-bottom:16px; flex-wrap:wrap;">' +
       '<select id="exp-filter-year" style="padding:7px 12px; border:1px solid #ddd; border-radius:6px;">' + yearOptions + '</select>' +
       '<select id="exp-filter-month" style="padding:7px 12px; border:1px solid #ddd; border-radius:6px;">' + monthOptions + '</select>' +
       '<button type="button" class="btn btn-secondary" style="padding:7px 16px; font-size:0.9em;" onclick="applyExpenseFilter()">Filter</button>' +
-      '<span style="color:#555; font-weight:600;">Total: <span style="color:#1a1a2e;">$' + parseFloat(total).toFixed(2) + '</span></span>' +
+      '<span style="color:#555; font-weight:600;">Total (excl CC): <span style="color:#1a1a2e;">$' + realTotal.toFixed(2) + '</span></span>' +
       '<button type="button" class="btn btn-secondary" style="padding:7px 16px; font-size:0.9em;" onclick="exportExpensesCsv()">Export CSV</button>' +
       '</div>';
+
+    // Summary badges
+    html += '<div style="display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap;">';
+    html += '<div style="background:#fee2e2; border-radius:8px; padding:10px 16px;"><span style="font-weight:600; color:#991b1b;">Expenses: $' + realTotal.toFixed(2) + '</span></div>';
+    if (ccTotal > 0) html += '<div style="background:#dbeafe; border-radius:8px; padding:10px 16px;"><span style="font-weight:600; color:#1e40af;">CC Payments: $' + ccTotal.toFixed(2) + '</span> <span style="font-size:0.8em; color:#6b7280;">(not in totals)</span></div>';
+    html += '</div>';
 
     // Table
     if (expenses.length === 0) {
@@ -2654,11 +2668,12 @@ document.addEventListener('DOMContentLoaded', function() {
     } else {
       html += '<div style="overflow-x:auto;"><table class="bookings-table"><thead><tr><th>Date</th><th>Category</th><th>Amount</th><th>Notes</th><th></th></tr></thead><tbody>';
       expenses.forEach(function(e) {
+        var isCC = ccCategories.indexOf(e.category) !== -1;
         var dateLabel = new Date((e.date + '').split('T')[0] + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-        html += '<tr>' +
+        html += '<tr style="' + (isCC ? 'opacity:0.6; background:#f0f4ff;' : '') + '">' +
           '<td>' + dateLabel + '</td>' +
-          '<td>' + escapeHtml(e.category) + '</td>' +
-          '<td style="font-weight:600; color:#dc2626;">$' + parseFloat(e.amount).toFixed(2) + '</td>' +
+          '<td>' + escapeHtml(e.category) + (isCC ? ' <span style="font-size:0.75em; color:#6b7280;">(CC)</span>' : '') + '</td>' +
+          '<td style="font-weight:600; color:' + (isCC ? '#1e40af' : '#dc2626') + ';">$' + parseFloat(e.amount).toFixed(2) + '</td>' +
           '<td>' + escapeHtml(e.notes || '—') + '</td>' +
           '<td><button type="button" class="btn-cancel" onclick="deleteExpense(' + e.id + ')">Delete</button></td>' +
           '</tr>';

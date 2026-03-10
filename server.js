@@ -1568,10 +1568,12 @@ app.get('/api/admin/dashboard', requireAdmin, async (req, res) => {
         AND DATE_TRUNC('month', wo.created_at) = DATE_TRUNC('month', CURRENT_DATE)
     `);
 
+    const CC_CATEGORIES = ['AMEX Prime','AMEX Blue','Chase Ink','Capital One Spark'];
     const { rows: expenseRows } = await pool.query(`
       SELECT COALESCE(SUM(amount), 0) as total
       FROM expenses
       WHERE DATE_TRUNC('month', date) = DATE_TRUNC('month', CURRENT_DATE)
+        AND category NOT IN ('AMEX Prime','AMEX Blue','Chase Ink','Capital One Spark')
     `);
 
     const { rows: reserviceDue } = await pool.query(`
@@ -1596,6 +1598,7 @@ app.get('/api/admin/dashboard', requireAdmin, async (req, res) => {
       SELECT COALESCE(SUM(amount), 0) as total
       FROM expenses
       WHERE EXTRACT(YEAR FROM date) = EXTRACT(YEAR FROM CURRENT_DATE)
+        AND category NOT IN ('AMEX Prime','AMEX Blue','Chase Ink','Capital One Spark')
     `);
 
     const { rows: recurringDueRows } = await pool.query(`
@@ -1816,8 +1819,8 @@ app.get('/api/admin/revenue-report', requireAdmin, async (req, res) => {
       const wos = paidWos.filter(w => parseInt(w.date.split('-')[1]) === m);
       const exps = expenseRows.filter(e => new Date(e.date + 'T12:00:00').getMonth() + 1 === m);
       const gross = wos.reduce((s, w) => s + parsePrice(w.price), 0);
-      const expenses = exps.reduce((s, e) => s + parseFloat(e.amount), 0);
-      return { month: m, label, job_count: wos.length, gross_revenue: gross, expenses, net: gross - expenses };
+      const expenses = exps.filter(e => !["AMEX Prime","AMEX Blue","Chase Ink","Capital One Spark"].includes(e.category)).reduce((s, e) => s + parseFloat(e.amount), 0);
+      return { month: m, label, job_count: wos.length, gross_revenue: gross, expenses, cc_payments: exps.filter(e => ["AMEX Prime","AMEX Blue","Chase Ink","Capital One Spark"].includes(e.category)).reduce((s, e) => s + parseFloat(e.amount), 0), net: gross - expenses };
     });
 
     // Service breakdown
@@ -1881,9 +1884,11 @@ app.get('/api/admin/year-end-report', requireAdmin, async (req, res) => {
       [year]
     );
 
-    // Totals
+    // Totals (exclude credit card payment categories from expense totals)
+    const CC_CATS = ['AMEX Prime','AMEX Blue','Chase Ink','Capital One Spark'];
     const grossRevenue = paidWos.reduce((s, w) => s + parsePrice(w.price), 0);
-    const totalExpenses = expenseRows.reduce((s, e) => s + parseFloat(e.amount), 0);
+    const totalExpenses = expenseRows.filter(e => !CC_CATS.includes(e.category)).reduce((s, e) => s + parseFloat(e.amount), 0);
+    const totalCCPayments = expenseRows.filter(e => CC_CATS.includes(e.category)).reduce((s, e) => s + parseFloat(e.amount), 0);
     const totalMiles = paidWos.reduce((s, w) => s + (parseFloat(w.mileage) || 0), 0);
     const mileageDeduction = Math.round(totalMiles * IRS_MILEAGE_RATE * 100) / 100;
     const netIncome = Math.round((grossRevenue - totalExpenses - mileageDeduction) * 100) / 100;
@@ -1896,7 +1901,7 @@ app.get('/api/admin/year-end-report', requireAdmin, async (req, res) => {
       const exps = expenseRows.filter(e => new Date(e.date + 'T12:00:00').getMonth() + 1 === m);
       const gross = wos.reduce((s, w) => s + parsePrice(w.price), 0);
       const expenses = exps.reduce((s, e) => s + parseFloat(e.amount), 0);
-      return { month: m, label, job_count: wos.length, gross_revenue: gross, expenses, net: gross - expenses };
+      return { month: m, label, job_count: wos.length, gross_revenue: gross, expenses, cc_payments: exps.filter(e => ["AMEX Prime","AMEX Blue","Chase Ink","Capital One Spark"].includes(e.category)).reduce((s, e) => s + parseFloat(e.amount), 0), net: gross - expenses };
     });
 
     // Revenue by service
