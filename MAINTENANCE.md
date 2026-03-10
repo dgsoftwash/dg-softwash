@@ -87,7 +87,11 @@ files, **bump the cache version** so browsers drop stale content:
 const CACHE = 'dg-softwash-v3';  // increment each time HTML changes
 ```
 
-Current version: **v14** (bumped 2026-03-06 — hamburger menu fix + share button fix + deck pricing dimensions)
+Current version: **v17** (bumped 2026-03-09 — admin JS email/print fixes)
+
+**Cache-busting:** `admin.js` loaded with `?v=XX` query param in `admin.html` (currently v22). Bump this number when changing admin.js to force iPad/mobile cache refresh.
+
+**Admin page:** Served with `Cache-Control: no-store` header to prevent caching.
 
 Widget refresh interval: **10s** (reduced from 30s for faster UPS status updates)
 
@@ -540,4 +544,49 @@ cp OutputBin "/Applications/AppName.app/Contents/MacOS/BinaryName"
 
 ---
 
-*Last updated: 2026-03-09 (adjustable discount percentages + 3+ Services option; credit card expense exclusion from totals; Time Machine + Backblaze floating widgets; email sync stale lockfile fix; Backblaze clean reinstall; BackupWidget path fix)*
+### Work Order Email Flow (added 2026-03-09)
+Automatic emails are sent to the customer when toggling status buttons in the Work Order modal:
+
+| Status Toggle | Email Type | Details |
+|---|---|---|
+| **Job Complete** | Payment reminder | "Service Complete — Payment Due Within 10 Days". Shows service, total, due date (red). Call-to-pay button: (757) 330-4260. Payment methods: Cash, Check, Card, PayPal (@dgsoftwash), Venmo (@dgsoftwash). |
+| **Invoiced** | Invoice | "Invoice #XX — 30 day terms". Full invoice with amount due, due date, services. For commercial contracts. |
+| **Invoice Paid** | Payment receipt | Existing receipt confirmation email. |
+| **Paid** | Payment received + review request | "Payment Received — Thank You!" Confirms amount paid, includes ⭐ Leave a Review button (links to dgsoftwash.com/reviews). |
+
+- All emails sent from `service@dgsoftwash.com` via Zoho SMTP
+- Recipient: booking email → customer email (fallback chain)
+- Green pop-up notification shown in admin UI when email is sent
+- Emails only fire on false→true transitions (not on re-toggle)
+- **No online payments** — customers call to pay
+
+### Manual Email Buttons (added 2026-03-09)
+- **Work Order email button** (📧 Email): Prompts for email address (auto-fills from booking/customer email), sends formatted WO details
+- **Purchase Order email button** (📧 Email): Prompts for email (auto-fills from `vendor_email` field on the PO), sends formatted PO with line items
+- **PO Print button**: Added `printPO()` function — POs now have Print capability
+- Server endpoints: `POST /api/admin/work-orders/:id/email`, `POST /api/admin/purchase-orders/:id/email`
+
+### Purchase Order Vendor Email (added 2026-03-09)
+- New `vendor_email` column on `purchase_orders` table (`TEXT NOT NULL DEFAULT ''`)
+- Vendor Email field in PO form (between Vendor and Status)
+- Auto-fills the email prompt when clicking PO email button
+- Included in PO create, update, and list queries
+
+### Print Preview Improvements (added 2026-03-09)
+- **Phone/Address fallbacks**: Print now checks booking → customer → WO fields (was only checking booking)
+- **Start/End times**: Shows actual start time, end time, and auto-calculated time spent (e.g. "2 hr 30 min")
+- **Back button**: All print previews have a ← Back button (iPad can't go back from `window.open` pages)
+
+### Work Order Delete Fix (2026-03-09)
+- WO delete now closes modal immediately and refreshes the active tab
+- Shows green notification "Work Order #X deleted"
+- Better error messages on delete failure (shows HTTP status + error text)
+
+### Server Widget Auto-Reauth (added 2026-03-10)
+- Server widget now stores admin password in localStorage after first login
+- On 401 (token expired after PM2 restart), automatically re-authenticates without showing login screen
+- Widget stays green through PM2 reloads
+
+---
+
+*Last updated: 2026-03-10 (WO email flow, PO vendor email, print preview fixes, server widget auto-reauth)*
