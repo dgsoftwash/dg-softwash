@@ -1439,6 +1439,11 @@ app.patch('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
                 '<p style="font-size:1.1em;">Hi ' + customerName + ',</p>' +
                 '<p>Great news! Your <strong>' + service + '</strong> has been completed' +
                 (wo.booking_address ? ' at <strong>' + wo.booking_address + '</strong>' : '') + '.</p>' +
+                '<div style="background:#f8f9fa; border-radius:8px; padding:14px; margin:16px 0;">' +
+                '<table style="width:100%; border-collapse:collapse;">' +
+                '<tr><td style="padding:4px 8px; color:#555;">Service</td><td style="padding:4px 8px; font-weight:600;">' + service + '</td></tr>' +
+                '<tr><td style="padding:4px 8px; color:#555;">Total</td><td style="padding:4px 8px; font-weight:700; color:#2d6a4f; font-size:1.1em;">' + (wo.price || '—') + '</td></tr>' +
+                '</table></div>' +
                 (wo.completion_notes ? '<div style="background:#f0fdf4; border-left:4px solid #2d6a4f; padding:12px 16px; margin:16px 0; border-radius:0 6px 6px 0;"><strong>Service Notes:</strong><br>' + wo.completion_notes + '</div>' : '') +
                 '<p>Thank you for choosing D&amp;G Soft Wash! We appreciate your business and hope you\'re happy with the results.</p>' +
                 '<p>If you have any questions or concerns, please don\'t hesitate to reach out:</p>' +
