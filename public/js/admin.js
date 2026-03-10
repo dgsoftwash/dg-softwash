@@ -1024,9 +1024,9 @@ document.addEventListener('DOMContentLoaded', function() {
       '</head><body>' +
       '<div class="header"><div><h1>D&amp;G Soft Wash</h1><div style="color:#555;">Integrity You Can See &mdash; Veteran Owned &amp; Operated</div></div>' +
       '<div style="text-align:right;"><strong>Work Order #' + wo.id + '</strong><br>' + dateLabel + '</div></div>' +
-      '<table><tr><td class="label">Customer</td><td><strong>' + escapeHtml(wo.booking_name || wo.customer_name || '—') + '</strong></td><td class="label">Phone</td><td>' + escapeHtml(wo.booking_phone || '—') + '</td></tr>' +
-      '<tr><td class="label">Email</td><td colspan="3">' + escapeHtml(wo.booking_email || '—') + '</td></tr>' +
-      '<tr><td class="label">Address</td><td colspan="3">' + escapeHtml(wo.booking_address || '—') + '</td></tr>' +
+      '<table><tr><td class="label">Customer</td><td><strong>' + escapeHtml(wo.booking_name || wo.customer_name || '—') + '</strong></td><td class="label">Phone</td><td>' + escapeHtml(wo.booking_phone || wo.customer_phone || wo.phone || '—') + '</td></tr>' +
+      '<tr><td class="label">Email</td><td colspan="3">' + escapeHtml(wo.booking_email || wo.customer_email || wo.email || '—') + '</td></tr>' +
+      '<tr><td class="label">Address</td><td colspan="3">' + escapeHtml(wo.booking_address || wo.customer_address || wo.address || '—') + '</td></tr>' +
       '<tr><td class="label">Service</td><td>' + escapeHtml(wo.service || '—') + '</td><td class="label">Duration</td><td>' + dur + ' hr' + (dur !== 1 ? 's' : '') + '</td></tr>' +
       '<tr><td class="label">Time</td><td>' + timeLabel + '</td><td class="label">Price</td><td><strong style="color:#2d6a4f;">' + escapeHtml(wo.price || '—') + '</strong></td></tr>' +
       '</table>' +
