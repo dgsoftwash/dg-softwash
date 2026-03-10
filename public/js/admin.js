@@ -1027,8 +1027,18 @@ document.addEventListener('DOMContentLoaded', function() {
       '<table><tr><td class="label">Customer</td><td><strong>' + escapeHtml(wo.booking_name || wo.customer_name || '—') + '</strong></td><td class="label">Phone</td><td>' + escapeHtml(wo.booking_phone || wo.customer_phone || wo.phone || '—') + '</td></tr>' +
       '<tr><td class="label">Email</td><td colspan="3">' + escapeHtml(wo.booking_email || wo.customer_email || wo.email || '—') + '</td></tr>' +
       '<tr><td class="label">Address</td><td colspan="3">' + escapeHtml(wo.booking_address || wo.customer_address || wo.address || '—') + '</td></tr>' +
-      '<tr><td class="label">Service</td><td>' + escapeHtml(wo.service || '—') + '</td><td class="label">Duration</td><td>' + dur + ' hr' + (dur !== 1 ? 's' : '') + '</td></tr>' +
-      '<tr><td class="label">Time</td><td>' + timeLabel + '</td><td class="label">Price</td><td><strong style="color:#2d6a4f;">' + escapeHtml(wo.price || '—') + '</strong></td></tr>' +
+      '<tr><td class="label">Service</td><td>' + escapeHtml(wo.service || '—') + '</td><td class="label">Est. Duration</td><td>' + dur + ' hr' + (dur !== 1 ? 's' : '') + '</td></tr>' +
+      '<tr><td class="label">Scheduled</td><td>' + timeLabel + '</td><td class="label">Price</td><td><strong style="color:#2d6a4f;">' + escapeHtml(wo.price || '—') + '</strong></td></tr>' +
+      (wo.actual_start || wo.actual_end ? '<tr><td class="label">Start Time</td><td>' + escapeHtml(wo.actual_start || '—') + '</td><td class="label">End Time</td><td>' + escapeHtml(wo.actual_end || '—') + '</td></tr>' : '') +
+      (wo.actual_start && wo.actual_end ? (function() {
+        try {
+          var s = new Date('2000-01-01T' + wo.actual_start);
+          var e = new Date('2000-01-01T' + wo.actual_end);
+          var mins = Math.round((e - s) / 60000);
+          if (mins > 0) { var h = Math.floor(mins / 60); var m = mins % 60; return '<tr><td class="label">Time Spent</td><td colspan="3"><strong>' + (h > 0 ? h + ' hr ' : '') + (m > 0 ? m + ' min' : '') + '</strong></td></tr>'; }
+        } catch(ex) {}
+        return '';
+      })() : '') +
       '</table>' +
       (wo.booking_notes ? '<div class="section"><strong>Services &amp; Add-ons</strong><div style="margin-top:8px; white-space:pre-line; font-family:monospace; font-size:0.9em; line-height:1.6;">' + escapeHtml(wo.booking_notes) + '</div></div>' : '') +
       (statusList.length ? '<div class="section"><strong>Status:</strong> ' + statusList.join(' &bull; ') + '</div>' : '') +
