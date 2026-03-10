@@ -991,6 +991,7 @@ document.addEventListener('DOMContentLoaded', function() {
       var data = await res.json();
       // Re-open modal to refresh
       await openWorkOrderModal(woId);
+      if (data.email_sent === 'job_complete') showPricingMsg('Service complete email sent to customer!', true);
       if (data.email_sent === 'invoice') showPricingMsg('Invoice emailed to customer!', true);
       if (data.email_sent === 'paid') showPricingMsg('Payment receipt emailed to customer!', true);
     } catch (err) {

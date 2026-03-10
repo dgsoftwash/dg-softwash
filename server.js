@@ -1403,8 +1403,57 @@ app.patch('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
 
     // Detect if invoiced or invoice_paid flipped false→true and send email
     let email_sent = null;
+    const jobCompleteChanged = status_job_complete === true && !before.status_job_complete;
     const invoicedChanged = status_invoiced === true && !before.status_invoiced;
     const paidChanged = status_invoice_paid === true && !before.status_invoice_paid;
+
+    if (jobCompleteChanged) {
+      const { rows: woRows } = await pool.query(`
+        SELECT wo.*,
+          b.name as booking_name, b.email as booking_email,
+          b.address as booking_address,
+          COALESCE(b.service, wo.service) as service,
+          COALESCE(b.price, wo.price) as price,
+          c.name as customer_name, c.email as customer_email
+        FROM work_orders wo
+        LEFT JOIN bookings b ON wo.booking_id = b.id
+        LEFT JOIN customers c ON wo.customer_id = c.id
+        WHERE wo.id = $1
+      `, [id]);
+      if (woRows.length) {
+        const wo = woRows[0];
+        const recipientEmail = wo.booking_email || wo.customer_email;
+        const customerName = wo.booking_name || wo.customer_name || 'Valued Customer';
+        const service = wo.service || 'your service';
+        if (recipientEmail) {
+          try {
+            await transporter.sendMail({
+              from: '"D&G Soft Wash" <service@dgsoftwash.com>',
+              to: recipientEmail,
+              subject: 'Service Complete — D&G Soft Wash',
+              html:
+                '<div style="font-family:Arial,sans-serif; max-width:600px; margin:0 auto;">' +
+                '<div style="background:#2d6a4f; color:#fff; padding:24px; text-align:center; border-radius:8px 8px 0 0;">' +
+                '<h2 style="margin:0;">✅ Service Complete!</h2></div>' +
+                '<div style="padding:24px; border:1px solid #e5e7eb; border-top:none; border-radius:0 0 8px 8px;">' +
+                '<p style="font-size:1.1em;">Hi ' + customerName + ',</p>' +
+                '<p>Great news! Your <strong>' + service + '</strong> has been completed' +
+                (wo.booking_address ? ' at <strong>' + wo.booking_address + '</strong>' : '') + '.</p>' +
+                (wo.completion_notes ? '<div style="background:#f0fdf4; border-left:4px solid #2d6a4f; padding:12px 16px; margin:16px 0; border-radius:0 6px 6px 0;"><strong>Service Notes:</strong><br>' + wo.completion_notes + '</div>' : '') +
+                '<p>Thank you for choosing D&amp;G Soft Wash! We appreciate your business and hope you\'re happy with the results.</p>' +
+                '<p>If you have any questions or concerns, please don\'t hesitate to reach out:</p>' +
+                '<p>📞 <strong>(757) 330-4260</strong><br>📧 <strong>service@dgsoftwash.com</strong></p>' +
+                '<div style="margin-top:24px; padding-top:16px; border-top:1px solid #e5e7eb; text-align:center; color:#888; font-size:0.85em;">' +
+                'D&amp;G Soft Wash &mdash; Integrity You Can See &mdash; Veteran Owned &amp; Operated</div>' +
+                '</div></div>'
+            });
+            email_sent = 'job_complete';
+          } catch (emailErr) {
+            console.error('Job complete email failed:', emailErr.message);
+          }
+        }
+      }
+    }
 
     if (invoicedChanged || paidChanged) {
       const { rows: woRows } = await pool.query(`
