@@ -927,12 +927,12 @@ document.addEventListener('DOMContentLoaded', function() {
           body: JSON.stringify({ email: email })
         }).then(function(r) { return r.json(); }).then(function(data) {
           if (data.success) {
-            alert('Work order emailed to ' + email + '!');
+            showPricingMsg('Work order emailed to ' + email + '!', true);
           } else {
-            alert(data.error || 'Failed to send email.');
+            showPricingMsg(data.error || 'Failed to send email.', false);
           }
         }).catch(function() {
-          alert('Error sending email.');
+          showPricingMsg('Error sending email.', false);
         }).finally(function() {
           woEmailBtn.disabled = false;
           woEmailBtn.textContent = '📧 Email';
@@ -954,14 +954,22 @@ document.addEventListener('DOMContentLoaded', function() {
             var data = await res.json();
             if (data.success) {
               document.getElementById('work-order-modal').style.display = 'none';
+              showPricingMsg('Work Order #' + wo.id + ' deleted.', true);
+              // Refresh the active tab
               var activeTab = document.querySelector('.admin-tab[style*="border-bottom:3px solid #1a1a2e"]');
-              if (activeTab) activeTab.click();
+              if (activeTab) {
+                activeTab.click();
+              } else {
+                // Fallback: try all known tab loaders
+                if (typeof loadDashboardTab === 'function') loadDashboardTab();
+                if (typeof loadWorkOrdersTab === 'function') loadWorkOrdersTab();
+              }
             } else {
-              alert('Failed to delete: ' + (data.error || 'Unknown error'));
+              showPricingMsg('Failed to delete: ' + (data.error || 'Unknown error'), false);
             }
           } else {
             var errData = await res.json().catch(function() { return {}; });
-            alert('Failed to delete work order (HTTP ' + res.status + '): ' + (errData.error || errData.message || 'Unknown error'));
+            showPricingMsg('Delete failed (HTTP ' + res.status + '): ' + (errData.error || errData.message || ''), false);
           }
         } catch(e) {
           alert('Error deleting work order: ' + e.message);

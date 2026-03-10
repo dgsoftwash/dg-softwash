@@ -1450,7 +1450,7 @@ app.patch('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
                 '<tr><td style="padding:5px 8px; color:#555;">Due By</td><td style="padding:5px 8px; font-weight:600; color:#dc2626;">' + deadlineLabel + '</td></tr>' +
                 '</table></div>' +
                 (wo.completion_notes ? '<div style="background:#f0fdf4; border-left:4px solid #2d6a4f; padding:12px 16px; margin:16px 0; border-radius:0 6px 6px 0;"><strong>Service Notes:</strong><br>' + wo.completion_notes + '</div>' : '') +
-                '<p><strong>Payment is due within 10 days.</strong> We accept Cash, Check, Card, or Zelle.</p>' +
+                '<p><strong>Payment is due within 10 days.</strong> We accept Cash, Check, Card, PayPal (@dgsoftwash), or Venmo (@dgsoftwash).</p>' +
                 '<p>To make a payment or if you have any questions, please give us a call:</p>' +
                 '<p style="text-align:center; margin:20px 0;"><a href="tel:7573304260" style="display:inline-block; background:#1a1a2e; color:#fff; padding:12px 28px; border-radius:8px; text-decoration:none; font-weight:600; font-size:1.1em;">📞 Call (757) 330-4260</a></p>' +
                 '<p style="color:#555;">You can also text us or email <strong>service@dgsoftwash.com</strong></p>' +
