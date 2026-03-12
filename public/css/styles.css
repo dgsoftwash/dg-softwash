@@ -353,14 +353,13 @@ body {
 
 .booking-separator {
   text-align: center;
-  font-size: 1.4rem;
+  font-size: 1.6rem;
   font-weight: 900;
-  color: #374151;
-  margin: 15px 0;
+  color: #1f2937;
+  margin: 20px auto;
+  width: 100%;
   position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
 }
 
 .booking-separator::before,
@@ -368,17 +367,18 @@ body {
   content: '';
   position: absolute;
   top: 50%;
-  width: 30%;
-  height: 1px;
+  width: 35%;
+  height: 2px;
   background: #d1d5db;
+  transform: translateY(-50%);
 }
 
 .booking-separator::before {
-  left: 15%;
+  left: 5%;
 }
 
 .booking-separator::after {
-  right: 15%;
+  right: 5%;
 }
 
 .online-booking-message {
