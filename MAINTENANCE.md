@@ -761,4 +761,107 @@ Automatic emails are sent to the customer when toggling status buttons in the Wo
 
 ---
 
-*Last updated: 2026-03-11 (Automated comprehensive system test - all systems operational)*
+## INPUT/OUTPUT TEST CASES
+
+### **Pricing Calculator Tests**
+
+| Test Case | Input | Expected Output | Validation |
+|-----------|-------|-----------------|------------|
+| **Single Service** | Select "House Rancher" ($350) | Subtotal: $350.00, Total: $350.00 | No discounts applied |
+| **Multi-Service Auto Discount** | Select "House Rancher" + "Deck Small" | Subtotal: $475, Auto 15% off (-$71.25), Total: $403.75 | Multi-service discount triggers automatically |
+| **Cash Discount** | House Rancher + Cash checkbox | Subtotal: $350, Cash 10% off (-$35), Total: $315.00 | Manual discount applies |
+| **Stacked Discounts** | House + Deck + Cash + Return | All discounts stack correctly | Multiple discounts don't conflict |
+| **Book Now Button** | Click "Book Here NOW" | Redirect to /contact with estimate summary | URL params carry pricing data |
+
+### **Contact Form Tests**
+
+| Test Case | Input | Expected Output | Validation |
+|-----------|-------|-----------------|------------|
+| **Valid Booking** | Name: "John Doe", Email: "[email protected]", Service: "House Rancher" | Form submits, booking created, success message | Check admin panel for new booking |
+| **Required Field Validation** | Leave Name empty | Error: "Name is required" | Form prevents submission |
+| **Email Format Validation** | Email: "invalid-email" | Error: "Valid email required" | Client-side validation |
+| **Date Selection** | Select future date/time | Date saved to booking record | Calendar integration works |
+| **Estimate Import** | Arrive from pricing page | Estimate summary displays in green box | Data transfers correctly |
+
+### **Work Order Email Flow Tests**
+
+| Test Case | Input (Status Toggle) | Expected Email | Expected Content |
+|-----------|----------------------|----------------|------------------|
+| **Job Complete** | Toggle WO to "Complete" | Payment reminder to customer email | 10-day payment terms, amount due, call button |
+| **Invoiced** | Toggle WO to "Invoiced" | Invoice email | 30-day terms, invoice number, professional format |
+| **Paid** | Toggle WO to "Paid" | Payment received + review request | Thank you message, review link to /reviews |
+| **Invoice Paid** | Toggle to "Invoice Paid" | Receipt confirmation | Payment confirmed, amount received |
+
+**Email validation:** Check Zoho sent items, verify recipient, content, and formatting.
+
+### **Admin Panel Operations**
+
+| Test Case | Input | Expected Output | Validation |
+|-----------|-------|-----------------|------------|
+| **Create Work Order** | Select booking, fill WO details | WO created with auto-generated ID | WO appears in work orders list |
+| **Manual WO Email** | Click 📧 button, enter email | Formatted WO email sent | Prompt for email, green notification |
+| **Purchase Order Creation** | Fill PO form with vendor details | PO saved with line items | PO in admin list with vendor email |
+| **PO Email Test** | Click PO email button | Email sent to vendor_email | Uses auto-filled vendor email |
+| **Expense Exclusion** | Add AMEX Prime expense | Appears in list but excluded from totals | Blue styling, "(CC)" tag, not in totals |
+
+### **API Endpoint Tests**
+
+| Endpoint | Method | Input | Expected Response | Status Code |
+|----------|--------|-------|-------------------|-------------|
+| `/api/bookings` | GET | Admin token in header | JSON array of bookings | 200 |
+| `/api/admin/work-orders` | POST | WO data + token | `{"success": true, "id": 123}` | 201 |
+| `/api/admin/work-orders/:id/email` | POST | `{"email": "test@test.com"}` | Email sent confirmation | 200 |
+| `/widget` | GET | - | Server widget HTML | 200 |
+| `/api/chappie-status` | GET | - | `{"status": "online/offline"}` | 200 |
+
+### **Widget Interaction Tests**
+
+| Test Case | Input | Expected Output | Validation |
+|-----------|-------|-----------------|------------|
+| **Drag Widget** | Mouse drag on grip bar | Widget moves to new position | Position persists on refresh |
+| **Close Button** | Click red × on widget | Widget closes, auto-restarts | Process terminates, LaunchAgent respawns |
+| **Server Widget Auth** | Widget loads after PM2 restart | Auto-reauth with stored password | No login prompt, stays green |
+| **Status Updates** | System changes (CPU, disk) | Widget reflects new status | Real-time updates |
+
+### **Email System Tests**
+
+| Test Case | Input | Expected Output | Validation |
+|-----------|-------|-----------------|------------|
+| **Yahoo→Zoho Sync** | New email arrives at Yahoo | Email copied to Zoho | Check `/tmp/yahoo-zoho-sync.log` |
+| **Cron Job Execution** | Wait for 10-minute cron | Sync runs automatically | Check lockfile handling |
+| **Outbound Email** | Send WO/PO email | Email appears in Zoho sent items | SMTP via service@dgsoftwash.com |
+| **Email Templates** | Various status changes | Correct template used | Job Complete vs Paid vs Invoice |
+
+### **Mobile Responsiveness Tests**
+
+| Test Case | Device/Screen | Input | Expected Output | Validation |
+|-----------|---------------|-------|-----------------|------------|
+| **iPhone Pricing Page** | < 480px width | Load /pricing | OR separator bold, centered | Font-size 1.6rem, centered |
+| **Mobile Form** | Touch inputs | Fill contact form | All fields accessible | No zoom issues |
+| **Mobile Navigation** | Hamburger menu | Tap menu icon | Menu opens/closes correctly | Touch events work |
+| **Mobile Widgets** | Small screen | Widget interactions | Widgets scale appropriately | No overflow issues |
+
+### **Data Validation Tests**
+
+| Test Case | Input | Expected Validation | Error Handling |
+|-----------|-------|-------------------|----------------|
+| **SQL Injection** | `'; DROP TABLE bookings; --` in form | Input sanitized | No database damage |
+| **XSS Attempt** | `<script>alert('xss')</script>` | HTML escaped | Script doesn't execute |
+| **Large File Upload** | 10MB+ file | File rejected | Size limit enforced |
+| **Invalid Admin Token** | Expired/wrong token | 401 Unauthorized | Access denied |
+
+### **Performance Tests**
+
+| Test Case | Input | Expected Output | Benchmark |
+|-----------|-------|-----------------|-----------|
+| **Homepage Load** | Cold page load | Page fully rendered | < 2 seconds |
+| **Database Query** | Load 100+ work orders | Admin page responsive | < 1 second |
+| **Widget Refresh** | Auto-refresh cycle | No performance degradation | Minimal CPU spike |
+| **Email Send** | Bulk email operations | No blocking | Async processing |
+
+**Test execution frequency:** Run monthly or after major changes  
+**Pass criteria:** All tests must pass before production deployment
+
+---
+
+*Last updated: 2026-03-11 (Added comprehensive input/output test cases with expected outcomes)*
