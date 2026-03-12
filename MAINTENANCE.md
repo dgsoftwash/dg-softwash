@@ -606,4 +606,69 @@ Automatic emails are sent to the customer when toggling status buttons in the Wo
 
 ---
 
-*Last updated: 2026-03-11 (iCloud backup fixed — root LaunchDaemon, FDA bypass, rsync chmod fix)*
+### Widget System Fixes (2026-03-11)
+
+**Cursor Jumping Fix:**
+- **Root cause identified:** Backup Widget was stealing system focus every 10 seconds
+- **Solution:** Permanently deleted `/Applications/Backup Widget.app` and associated LaunchAgent
+- Backup Widget was redundant — server widget already shows backup status
+- **Result:** Cursor no longer jumps while typing in Terminal or other apps
+
+**Universal Close Buttons:**
+- Added red × close buttons to ALL widget grip bars (previously only docks had them)
+- **Widgets updated:** DG Softwash Monitor, Time Machine Widget, Backblaze Widget, Chappie Widget, EmailSyncWidget
+- **Changes:** Added `CloseHandler` class, `window.webkit.messageHandlers.close` integration, grip bar layout from `justify-content: center` to `space-between` with close button on right
+- Close button calls `NSApplication.shared.terminate(nil)` — widgets auto-restart via LaunchAgents (temporary hide, not permanent disable)
+- **Swift sources updated:** `/Volumes/1TB SSD/openclaw/workspace/widget-sources/` (all widget .swift files)
+
+**Server Widget Cleanup:**
+- Removed BACKUP HISTORY section from server widget (was cluttering the display)
+- iCloud backup status dot still shows in SERVICES section
+- **Files changed:** `/Volumes/1TB SSD/server-widget/ServerWidget.html`
+
+**Widget System Status:**
+- **7 active widgets:** Chappie Dock, File Dock, DG Softwash Monitor, Time Machine Widget, Backblaze Widget, Chappie Widget, EmailSyncWidget
+- All have working drag handles + close buttons
+- No cursor stealing, stable focus behavior
+- **Backup Widget permanently removed** (not just disabled)
+
+---
+
+### Homepage UI Improvements (2026-03-11)
+
+**Pricing Highlight Message:**
+- Added prominent yellow banner on homepage between "Integrity You Can See" and main paragraph
+- Message: **"No need for an estimate — fixed pricing! See our pricing page or book now."**
+- Links to `/pricing` and `/contact` pages
+- Golden background with dark box, blue links on hover
+
+**Hero Text Visibility Enhancement:**
+- Improved text readability against the flag background animation
+- **Main heading**: Pure white (#ffffff) with stronger shadows
+- **Tagline**: Light blue-white (#f0f9ff) with enhanced shadows  
+- **Regular text**: Light gray-blue (#e2e8f0) with stronger shadows
+- Kept flag background animation but made all text clearly readable
+
+**Files changed:** `views/index.html`, `public/css/styles.css`  
+**Service worker:** Updated to v18
+
+### Bleach Neutralizer Banner (2026-03-11)
+
+**Added prominent green banner to 3 key pages:**
+- **Pricing page** (`/pricing`) — Top banner under header
+- **Services page** (`/services`) — Top banner under header  
+- **Contact page** (`/contact`) — Top banner under header
+
+**Banner styling:**
+- Green gradient background (`#059669` to `#047857`) with bright green border (`#10b981`)
+- Bold white text with shield emoji: **"🛡️ BLEACH NEUTRALIZER RINSE with every wash to protect your surfaces and landscaping - FREE OF CHARGE!"**
+- Animated glow effect to draw attention
+- Mobile responsive (adjusts padding/font size)
+- CSS class: `.neutralizer-banner` with `@keyframes glow` animation
+
+**Files changed:** `views/pricing.html`, `views/services.html`, `views/contact.html`, `public/css/styles.css`  
+**Service worker:** Updated to v19
+
+---
+
+*Last updated: 2026-03-11 (Homepage pricing highlight, text visibility, bleach neutralizer banners)*
