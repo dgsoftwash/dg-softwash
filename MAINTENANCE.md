@@ -698,6 +698,23 @@ Automatic emails are sent to the customer when toggling status buttons in the Wo
 **Files changed:** `views/index.html`, `views/pricing.html`, `views/services.html`, `views/contact.html`, `public/css/styles.css`  
 **Service worker:** Updated to v20
 
+### OR Separator Styling Fix (2026-03-11)
+
+**Problem:** OR separator between call button and book button on pricing page was not displaying properly on mobile - appeared small and not bold despite CSS changes.
+
+**Root cause:** Mobile CSS breakpoint was overriding the main styling with smaller font size and different margins.
+
+**Solution:**
+- Added `!important` declarations to force styling on mobile devices
+- Updated mobile breakpoint CSS to maintain large, bold OR text
+- Increased font size to 1.6rem and font-weight to 900 (maximum boldness)
+- Ensured proper centering with `text-align: center !important`
+
+**Mobile cache issues:** Users may need to delete and recreate bookmarks or hard refresh to see changes due to aggressive mobile browser caching.
+
+**Files changed:** `public/css/styles.css`  
+**Service worker:** Updated to v22
+
 ---
 
-*Last updated: 2026-03-11 (Online booking emphasis - no need to call messaging)*
+*Last updated: 2026-03-11 (OR separator mobile styling fix with !important declarations)*
