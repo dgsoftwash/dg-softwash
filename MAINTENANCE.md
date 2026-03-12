@@ -982,11 +982,12 @@ Automatic emails are sent to the customer when toggling status buttons in the Wo
 - **Non-intrusive** - no data modification
 
 **Level 2 - Customer I/O (Auto 4AM)**  
-- Contact API functionality
-- Pricing calculator API
-- Time slot availability API
+- **ACTUAL customer booking flow** with AM/PM time format (e.g., "2:00 PM")
+- Customer pricing calculator functionality (house-rancher = $350)
+- Time slot availability API validation  
+- Invalid booking input validation (rejects "5:00 PM")
 - SMTP email connectivity test
-- **Non-intrusive** - connectivity tests only
+- **Real customer workflow testing** - catches booking failures
 
 **Level 3 - Admin Operations (Manual)**
 - Admin authentication
@@ -1045,10 +1046,18 @@ Automatic emails are sent to the customer when toggling status buttons in the Wo
 - 🔵 Blue: Test currently running
 - ⚪ Grey: Never run
 
+**Critical Issue Detection:**
+Level 2 testing now catches real customer-facing problems automatically:
+- ✅ **Booking system failures** (would have caught const assignment error)
+- ✅ **AM/PM time parsing issues** (tests "2:00 PM" → "14:00" conversion)  
+- ✅ **Input validation failures** (ensures "5:00 PM" is properly rejected)
+- ✅ **Pricing calculator errors** (verifies house-rancher = $350)
+- ✅ **API endpoint failures** (tests actual customer workflows)
+
 **Files changed:** `server.js` (API routes), `TestingWidget.html`, `test-runner.js`, `auto-test.sh`, `TestingWidget.swift`  
 **Dependencies:** `node-fetch` added to dg-softwash project  
 **Service worker:** Updated to v23
 
 ---
 
-*Last updated: 2026-03-11 (AM/PM time format fix + 5-level automated testing system)*
+*Last updated: 2026-03-11 (Testing system now catches real customer input/output failures - Level 2 tests actual booking workflow)*
