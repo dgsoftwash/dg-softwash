@@ -983,14 +983,14 @@ app.post('/api/contact', async (req, res) => {
     if (!parsedTime) {
       return res.json({ success: false, message: 'Invalid time slot selected. Please use format like "10:00 AM" or "2:00 PM".' });
     }
-    appointmentTime = parsedTime; // Use the parsed 24-hour format internally
+    const normalizedTime = parsedTime; // Use the parsed 24-hour format internally
 
     const parsedDuration = totalDuration ? parseInt(totalDuration) : 0;
     const baseDuration = parsedDuration > 0 ? parsedDuration : await getServiceDuration(service);
     isMultiDay = baseDuration > VALID_SLOTS.length;
 
     // For multi-day bookings, force start at 9am; otherwise use selected time
-    const day1Time = isMultiDay ? VALID_SLOTS[0] : appointmentTime;
+    const day1Time = isMultiDay ? VALID_SLOTS[0] : normalizedTime;
     const day1Duration = isMultiDay ? VALID_SLOTS.length : baseDuration;
 
     if (isMultiDay) {
