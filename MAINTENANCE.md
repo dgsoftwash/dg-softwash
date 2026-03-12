@@ -411,11 +411,11 @@ sudo pmset -a sleep 0 disksleep 0 hibernatemode 0 standby 0 powernap 0
 
 Real backups to 2TB HDD via the Backup Widget on the Desktop.
 
-**Backup script:** `/Users/david/backup.sh [items]` (home dir copy — LaunchAgent uses this; 1TB SSD original at `/Volumes/1TB SSD/backup.sh` — keep in sync if editing)
-- Items: `photos,documents,desktop,dg-softwash,database` (default: all)
+**Backup script:** `/Users/david/backup.sh [items]` (home dir copy — LaunchDaemon uses this; 1TB SSD original at `/Volumes/1TB SSD/backup.sh` — keep in sync if editing)
+- Items: `photos,documents,desktop,dg-softwash,database,icloud` (default: icloud)
 - Destination: `/Volumes/2TB HDD/Backups/`
 - DB dumps: `/Volumes/2TB HDD/Backups/database/` (keeps last 7)
-- Log: `/Volumes/2TB HDD/backup_log.txt`
+- Log: `/Volumes/2TB HDD/backup_log.txt` (script internal log) + `/tmp/icloud-backup.log` (launchd stdout/stderr)
 
 **API endpoints (require admin token):**
 - `GET /api/admin/backup/status` — current status (running/pct/log/lastBackup)
@@ -589,4 +589,21 @@ Automatic emails are sent to the customer when toggling status buttons in the Wo
 
 ---
 
-*Last updated: 2026-03-10 (WO email flow, PO vendor email, print preview fixes, server widget auto-reauth)*
+### iCloud Backup Fix (2026-03-11)
+
+- **Problem:** Scheduled 2AM iCloud backup was silently failing. Root causes:
+  1. LaunchAgent's `StandardOutPath` pointed to `/Volumes/2TB HDD/backup_log.txt` — launchd couldn't open it (FDA restriction), causing exit code 78 (EX_CONFIG) before the script ran
+  2. rsync destination `/Volumes/2TB HDD/Backups/iCloud Drive/` had `dr-x------` permissions — source iCloud directories are read-only and rsync `-a` copied those permissions to the destination, making the next run fail
+- **Fixes applied:**
+  1. Converted from user LaunchAgent to **root LaunchDaemon** (`/Library/LaunchDaemons/com.dgsoftwash.icloud-backup.plist`) — root bypasses FDA entirely, reliable across reboots
+  2. LaunchDaemon stdout/stderr now goes to `/tmp/icloud-backup.log`
+  3. Added `--chmod=Du+w` to the rsync command for the `icloud` item in `backup.sh` — ensures destination directories stay writable even though source iCloud dirs are read-only
+  4. Ran `chmod -R u+w "/Volumes/2TB HDD/Backups/iCloud Drive"` to fix existing locked directories
+- **Old LaunchAgent removed:** `~/Library/LaunchAgents/com.dgsoftwash.icloud-backup.plist` deleted
+- **Check scheduled run:** `sudo launchctl list | grep icloud-backup` (should show exit 0)
+- **Check log:** `cat /tmp/icloud-backup.log | tail -20`
+- **Manual trigger:** `sudo launchctl start com.dgsoftwash.icloud-backup`
+
+---
+
+*Last updated: 2026-03-11 (iCloud backup fixed — root LaunchDaemon, FDA bypass, rsync chmod fix)*
