@@ -955,4 +955,100 @@ Automatic emails are sent to the customer when toggling status buttons in the Wo
 
 ---
 
-*Last updated: 2026-03-11 (Critical business functions tested - all systems operational)*
+### AM/PM Time Format Fix (2026-03-11)
+
+**Problem:** Booking system required 24-hour format (10:00) instead of user-friendly AM/PM format (10:00 AM).
+
+**Solution:**
+- Added `parseTimeSlot()` function to convert AM/PM to 24-hour format internally
+- Updated booking validation to accept both "10:00 AM" and "2:00 PM" formats  
+- Maintains internal 24-hour format for database consistency
+- Improved error message: "Invalid time slot selected. Please use format like '10:00 AM' or '2:00 PM'."
+
+**Valid time formats now accepted:**
+- `9:00 AM`, `10:00 AM`, `11:00 AM`, `12:00 PM`, `1:00 PM`, `2:00 PM`, `3:00 PM`
+- Still accepts internal 24-hour format for API consistency
+
+**Files changed:** `server.js` (parseTimeSlot function + validation update)
+
+### 5-Level Testing Widget System (2026-03-11)
+
+**Created comprehensive automated testing system with 5 intrusiveness levels:**
+
+**Level 1 - Basic Health (Auto 4AM)**
+- Website availability (homepage, pricing, services, contact, admin)
+- Database connectivity and table access
+- PM2 process health
+- **Non-intrusive** - no data modification
+
+**Level 2 - Customer I/O (Auto 4AM)**  
+- Contact API functionality
+- Pricing calculator API
+- Time slot availability API
+- SMTP email connectivity test
+- **Non-intrusive** - connectivity tests only
+
+**Level 3 - Admin Operations (Manual)**
+- Admin authentication
+- Admin API endpoints (/api/admin/bookings, /work-orders, /dashboard)
+- Database read operations via API
+- **Safe** - read-only operations
+
+**Level 4 - Advanced Admin (Manual)**
+- Purchase order functionality
+- Review system endpoints
+- Email sync system status
+- **Safe** - no data modification
+
+**Level 5 - Comprehensive (Manual)**
+- Full booking creation and cleanup
+- Work order creation and email sending
+- Database write operations with cleanup
+- **Intrusive** - creates and removes test data
+
+**Widget Features:**
+- Real-time status dots (green/yellow/red/blue/grey)
+- Last run timestamps
+- Test execution logs with modal viewer
+- Manual run buttons for all levels
+- Auto-refresh every 30 seconds
+
+**Testing Infrastructure:**
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| **Testing Widget App** | `/Applications/Testing Widget.app` | Floating widget interface |
+| **Widget HTML** | `/Volumes/1TB SSD/server-widget/TestingWidget.html` | Widget UI |
+| **Test Runner Script** | `/Volumes/1TB SSD/openclaw/workspace/scripts/test-runner.js` | Test execution engine |
+| **Auto-Test Script** | `/Volumes/1TB SSD/openclaw/workspace/scripts/auto-test.sh` | 4AM cron wrapper |
+| **Status File** | `/tmp/testing-status.json` | Test results and timestamps |
+| **Log Files** | `/tmp/testing-level[1-5].log` | Individual test execution logs |
+
+**API Endpoints:**
+- `GET /testing-widget` - Widget HTML interface
+- `GET /api/testing/status` - Current test status and results
+- `POST /api/testing/run` - Execute specific test level  
+- `GET /api/testing/logs/:level` - Retrieve test logs
+
+**Automated Schedule:**
+- **4:00 AM daily:** Levels 1 & 2 via cron job
+- **Manual execution:** All levels 1-5 via widget buttons
+- **Auto-restart:** Widget auto-restarts via LaunchAgent
+
+**LaunchAgent:** `~/Library/LaunchAgents/com.chappie.testingwidget.plist`  
+**Cron Job:** `0 4 * * * "/Volumes/1TB SSD/openclaw/workspace/scripts/auto-test.sh"`
+
+**Status Indicators:**
+- 🟢 Green: All tests passed
+- 🟡 Yellow: Minor issues (≤2-3 failures)
+- 🔴 Red: Major issues or failures
+- 🔵 Blue: Test currently running
+- ⚪ Grey: Never run
+
+**Files changed:** `server.js` (API routes), `TestingWidget.html`, `test-runner.js`, `auto-test.sh`, `TestingWidget.swift`  
+**Dependencies:** `node-fetch` added to dg-softwash project  
+**Service worker:** Updated to v23
+
+---
+
+*Last updated: 2026-03-11 (AM/PM time format fix + 5-level automated testing system)*

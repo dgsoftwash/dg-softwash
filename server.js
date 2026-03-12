@@ -363,6 +363,30 @@ async function initDb() {
 
 // --- Booking helpers ---
 const VALID_SLOTS = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00'];
+const VALID_SLOTS_DISPLAY = ['9:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '1:00 PM', '2:00 PM', '3:00 PM'];
+
+// Convert AM/PM format to 24-hour format
+function parseTimeSlot(timeStr) {
+  if (!timeStr) return null;
+  
+  // If already in 24-hour format, return as-is
+  if (VALID_SLOTS.includes(timeStr)) return timeStr;
+  
+  // Parse AM/PM format
+  const ampmMatch = timeStr.match(/^(\d{1,2}):00\s*(AM|PM)$/i);
+  if (ampmMatch) {
+    let hour = parseInt(ampmMatch[1]);
+    const period = ampmMatch[2].toUpperCase();
+    
+    if (period === 'PM' && hour !== 12) hour += 12;
+    if (period === 'AM' && hour === 12) hour = 0;
+    
+    const formatted = hour.toString().padStart(2, '0') + ':00';
+    return VALID_SLOTS.includes(formatted) ? formatted : null;
+  }
+  
+  return null;
+}
 
 const SERVICE_DURATIONS = {
   'house-rancher': 2,
@@ -954,9 +978,12 @@ app.post('/api/contact', async (req, res) => {
       return res.json({ success: false, message: 'This service requires a custom estimate. Please call or text to book.' });
     }
 
-    if (!VALID_SLOTS.includes(appointmentTime)) {
-      return res.json({ success: false, message: 'Invalid time slot selected.' });
+    // Convert AM/PM format to 24-hour format
+    const parsedTime = parseTimeSlot(appointmentTime);
+    if (!parsedTime) {
+      return res.json({ success: false, message: 'Invalid time slot selected. Please use format like "10:00 AM" or "2:00 PM".' });
     }
+    appointmentTime = parsedTime; // Use the parsed 24-hour format internally
 
     const parsedDuration = totalDuration ? parseInt(totalDuration) : 0;
     const baseDuration = parsedDuration > 0 ? parsedDuration : await getServiceDuration(service);
@@ -2757,6 +2784,11 @@ app.get('/bb-widget', (req, res) => {
   res.sendFile('/Volumes/1TB SSD/server-widget/BBWidget.html');
 });
 
+app.get('/testing-widget', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.sendFile('/Volumes/1TB SSD/server-widget/TestingWidget.html');
+});
+
 app.get('/api/timemachine-status', (req, res) => {
   const { execSync } = require('child_process');
   try {
@@ -3212,9 +3244,66 @@ initDb().then(() => {
   applyDuePricingSchedules();
   // Re-check scheduled pricing changes every hour
   setInterval(applyDuePricingSchedules, 60 * 60 * 1000);
-  // Check for expired unreviewed reviews every 15 minutes
+    // Check for expired unreviewed reviews every 15 minutes
   setInterval(expireUnapprovedReviews, 15 * 60 * 1000);
   expireUnapprovedReviews(); // run once on startup too
+
+// --- Testing API endpoints ---
+app.get('/api/testing/status', async (req, res) => {
+  try {
+    const statusFile = '/tmp/testing-status.json';
+    let status = {
+      level1: { status: 'grey', lastRun: null, description: 'Basic website health & database integrity' },
+      level2: { status: 'grey', lastRun: null, description: 'Customer input/output functionality' },
+      level3: { status: 'grey', lastRun: null, description: 'Admin panel operations' },
+      level4: { status: 'grey', lastRun: null, description: 'Advanced admin functions & emails' },
+      level5: { status: 'grey', lastRun: null, description: 'Comprehensive system test (intrusive)' }
+    };
+    
+    if (fs.existsSync(statusFile)) {
+      const data = JSON.parse(fs.readFileSync(statusFile, 'utf8'));
+      status = { ...status, ...data };
+    }
+    
+    res.json(status);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get test status' });
+  }
+});
+
+app.post('/api/testing/run', async (req, res) => {
+  const { level } = req.body;
+  if (!level || !['1', '2', '3', '4', '5'].includes(level)) {
+    return res.status(400).json({ error: 'Invalid test level' });
+  }
+  
+  try {
+    // Run test in background
+    exec(`node "/Volumes/1TB SSD/openclaw/workspace/scripts/test-runner.js" ${level}`, 
+      { cwd: '/Volumes/1TB SSD/dg-softwash' });
+    
+    res.json({ success: true, message: `Level ${level} test started` });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to start test' });
+  }
+});
+
+app.get('/api/testing/logs/:level', (req, res) => {
+  const level = req.params.level;
+  const logFile = `/tmp/testing-level${level}.log`;
+  
+  try {
+    if (fs.existsSync(logFile)) {
+      const logs = fs.readFileSync(logFile, 'utf8');
+      res.json({ logs: logs.split('\n').slice(-50) }); // Last 50 lines
+    } else {
+      res.json({ logs: [] });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to read logs' });
+  }
+});
+
   app.listen(PORT, () => {
     console.log(`D&G Soft Wash website running on port ${PORT}`);
   });
