@@ -669,6 +669,35 @@ Automatic emails are sent to the customer when toggling status buttons in the Wo
 **Files changed:** `views/pricing.html`, `views/services.html`, `views/contact.html`, `public/css/styles.css`  
 **Service worker:** Updated to v19
 
+### Online Booking Emphasis (2026-03-11)
+
+**Added messaging across all key pages to emphasize customers can book entirely online without calling:**
+
+**Pricing Page:**
+- Added centered bold **"OR"** separator between "Call or Text" and book button
+- Changed "Book Now" → **"Book Here NOW"**
+- Added message: **"No need to call — take care of your booking online!"**
+
+**Homepage:**
+- Changed hero button: "Book Now" → **"Book Online Now"**
+
+**Services Page:**
+- Updated call-to-action text: **"Book online in minutes — no phone calls needed!"**
+- Changed button: "Book Now" → **"Book Online NOW"**
+- Added explanation: **"Complete your entire booking online — choose services, pick your date, and you're done!"**
+
+**Contact Page:**
+- Added blue highlight banner: **"📱 Complete booking online — no phone calls required! Fill out the form below and you're all set."**
+
+**Styling added:**
+- `.booking-separator` class: centered bold OR with decorative lines
+- `.online-booking-message` class: green italic text for emphasis
+- `.online-booking-highlight` class: blue gradient boxes for contact page
+- Mobile responsive sizing adjustments
+
+**Files changed:** `views/index.html`, `views/pricing.html`, `views/services.html`, `views/contact.html`, `public/css/styles.css`  
+**Service worker:** Updated to v20
+
 ---
 
-*Last updated: 2026-03-11 (Homepage pricing highlight, text visibility, bleach neutralizer banners)*
+*Last updated: 2026-03-11 (Online booking emphasis - no need to call messaging)*
