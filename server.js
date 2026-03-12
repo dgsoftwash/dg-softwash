@@ -3254,7 +3254,7 @@ app.get('/api/testing/status', async (req, res) => {
     const statusFile = '/tmp/testing-status.json';
     let status = {
       level1: { status: 'grey', lastRun: null, description: 'Basic website health & database integrity' },
-      level2: { status: 'grey', lastRun: null, description: 'Customer input/output functionality' },
+      level2: { status: 'grey', lastRun: null, description: 'Customer booking flow & input validation' },
       level3: { status: 'grey', lastRun: null, description: 'Admin panel operations' },
       level4: { status: 'grey', lastRun: null, description: 'Advanced admin functions & emails' },
       level5: { status: 'grey', lastRun: null, description: 'Comprehensive system test (intrusive)' }
