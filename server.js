@@ -3278,8 +3278,8 @@ app.post('/api/testing/run', async (req, res) => {
   }
   
   try {
-    // Run test in background
-    exec(`node "/Volumes/1TB SSD/openclaw/workspace/scripts/test-runner.js" ${level}`, 
+    // Run test in background with correct NODE_PATH
+    exec(`NODE_PATH="/Volumes/1TB SSD/dg-softwash/node_modules" node "/Volumes/1TB SSD/openclaw/workspace/scripts/test-runner.js" ${level}`, 
       { cwd: '/Volumes/1TB SSD/dg-softwash' });
     
     res.json({ success: true, message: `Level ${level} test started` });
