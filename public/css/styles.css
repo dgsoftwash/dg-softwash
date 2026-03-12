@@ -351,6 +351,53 @@ body {
   }
 }
 
+.booking-separator {
+  text-align: center;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #6b7280;
+  margin: 15px 0;
+  position: relative;
+}
+
+.booking-separator::before,
+.booking-separator::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 30%;
+  height: 1px;
+  background: #d1d5db;
+}
+
+.booking-separator::before {
+  left: 15%;
+}
+
+.booking-separator::after {
+  right: 15%;
+}
+
+.online-booking-message {
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #059669;
+  margin: 12px 0 0 0;
+  font-style: italic;
+}
+
+.online-booking-highlight {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  padding: 14px 20px;
+  border-radius: 8px;
+  text-align: center;
+  margin-bottom: 20px;
+  border: 2px solid rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+}
+
 /* Features Section */
 .features {
   padding: 80px 20px;
@@ -1251,6 +1298,20 @@ body {
   .neutralizer-banner p {
     font-size: 1rem;
     letter-spacing: 0.2px;
+  }
+
+  .booking-separator {
+    font-size: 1.2rem;
+    margin: 12px 0;
+  }
+
+  .online-booking-message {
+    font-size: 1rem;
+  }
+
+  .online-booking-highlight {
+    padding: 12px 16px;
+    font-size: 0.95rem;
   }
   }
 }
