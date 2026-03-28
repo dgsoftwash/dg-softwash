@@ -1207,4 +1207,25 @@ Added `neutralizer-banner` div to `views/index.html` between the "Integrity You 
 
 ---
 
-*Last updated: 2026-03-27 (Inline edit for payments/services/discounts; neutralizer banner on home page; multi-2/multi-3 removed; add-discount route fix; test steps 9b/10b/10c)*
+### Server Alert Monitor (added 2026-03-27)
+
+Emails `service@dgsoftwash.com` (→ text via email-to-text) when issues are detected.
+
+- **Script:** `/Users/david/server-alert.js`
+- **LaunchAgent:** `com.dgsoftwash.server-alert` — runs every 5 minutes, starts at login
+- **Log:** `cat /tmp/server-alert.log`
+- **Throttle:** one alert per 30 minutes max (tracks last send in `/tmp/server-alert-last.txt`)
+
+**Checks:**
+| What | Trigger |
+|------|---------|
+| Web server | Not responding or HTTP 5xx |
+| PM2 | `dg-softwash` not online |
+| 1TB SSD | ≥ 90% full |
+| UPS | On battery at ≤ 20% |
+
+**Manual test:** `rm /tmp/server-alert-last.txt && node /Users/david/server-alert.js`
+
+---
+
+*Last updated: 2026-03-27 (Inline edit for payments/services/discounts; neutralizer banner; multi-2/multi-3 removed; add-discount route fix; server alert monitor via email/text)*
