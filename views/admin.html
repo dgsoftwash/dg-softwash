@@ -67,10 +67,13 @@
           <button class="admin-tab" data-tab="expenses" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Expenses</button>
           <button class="admin-tab" data-tab="revenue" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Revenue</button>
           <button class="admin-tab" data-tab="payments" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Payments</button>
+          <button class="admin-tab" data-tab="services-admin" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Services</button>
           <button class="admin-tab" data-tab="gallery-admin" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Gallery</button>
           <button class="admin-tab" data-tab="reviews-admin" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Reviews</button>
           <button class="admin-tab" data-tab="loc" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Lines of Credit</button>
           <button class="admin-tab" data-tab="analytics" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Analytics</button>
+          <button class="admin-tab" data-tab="orders" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Orders</button>
+          <button class="admin-tab" data-tab="mix-calc" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Mix Calc</button>
         </div>
 
         <!-- Dashboard Tab -->
@@ -217,6 +220,11 @@
           <div id="payments-admin-container"></div>
         </div>
 
+        <!-- Services Admin Tab -->
+        <div id="tab-services-admin" class="tab-panel" style="display:none;">
+          <div id="services-admin-container"><p style="color:#666;">Loading...</p></div>
+        </div>
+
         <!-- Gallery Admin Tab -->
         <div id="tab-gallery-admin" class="tab-panel" style="display:none;">
           <div id="gallery-admin-container"></div>
@@ -236,6 +244,105 @@
         <div id="tab-analytics" class="tab-panel" style="display:none;">
           <div id="analytics-container"></div>
         </div>
+
+        <!-- Orders Tab -->
+        <div id="tab-orders" class="tab-panel" style="display:none;">
+          <div id="orders-admin-container"><p style="color:#666;">Loading...</p></div>
+        </div>
+
+        <!-- Mix Calculator Tab -->
+        <div id="tab-mix-calc" class="tab-panel" style="display:none;">
+          <style>
+            #mix-calc-wrap { max-width:950px; margin:0 auto; }
+            #mix-calc-wrap .mc-card { background:#fff; border-radius:12px; box-shadow:0 4px 15px rgba(0,0,0,0.08); overflow:hidden; margin-bottom:25px; }
+            #mix-calc-wrap .mc-header { background:#1e293b; color:#f8fafc; padding:18px 25px; text-align:center; }
+            #mix-calc-wrap .mc-header h2 { margin:0; font-size:1.6em; }
+            #mix-calc-wrap .mc-body { display:flex; flex-direction:row; flex-wrap:nowrap; }
+            #mix-calc-wrap .mc-controls { flex:0 0 420px; padding:25px; box-sizing:border-box; }
+            #mix-calc-wrap .mc-results { flex:1 1 auto; padding:25px; background:#f8fafc; border-left:1px solid #e2e8f0; }
+            #mix-calc-wrap .mc-slider-group { margin-bottom:18px; }
+            #mix-calc-wrap .mc-slider-group label { display:flex; justify-content:space-between; font-weight:600; font-size:1em; margin-bottom:6px; }
+            #mix-calc-wrap .mc-slider-group input[type=range] { width:100%; }
+            #mix-calc-wrap .mc-sh-input { margin-top:15px; display:flex; align-items:center; gap:10px; }
+            #mix-calc-wrap .mc-sh-input label { font-weight:600; }
+            #mix-calc-wrap .mc-sh-input input { width:70px; padding:7px; border:1px solid #ccc; border-radius:6px; text-align:center; }
+            #mix-calc-wrap .mc-section-title { font-weight:700; margin:20px 0 10px; border-top:1px solid #e2e8f0; padding-top:16px; }
+            #mix-calc-wrap .mc-btn-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:8px; }
+            #mix-calc-wrap .mc-btn { background:#e2e8f0; color:#475569; border:1px solid #d1d5db; border-radius:6px; padding:9px 10px; font-size:0.88em; font-weight:600; cursor:pointer; transition:all 0.2s; }
+            #mix-calc-wrap .mc-btn:hover { background:#d1d5db; }
+            #mix-calc-wrap .mc-btn.mc-active-recipe { background:#10b981; color:#fff; border-color:#10b981; }
+            #mix-calc-wrap .mc-btn.mc-active-level { background:#f97316; color:#fff; border-color:#f97316; }
+            #mix-calc-wrap .mc-btn:disabled { background:#f1f5f9; color:#9ca3af; cursor:not-allowed; border-color:#e2e8f0; }
+            #mix-calc-wrap .mc-results h3 { margin-top:0; border-bottom:2px solid #e2e8f0; padding-bottom:8px; font-size:1.1em; }
+            #mix-calc-wrap #mc-resultsTable { width:100%; border-collapse:collapse; margin-bottom:16px; font-size:0.92em; }
+            #mix-calc-wrap #mc-resultsTable th, #mix-calc-wrap #mc-resultsTable td { padding:9px 7px; text-align:right; border-bottom:1px solid #e2e8f0; }
+            #mix-calc-wrap #mc-resultsTable th:first-child, #mix-calc-wrap #mc-resultsTable td:first-child { text-align:left; font-weight:500; }
+            #mix-calc-wrap #mc-finalSH { background:#f97316; color:#fff; text-align:center; padding:14px; border-radius:8px; font-size:1.15em; font-weight:700; }
+            #mix-calc-wrap #mc-chartTable { width:100%; border-collapse:collapse; margin-top:12px; }
+            #mix-calc-wrap #mc-chartTable th, #mix-calc-wrap #mc-chartTable td { border:1px solid #e2e8f0; padding:11px; text-align:center; font-size:0.93em; }
+            #mix-calc-wrap #mc-chartTable th { background:#f8fafc; }
+            #mix-calc-wrap #mc-chartTable .mc-svc { text-align:left; font-weight:700; }
+            #mix-calc-wrap #mc-chartTable .mc-nr { color:#ef4444; font-weight:700; font-style:italic; }
+            @media(max-width:820px){
+              #mix-calc-wrap .mc-body { flex-direction:column; }
+              #mix-calc-wrap .mc-controls { flex-basis:auto; }
+              #mix-calc-wrap .mc-results { border-left:none; border-top:1px solid #e2e8f0; }
+            }
+          </style>
+          <div id="mix-calc-wrap">
+            <div class="mc-card">
+              <div class="mc-header"><h2>Complete Soft Wash Mix Calculator</h2></div>
+              <div class="mc-body">
+                <div class="mc-controls">
+                  <div id="mc-sliders"></div>
+                  <div class="mc-sh-input">
+                    <label for="mc-bulkSH">Bulk SH %:</label>
+                    <input type="number" id="mc-bulkSH" value="12.5" step="0.1">
+                  </div>
+                  <div class="mc-section-title">1. Select a Recipe</div>
+                  <div class="mc-btn-grid">
+                    <button class="mc-btn" data-mc-recipe="houseWash">House Wash</button>
+                    <button class="mc-btn" data-mc-recipe="roofWash">Roof Wash</button>
+                    <button class="mc-btn" data-mc-recipe="drivewayClean">Driveway</button>
+                    <button class="mc-btn" data-mc-recipe="fenceDeckWash">Fence/Deck</button>
+                    <button class="mc-btn" data-mc-recipe="gutterClean">Gutter Clean</button>
+                    <button class="mc-btn" data-mc-recipe="oxidation">Oxidation</button>
+                    <button class="mc-btn" data-mc-recipe="neutralizer">Neutralizer</button>
+                    <button class="mc-btn" data-mc-recipe="uvProtectant">UV Protectant</button>
+                  </div>
+                  <div class="mc-section-title">2. Select Soil Level</div>
+                  <div class="mc-btn-grid" id="mc-levels">
+                    <button class="mc-btn" data-mc-level="light">Light</button>
+                    <button class="mc-btn" data-mc-level="moderate">Moderate</button>
+                    <button class="mc-btn" data-mc-level="heavy">Heavy</button>
+                    <button class="mc-btn" data-mc-level="disgusting">Disgusting</button>
+                  </div>
+                </div>
+                <div class="mc-results">
+                  <h3 id="mc-recipeTitle">Live Mix Ratio</h3>
+                  <table id="mc-resultsTable">
+                    <thead><tr><th>Component</th><th>Mix %</th><th>GPM@16</th><th>GPM@8</th></tr></thead>
+                    <tbody id="mc-resultsBody"></tbody>
+                  </table>
+                  <div id="mc-finalSH">Final SH on Surface: 0.00%</div>
+                </div>
+              </div>
+            </div>
+            <div class="mc-card" style="padding:25px;">
+              <h3 style="text-align:center;margin-top:0;">Target Final SH% Concentration Chart</h3>
+              <table id="mc-chartTable">
+                <thead><tr><th>Service</th><th>Light</th><th>Moderate</th><th>Heavy</th><th>Disgusting</th></tr></thead>
+                <tbody>
+                  <tr><td class="mc-svc"><b>House Wash</b><br>(Vinyl, Hardie)</td><td>0.8%–1.2%</td><td>1.2%–2.0%</td><td>2.0%–3.0%</td><td>3.0%–4.0%</td></tr>
+                  <tr><td class="mc-svc"><b>Driveway/Concrete</b></td><td>1.5%–2.0%</td><td>2.0%–3.0%</td><td>3.0%–4.5%</td><td>4.5%–6.0%</td></tr>
+                  <tr><td class="mc-svc"><b>Roof Wash</b><br>(Asphalt, Tile)</td><td>2.5%–3.5%</td><td>3.5%–4.5%</td><td>4.5%–6.0%</td><td class="mc-nr">Not Rec.</td></tr>
+                  <tr><td class="mc-svc"><b>Fence/Deck Wash</b><br>(Wood)</td><td>0.5%–0.8%</td><td>0.8%–1.2%</td><td class="mc-nr">Not Rec.</td><td class="mc-nr">Not Rec.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
       </div>
 
     </div>
@@ -261,8 +368,8 @@
         </div>
         <div class="footer-section">
           <h3>Contact Info</h3>
-          <p>Phone: <a href="tel:7573304260">(757) 330-4260</a></p>
-          <p>Email: <a href="mailto:service@dgsoftwash.com">service@dgsoftwash.com</a></p>
+          <p>Phone: <a href="tel:8048321953">(804) 832-1953</a></p>
+          <p>Email: <a href="mailto:service@dgsoftwash.com?subject=Service Inquiry">service@dgsoftwash.com</a></p>
         </div>
       </div>
       <div class="footer-bottom">
@@ -532,7 +639,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="/js/main.js"></script>
-  <script src="/js/admin.js?v=22"></script>
+  <script src="/js/admin.js?v=28"></script>
   <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js');</script>
 </body>
 </html>

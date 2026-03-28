@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>🤖 D&G Softwash Remote Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+            color: white; min-height: 100vh; padding: 8px;
+        }
+        .header {
+            text-align: center; margin-bottom: 10px;
+            background: rgba(15, 23, 42, 0.9); padding: 8px; border-radius: 6px;
+            border: 1px solid rgba(34, 197, 94, 0.4);
+        }
+        .header h1 { font-size: 18px; color: #22c55e; margin-bottom: 2px; }
+        .subtitle { color: #94a3b8; font-size: 12px; }
+        
+        .dashboard-layout {
+            display: flex; gap: 8px; max-width: 1400px; margin: 0 auto;
+            height: calc(100vh - 95px);
+        }
+        
+        .main-panel {
+            background: rgba(13, 17, 23, 0.95); border-radius: 6px;
+            border: 1px solid rgba(56, 139, 253, 0.25); 
+            display: flex; flex-direction: column;
+            width: 60%; min-width: 300px; max-width: 80%;
+            resize: horizontal; overflow: hidden;
+        }
+        
+        .side-panels {
+            display: flex; flex-direction: column; gap: 6px;
+            flex: 1; min-width: 250px;
+        }
+        
+        .widget-panel {
+            background: rgba(13, 17, 23, 0.95); border-radius: 5px;
+            border: 1px solid rgba(34, 197, 94, 0.3); 
+            display: flex; flex-direction: column;
+            overflow: hidden;
+            resize: vertical;
+        }
+        
+        .testing-panel { height: 300px; min-height: 200px; max-height: 500px; }
+        .status-panel { height: 75px; min-height: 60px; max-height: 120px; }
+        .email-panel { height: 110px; min-height: 90px; max-height: 150px; }
+        
+        .panel-header {
+            background: rgba(34, 197, 94, 0.08); padding: 5px 8px;
+            border-bottom: 1px solid rgba(34, 197, 94, 0.2);
+            font-weight: 600; font-size: 10px; text-align: center;
+            flex-shrink: 0;
+        }
+        
+        .panel-content {
+            flex: 1; display: flex; flex-direction: column;
+            min-height: 0; overflow: hidden;
+        }
+        
+        .widget-frame {
+            width: 100%; border: none; background: transparent;
+            flex: 1; min-height: 0;
+        }
+        
+        .close-btn {
+            position: fixed; top: 8px; right: 50px;
+            background: rgba(239, 68, 68, 0.9); border: none;
+            color: white; padding: 5px 8px; border-radius: 3px;
+            cursor: pointer; font-weight: 600; z-index: 1000;
+            font-size: 10px;
+        }
+        .close-btn:hover { background: rgba(239, 68, 68, 1); }
+        
+        .refresh-btn {
+            position: fixed; top: 8px; right: 8px;
+            background: rgba(34, 197, 94, 0.9); border: none;
+            color: white; padding: 5px 8px; border-radius: 3px;
+            cursor: pointer; font-weight: 600; z-index: 1000;
+            font-size: 10px;
+        }
+        .refresh-btn:hover { background: rgba(34, 197, 94, 1); }
+        
+        .resize-info {
+            position: fixed; bottom: 10px; left: 10px;
+            background: rgba(15, 23, 42, 0.9); padding: 6px 10px;
+            border-radius: 4px; font-size: 10px; color: #94a3b8;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+        
+        /* Email sync widget styles */
+        .email-content {
+            padding: 8px; display: flex; flex-direction: column; gap: 5px;
+            font-family: 'IBM Plex Mono', monospace; justify-content: center;
+            height: 100%;
+        }
+        .email-row { display: flex; align-items: center; justify-content: space-between; }
+        .email-status { display: flex; align-items: center; gap: 6px; }
+        .email-dot { 
+            width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+        }
+        .email-dot.green { background: #4ade80; box-shadow: 0 0 6px rgba(74,222,128,0.5); }
+        .email-dot.yellow { background: #facc15; box-shadow: 0 0 6px rgba(250,204,21,0.5); }
+        .email-dot.red { background: #f87171; box-shadow: 0 0 6px rgba(248,113,113,0.5); }
+        .email-dot.gray { background: #6b7280; }
+        .email-text { font-size: 10px; color: #c9d1d9; font-weight: 500; }
+        .email-meta { font-size: 9px; color: #484f58; }
+        .email-count { font-size: 9px; color: #22c55e; font-weight: 600; }
+        .email-error { color: #f87171; }
+        
+        /* Mobile responsive */
+        @media (max-width: 800px) {
+            .dashboard-layout {
+                flex-direction: column;
+            }
+            .main-panel {
+                width: 100%; min-height: 400px;
+            }
+            .side-panels {
+                flex-direction: row; overflow-x: auto;
+            }
+            .widget-panel {
+                min-width: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <button class="close-btn" onclick="window.close()">✕</button>
+    <button class="refresh-btn" onclick="refreshAllWidgets()">🔄</button>
+    
+    <div class="header">
+        <h1>🤖 D&G Softwash Remote Dashboard</h1>
+        <div class="subtitle">Access from anywhere • Auto-resizable system monitor</div>
+    </div>
+    
+    <div class="dashboard-layout">
+        <!-- Main Server Panel -->
+        <div class="main-panel">
+            <div class="panel-header">🖥 Server Monitoring & Controls</div>
+            <div class="panel-content">
+                <iframe class="widget-frame" src="/server-widget"></iframe>
+            </div>
+        </div>
+        
+        <!-- Side Panels -->
+        <div class="side-panels">
+            <!-- Testing Panel -->
+            <div class="widget-panel testing-panel">
+                <div class="panel-header">🧪 Testing System</div>
+                <div class="panel-content">
+                    <iframe class="widget-frame" src="/testing-widget"></iframe>
+                </div>
+            </div>
+            
+            <!-- Chappie Status -->
+            <div class="widget-panel status-panel">
+                <div class="panel-header">🤖 Chappie AI</div>
+                <div class="panel-content">
+                    <iframe class="widget-frame" src="/chappie-widget"></iframe>
+                </div>
+            </div>
+            
+            <!-- Time Machine -->
+            <div class="widget-panel status-panel">
+                <div class="panel-header">🕐 Time Machine</div>
+                <div class="panel-content">
+                    <iframe class="widget-frame" src="/tm-widget"></iframe>
+                </div>
+            </div>
+            
+            <!-- Backblaze -->
+            <div class="widget-panel status-panel">
+                <div class="panel-header">🔥 Backblaze</div>
+                <div class="panel-content">
+                    <iframe class="widget-frame" src="/bb-widget"></iframe>
+                </div>
+            </div>
+            
+            <!-- Email Sync -->
+            <div class="widget-panel email-panel">
+                <div class="panel-header">📧 Yahoo→Zoho Sync</div>
+                <div class="panel-content">
+                    <div class="email-content">
+                        <div class="email-row">
+                            <div class="email-status">
+                                <div class="email-dot gray" id="emailDot"></div>
+                                <div class="email-text" id="emailText">Loading...</div>
+                            </div>
+                            <div class="email-meta" id="emailTime">--</div>
+                        </div>
+                        <div class="email-row">
+                            <div class="email-text">Last Transfer</div>
+                            <div class="email-count" id="emailCount">--</div>
+                        </div>
+                        <div class="email-row">
+                            <div class="email-text">Errors</div>
+                            <div class="email-meta" id="emailErrors">--</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="resize-info">
+        🌐 Remote Dashboard • Drag panel edges to resize • All your D&G systems in one place
+    </div>
+    
+    <script>
+        // Save panel sizes
+        function savePanelSizes() {
+            const mainPanel = document.querySelector('.main-panel');
+            const testingPanel = document.querySelector('.testing-panel');
+            const emailPanel = document.querySelector('.email-panel');
+            
+            const sizes = {
+                main: mainPanel.style.width || '60%',
+                testing: testingPanel.style.height || '300px',
+                email: emailPanel.style.height || '110px'
+            };
+            
+            localStorage.setItem('dgRemoteDashboardSizes', JSON.stringify(sizes));
+        }
+        
+        // Load saved sizes
+        function loadPanelSizes() {
+            try {
+                const saved = localStorage.getItem('dgRemoteDashboardSizes');
+                if (saved) {
+                    const sizes = JSON.parse(saved);
+                    const mainPanel = document.querySelector('.main-panel');
+                    const testingPanel = document.querySelector('.testing-panel');
+                    const emailPanel = document.querySelector('.email-panel');
+                    
+                    if (sizes.main) mainPanel.style.width = sizes.main;
+                    if (sizes.testing) testingPanel.style.height = sizes.testing;
+                    if (sizes.email) emailPanel.style.height = sizes.email;
+                }
+            } catch (e) {}
+        }
+        
+        // Setup resize listeners
+        function setupResizeListeners() {
+            const panels = document.querySelectorAll('.widget-panel, .main-panel');
+            panels.forEach(panel => {
+                const observer = new ResizeObserver(() => {
+                    setTimeout(savePanelSizes, 500);
+                });
+                observer.observe(panel);
+            });
+        }
+        
+        // Email sync status fetcher
+        async function loadEmailSyncStatus() {
+            const dot = document.getElementById('emailDot');
+            const text = document.getElementById('emailText');
+            const time = document.getElementById('emailTime');
+            const count = document.getElementById('emailCount');
+            const errors = document.getElementById('emailErrors');
+            
+            try {
+                const response = await fetch('/api/email-sync-status');
+                const data = await response.json();
+                
+                // Update UI with API data
+                dot.className = 'email-dot ' + data.status;
+                
+                // Shorten message for display
+                let message = data.message;
+                if (message.length > 20) {
+                    message = message.substring(0, 20) + '...';
+                }
+                text.textContent = message;
+                time.textContent = data.timeAgo;
+                count.textContent = data.transferred.toString();
+                
+                if (data.errors > 0) {
+                    errors.textContent = data.errors.toString();
+                    errors.className = 'email-meta email-error';
+                } else {
+                    errors.textContent = '0';
+                    errors.className = 'email-meta';
+                }
+            } catch (error) {
+                console.error('Error loading email sync status:', error);
+                dot.className = 'email-dot red';
+                text.textContent = 'API Error';
+                time.textContent = 'Failed';
+                count.textContent = '0';
+                errors.textContent = '1';
+                errors.className = 'email-meta email-error';
+            }
+        }
+        
+        function refreshAllWidgets() {
+            // Refresh all iframes
+            const iframes = document.querySelectorAll('iframe');
+            iframes.forEach(iframe => {
+                const src = iframe.src;
+                iframe.src = '';
+                setTimeout(() => {
+                    iframe.src = src;
+                }, 100);
+            });
+            
+            // Refresh email sync data
+            loadEmailSyncStatus();
+            
+            console.log('🔄 All widgets refreshed');
+        }
+        
+        window.addEventListener('load', function() {
+            loadPanelSizes();
+            setupResizeListeners();
+            
+            // Load email sync status
+            loadEmailSyncStatus();
+            // Refresh email sync every 30 seconds
+            setInterval(loadEmailSyncStatus, 30000);
+        });
+    </script>
+</body>
+</html>

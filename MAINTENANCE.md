@@ -89,7 +89,7 @@ const CACHE = 'dg-softwash-v3';  // increment each time HTML changes
 
 Current version: **v17** (bumped 2026-03-09 — admin JS email/print fixes)
 
-**Cache-busting:** `admin.js` loaded with `?v=XX` query param in `admin.html` (currently v22). Bump this number when changing admin.js to force iPad/mobile cache refresh.
+**Cache-busting:** `admin.js` loaded with `?v=XX` query param in `admin.html` (currently **v23**, bumped 2026-03-26 — search refactor + ASIN/URL validation fixes). Bump this number when changing admin.js to force iPad/mobile cache refresh.
 
 **Admin page:** Served with `Cache-Control: no-store` header to prevent caching.
 
@@ -116,7 +116,7 @@ Also add `/reviews` to `STATIC_ASSETS` array when adding new public pages.
 | Email popup appears every page visit | localStorage `dgEmailPopupDone` not set | Check browser isn't in incognito; open DevTools → Application → Local Storage to verify |
 | Need to re-test popup (reset flag) | `dgEmailPopupDone` set in localStorage | DevTools → Application → Local Storage → delete `dgEmailPopupDone` |
 | Site doesn't come back after reboot | Auto-boot script failed | Check `cat /tmp/boot-recovery.log` for errors; run `bash /Users/david/boot-recovery.sh` manually |
-| PM2 shows "errored" after reboot (EPERM on 1TB SSD) | PM2 daemon launched by LaunchAgent has restricted SSD access | Kill and restart daemon from terminal: `pm2 kill && cd "/Volumes/1TB SSD/dg-softwash" && pm2 start server.js --name dg-softwash && pm2 save` |
+| PM2 shows "errored" after reboot (EPERM on 1TB SSD) | PM2 daemon launched by LaunchAgent has restricted SSD access | **Now auto-fixed by boot-recovery.sh (step 6b)** — detects EPERM and relaunches PM2 via Terminal.app. Manual fix if needed: `pm2 kill && cd "/Volumes/1TB SSD/dg-softwash" && pm2 start server.js --name dg-softwash && pm2 save` |
 | PostgreSQL won't start after reboot (stale PID) | Hard reboot left postmaster.pid behind | `rm /opt/homebrew/var/postgresql@15/postmaster.pid` then `pg_ctl -D /opt/homebrew/var/postgresql@15 start` |
 | Cloudflare Tunnel not running after reboot | launchd timing issue | Run `sudo cloudflared service uninstall && sudo cloudflared service install` then reboot |
 
@@ -157,7 +157,7 @@ The app runs on the Mac Mini 24/7 via:
 ### Auto-Boot Script (added 2026-03-04)
 `/Users/david/boot-recovery.sh` runs at login via `~/Library/LaunchAgents/pm2.david.plist`.
 
-Handles boot-order issues automatically:
+Handles boot-order issues automatically (updated 2026-03-26):
 1. Waits up to 60s for the 1TB SSD to mount
 2. Fixes permissions (`chmod -R 755`)
 3. Removes stale Postgres `postmaster.pid` if left by a hard reboot
@@ -549,7 +549,7 @@ Automatic emails are sent to the customer when toggling status buttons in the Wo
 
 | Status Toggle | Email Type | Details |
 |---|---|---|
-| **Job Complete** | Payment reminder | "Service Complete — Payment Due Within 10 Days". Shows service, total, due date (red). Call-to-pay button: (757) 330-4260. Payment methods: Cash, Check, Card, PayPal (@dgsoftwash), Venmo (@dgsoftwash). |
+| **Job Complete** | Payment reminder | "Service Complete — Payment Due Within 10 Days". Shows service, total, due date (red). Call-to-pay button: (757) 448-5395. Payment methods: Cash, Check, Card, PayPal (@dgsoftwash), Venmo (@dgsoftwash). |
 | **Invoiced** | Invoice | "Invoice #XX — 30 day terms". Full invoice with amount due, due date, services. For commercial contracts. |
 | **Invoice Paid** | Payment receipt | Existing receipt confirmation email. |
 | **Paid** | Payment received + review request | "Payment Received — Thank You!" Confirms amount paid, includes ⭐ Leave a Review button (links to dgsoftwash.com/reviews). |
@@ -1060,4 +1060,103 @@ Level 2 testing now catches real customer-facing problems automatically:
 
 ---
 
-*Last updated: 2026-03-11 (Testing system now catches real customer input/output failures - Level 2 tests actual booking workflow)*
+### Orders Tab — Product Catalog, Order Log & Reorder Flow (added 2026-03-25)
+
+Admin → **Orders** tab provides a full product catalog sourced from Amazon order history, an order log, and one-click reorder with automatic PO generation.
+
+#### Product Catalog (updated 2026-03-26)
+- **257 products** as of 2026-03-26 — Amazon ASIN products + URL-only products (SESW, Softwash Technologies, Pressure Tek, etc.)
+- Categories in use: Pump, Softwash Supplies, Chemicals, Home Improvement, Automotive Parts and Accessories, and more
+- **Non-Amazon suppliers added:** SESW (southeastsoftwash.com) and Softwash Technologies (softwashtechnologies.com) — stored as URL-only products with NULL ASIN
+- Displays all tracked products with: Category, ASIN (links to Amazon), Title, Model#, Part#, PPU, Seller, Image
+- **Add / Edit / Delete** via modal — ASIN **or** Product URL required (not both); ASIN field also accepts a full Amazon URL and auto-extracts the ASIN
+- ASIN field shows live "View on Amazon ↗" link when a valid 10-char ASIN is entered
+- Table uses `table-layout:fixed` with percentage column widths — fits the viewport without horizontal scroll
+- DB table: `amazon_products` — columns: id, asin (UNIQUE, nullable), title, category, model_number, part_number, ppu, seller_name, notes, product_url, created_at, updated_at
+- Empty ASIN stored as NULL (not empty string) to avoid UNIQUE constraint collision across URL-only products
+- **Search:** Live filter on title, ASIN, model#, part#, seller — fires on each keystroke AND on Enter. Table rendered once on tab load; filter toggles row visibility (no rebuild). Cache-busted at v23.
+- **Bulk-add tip:** Insert directly via psql with NULL asin + product_url, then `pm2 reload` to trigger image prewarm
+
+#### Product Images
+- **ASIN-based products:** `GET /api/amazon-image/:asin` — scrapes Amazon page for hiRes/large/media-amazon URLs, cached at `public/amazon-img-cache/{ASIN}.jpg`
+- **URL-only products:** `GET /api/product-image/:id` — scrapes `og:image` from the product URL, cached at `public/amazon-img-cache/p{id}.jpg`
+- **Startup prewarm:** `prewarmAmazonImages()` runs 5s after server boot — pre-caches all missing images (0.8s/0.5s delay between requests)
+- **On-add fetch:** New products have their image fetched automatically in `setImmediate` after POST — handles both ASIN and URL paths
+- **Background loader:** `_preloadProductImages()` in admin.js pre-loads all product images with concurrency=6; images fade in when loaded
+
+#### Order Log
+- Tracks every order: product (dropdown), qty, unit price, auto-calculated total, seller, notes, status, date
+- Filter by year, status, and text search
+- Checkbox selection with running total footer
+- DB table: `amazon_orders` — columns: id, order_tag, asin, product_title, qty, unit_price, total_price, seller_name, notes, status, ordered_at, created_at
+
+#### Reorder Flow (Reorder → Log → PO → Expenses)
+1. Click **Reorder** on any catalog product
+2. Log Order modal opens pre-filled with product details — adjust qty and confirm
+3. On save: order logged to `amazon_orders` → PO created in `purchase_orders` → **Expenses tab activated** → PO modal opens automatically
+4. PO is fully editable in the Expenses tab (same as manually created POs)
+
+**Popup blocker workaround:** Browser popup blockers block `window.open` after async awaits — the window is opened synchronously before any awaits and passed as `preOpenedWin` to `_generatePO()`. This allows the PO to open without being blocked.
+
+#### Key Routes (server.js)
+| Route | Purpose |
+|-------|---------|
+| `GET /api/amazon-image/:asin` | Proxy + cache Amazon product images |
+| `GET /api/admin/amazon-products` | List all products |
+| `POST /api/admin/amazon-products` | Add product |
+| `PUT /api/admin/amazon-products/:id` | Edit product |
+| `DELETE /api/admin/amazon-products/:id` | Delete product |
+| `GET /api/admin/amazon-orders` | List order log |
+| `POST /api/admin/amazon-orders` | Log new order |
+| `PUT /api/admin/amazon-orders/:id` | Update order |
+| `DELETE /api/admin/amazon-orders/:id` | Delete order log entry |
+| `GET /api/admin/amazon-orders/po?ids=1,2,3` | Generate PO data from selected orders (**must be registered BEFORE `/:id` route**) |
+
+> **Route ordering note:** `/api/admin/amazon-orders/po` must be registered BEFORE the `/:id` dynamic route in server.js — otherwise Express treats "po" as an id parameter.
+
+#### Non-Amazon Products (no ASIN)
+- Products without an ASIN use `product_url` for the link and `/api/product-image/:id` for images
+- Image proxy scrapes `og:image` from the product page; handles protocol-relative URLs (`//domain.com/img.jpg`)
+- Cache filename: `public/amazon-img-cache/p{id}.jpg`
+- If a non-Amazon product's page has no `og:image`, find the ASIN on Amazon and update the product record — the Amazon proxy will then cache it as `{ASIN}.jpg`
+- Example: Mothers 87538 Degreaser — Kleen-Rite has no product photo; ASIN `B00PZQI6I2` added from Amazon so image loads via Amazon proxy
+
+#### Level 2 Test Coverage (test-full.sh — Steps 11, 12, 13)
+- **Step 11 — Product Catalog:** Create product (ASIN B00TEST1234), list/verify, edit PPU
+- **Step 12 — Order Log & Reorder:** Log order (qty=3 × $14.99 = $44.97), verify total calculation, update status to received
+- **Step 13 — PO Generation + Image Proxy:** Generate PO from order IDs via `/api/admin/amazon-orders/po`, create PO in expenses system, verify date is YYYY-MM-DD format, test image proxy returns 200
+- Cleanup: deletes all test POs, orders, and products
+
+#### Date Fix (PO modal)
+PostgreSQL TIMESTAMPTZ serializes as full ISO string; `type="date"` inputs need `YYYY-MM-DD` only.
+Fix: `(po.date || '').toString().substring(0, 10)` in `renderPoModal` and PO list date display.
+
+---
+
+### Revenue Tab — Total Build Cost Tile (added 2026-03-26)
+
+**Purpose:** Track break-even progress against the total startup investment.
+
+**How it works:**
+- Admin enters their total startup/build cost in the editable "Total Build Cost" tile on the Revenue tab
+- The tile automatically subtracts **all-time Net After Reserves** (summed across every year of data) from the build cost
+- Displays the remaining amount to break even — turns green with a checkmark once the business has broken even
+- Build cost persists in the `settings` table under key `build_cost`
+
+**Net After Reserves formula (same as yearly tiles, applied to all-time data):**
+```
+Net After Reserves = (Gross − Expenses) − (Gross × 33%) − max(0, Gross × 15% − Expenses)
+```
+
+**New API endpoint:** `GET /api/admin/revenue-alltime` — queries all paid work orders and expenses with no year filter, returns `{ gross, expenses, net, tax_reserve, exp_reserve, net_after_reserves }`
+
+**UI behavior:**
+- Dark tile (matches brand) until break-even, then switches to green
+- Editable dollar input — tab/click away to save, tile reloads with updated calculation
+- Shows: Build Cost (editable) → All-Time Net After Reserves → Remaining / Ahead
+
+**admin.js version:** v24 (bumped 2026-03-26)
+
+---
+
+*Last updated: 2026-03-26 (Revenue tab build cost tile + all-time NAR endpoint; Orders tab SESW/SWT bulk import; search fix; EPERM auto-fix in boot-recovery.sh)*

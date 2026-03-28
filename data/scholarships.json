@@ -1,5 +1,5 @@
 {
-  "nextId": 18,
+  "nextId": 34,
   "scholarships": [
     {
       "id": 1,
@@ -191,6 +191,186 @@
       "category": "tools",
       "color_class": "orange",
       "sort_order": 3,
+      "active": true
+    },
+    {
+      "id": 18,
+      "title": "American Legion Auxiliary Children of Warriors National Presidents' Scholarship",
+      "url": "https://www.legion-aux.org/scholarships/children-of-warriors-national-presidents-scholarship",
+      "description": "Awarded to children of veterans and active-duty military. Covers tuition, room and board, books, and fees.",
+      "amount": "Up to $5,000/yr",
+      "deadline": "March 1 each year",
+      "category": "military",
+      "color_class": "",
+      "sort_order": 0,
+      "active": true
+    },
+    {
+      "id": 19,
+      "title": "Dominion Energy Scholarship Program",
+      "url": "https://www.dominionenergy.com/company/community/dominion-energy-scholarship-program",
+      "description": "Provides scholarships to high school seniors and current college students in Virginia, including the Hampton Roads area.",
+      "amount": "See website",
+      "deadline": "See website",
+      "category": "state",
+      "color_class": "",
+      "sort_order": 0,
+      "active": true
+    },
+    {
+      "id": 20,
+      "title": "Southern Regional Education Board's Tuition Grant Program",
+      "url": "https://www.sreb.org/tuition-grant-program",
+      "description": "Offers tuition assistance for Virginia residents attending eligible colleges and universities, including those in the Hampton Roads area.",
+      "amount": "See website",
+      "deadline": "See website",
+      "category": "state",
+      "color_class": "",
+      "sort_order": 0,
+      "active": true
+    },
+    {
+      "id": 21,
+      "title": "Virginia War Memorial Foundation Scholarship",
+      "url": "https://vawarmemorial.org/learn/programs/scholarship-program/",
+      "description": "Awarded to children and grandchildren of Virginia veterans. Covers tuition, fees, and other educational expenses.",
+      "amount": "See website",
+      "deadline": "See website",
+      "category": "military",
+      "color_class": "",
+      "sort_order": 0,
+      "active": true
+    },
+    {
+      "id": 22,
+      "title": "Newman's Own Foundation Veterans Leadership Program",
+      "url": "https://newmansownfoundation.org/veterans-leadership-program/",
+      "description": "Provides scholarships and leadership training to veterans and military dependents, including those who may have GI Bill benefits.",
+      "amount": "See website",
+      "deadline": "See website",
+      "category": "military",
+      "color_class": "",
+      "sort_order": 0,
+      "active": true
+    },
+    {
+      "id": 23,
+      "title": "Folds of Honor Scholarship",
+      "url": "https://foldsofhonor.org/scholarships/",
+      "description": "Provides educational scholarships to spouses and children of America's fallen and disabled service members. Covers tuition, books, and fees.",
+      "amount": "Up to $5,000/yr",
+      "deadline": "See website",
+      "category": "military",
+      "color_class": "",
+      "sort_order": 0,
+      "active": true
+    },
+    {
+      "id": 24,
+      "title": "Virginia Senators Military Family Relief Fund Scholarship",
+      "url": "https://www.dvs.virginia.gov/education-employment/military-family-relief-fund",
+      "description": "Provides financial assistance to children of Virginia military members who were killed or disabled while on active duty. Covers tuition, room and board, fees, and books.",
+      "amount": "See website",
+      "deadline": "See website",
+      "category": "state",
+      "color_class": "",
+      "sort_order": 0,
+      "active": true
+    },
+    {
+      "id": 25,
+      "title": "TCSPP Military Dependent Scholarship",
+      "url": "https://www.thechicagoschool.edu/tuition-and-aid/scholarships/military-dependent-scholarship/",
+      "description": "Offers scholarships to dependent children of active duty, reserve, or retired U.S. military personnel attending The Chicago School of Professional Psychology.",
+      "amount": "Up to $10,000 per academic year",
+      "deadline": "See website",
+      "category": "military",
+      "color_class": "",
+      "sort_order": 0,
+      "active": true
+    },
+    {
+      "id": 26,
+      "title": "Thurgood Marshall College Fund Scholarship",
+      "url": "https://www.tmcf.org/our-programs/scholarship/",
+      "description": "Provides scholarships to students attending publicly-supported Historically Black Colleges and Universities (HBCUs) in Virginia, including Hampton University and Norfolk State University.",
+      "amount": "See website",
+      "deadline": "See website",
+      "category": "state",
+      "color_class": "",
+      "sort_order": 0,
+      "active": true
+    },
+    {
+      "id": 27,
+      "title": "Hope For The Warriors Scholarship",
+      "url": "https://www.hopeforthewarriors.org/transition/education-support/",
+      "description": "Offers scholarships to spouses, children, siblings, or direct descendants of service members who have been killed or disabled in combat operations or training since 9/11.",
+      "amount": "See website",
+      "deadline": "See website",
+      "category": "military",
+      "color_class": "",
+      "sort_order": 0,
+      "active": true
+    },
+    {
+      "id": 29,
+      "title": "American Legion Legacy Scholarship",
+      "url": "https://www.legion.org/scholarships/legacy",
+      "description": "Provides college scholarships to children of U.S. military members who died while on active duty on or after September 11, 2001.",
+      "amount": "Up to $20,000/yr",
+      "deadline": "April 15 each year",
+      "category": "military",
+      "color_class": "",
+      "sort_order": 0,
+      "active": true
+    },
+    {
+      "id": 30,
+      "title": "Virginia War Memorial Foundation Scholarship",
+      "url": "https://www.vawarmemorial.org/education/scholarships/",
+      "description": "Offers scholarships to Virginia high school seniors who are children or grandchildren of Virginia veterans who served in wars since World War II.",
+      "amount": "See website",
+      "deadline": "February 1 each year",
+      "category": "state",
+      "color_class": "",
+      "sort_order": 0,
+      "active": true
+    },
+    {
+      "id": 31,
+      "title": "Virginia Military Survivors and Dependents Education Program",
+      "url": "https://www.schev.edu/index/tuition-aid/financialaid/state-financial-aid/virginia-military-survivors-and-dependents-education-program",
+      "description": "Provides tuition assistance for children and spouses of military service members killed, disabled, or missing in action to attend public universities and colleges in Virginia.",
+      "amount": "Covers tuition and required fees",
+      "deadline": "See website",
+      "category": "state",
+      "color_class": "",
+      "sort_order": 0,
+      "active": true
+    },
+    {
+      "id": 32,
+      "title": "Navy-Marine Corps Relief Society Education Assistance",
+      "url": "https://www.nmcrs.org/pages/education-assistance",
+      "description": "Offers interest-free loans and grants to help dependents of active-duty, retired, and deceased Navy and Marine Corps service members with educational expenses.",
+      "amount": "See website",
+      "deadline": "See website",
+      "category": "military",
+      "color_class": "",
+      "sort_order": 0,
+      "active": true
+    },
+    {
+      "id": 33,
+      "title": "Wounded Warrior Project Scholarship Program",
+      "url": "https://www.woundedwarriorproject.org/programs/warriors-to-work/education-and-training/scholarship-program",
+      "description": "Provides scholarships to children and spouses of wounded, ill, or injured service members and veterans to help cover the cost of higher education.",
+      "amount": "Up to $10,000/yr",
+      "deadline": "See website",
+      "category": "military",
+      "color_class": "",
+      "sort_order": 0,
       "active": true
     }
   ]

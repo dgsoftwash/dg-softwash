@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Scholarship Admin</title>
+  <title>Scholarship Admin v2.1</title>
+  <meta name="cache-bust" content="20260322-2117">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f4f8; color: #1a1a2e; min-height: 100vh; }
@@ -207,7 +208,7 @@
   }
 
   async function loadScholarships() {
-    var res = await fetch('/gabe/api/admin/scholarships', { headers: authHeaders() });
+    var res = await fetch('/gabe/api/admin/scholarships?t=' + Date.now(), { headers: authHeaders() });
     var items = await res.json();
     document.getElementById('table-heading').textContent = 'All Scholarships (' + items.length + ')';
     renderTable(items);
@@ -326,15 +327,22 @@
     results.innerHTML = '<div style="color:#64748b;padding:20px 0;text-align:center;">🔍 Looking for scholarships…</div>';
 
     try {
-      var res = await fetch('/gabe/api/admin/discover', { headers: authHeaders() });
+      // Add cache-busting parameter
+      var res = await fetch('/gabe/api/admin/discover?t=' + Date.now(), { headers: authHeaders() });
+      subtitle.textContent = 'Got response, processing...';
+      
+      if (!res.ok) {
+        var errorText = await res.text();
+        throw new Error('HTTP ' + res.status + ': ' + errorText);
+      }
+      
       var data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Search failed');
       discoveredItems = data.scholarships || [];
       subtitle.textContent = 'Found ' + discoveredItems.length + ' potential scholarships. Add the ones that look relevant.';
       renderDiscovered();
     } catch(e) {
       subtitle.textContent = '';
-      results.innerHTML = '<div style="color:#dc2626;padding:8px 0;">⚠ ' + esc(e.message) + '</div>';
+      results.innerHTML = '<div style="color:#dc2626;padding:8px 0;">⚠ Error: ' + esc(e.message) + '<br><small>Status: ' + (res ? res.status : 'Network Error') + '</small></div>';
     } finally {
       btn.textContent = '🔍 Find New Scholarships';
       btn.disabled = false;
@@ -398,7 +406,8 @@
       msgEl.style.color = '#166534';
       msgEl.textContent = '✓ Added to your guide!';
       document.getElementById('dc-' + i).classList.add('processed');
-      loadScholarships();
+      // Force refresh the scholarship list
+      setTimeout(() => loadScholarships(), 500);
     } else {
       var d = await res.json();
       msgEl.style.color = '#dc2626';

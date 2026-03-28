@@ -54,21 +54,7 @@ const isRemoteDb = process.env.DATABASE_URL &&
   !process.env.DATABASE_URL.includes('127.0.0.1');
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: isRemoteDb ? { rejectUnauthorized: false } : false,
-  max: 10,                        // Maximum connections
-  min: 2,                         // Keep minimum connections open
-  idleTimeoutMillis: 30000,       // Close idle connections after 30s
-  connectionTimeoutMillis: 5000,  // Wait up to 5s for new connection
-  acquireTimeoutMillis: 8000,     // Wait up to 8s to acquire connection from pool
-  statement_timeout: 30000,       // 30s query timeout
-  query_timeout: 30000,           // 30s query timeout
-  application_name: 'dg-softwash-server'
-});
-
-// Handle pool errors gracefully to prevent crashes during resets
-pool.on('error', (err, client) => {
-  console.error('Database pool error:', err.message);
-  // Don't crash the server - let individual queries handle errors
+  ssl: isRemoteDb ? { rejectUnauthorized: false } : false
 });
 
 async function initDb() {
@@ -272,138 +258,6 @@ async function initDb() {
   `);
 
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS service_cards (
-      id SERIAL PRIMARY KEY,
-      title TEXT NOT NULL,
-      description TEXT NOT NULL DEFAULT '',
-      image_url TEXT NOT NULL DEFAULT '',
-      list_items JSONB NOT NULL DEFAULT '[]',
-      sort_order INTEGER NOT NULL DEFAULT 0,
-      active BOOLEAN NOT NULL DEFAULT true,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-
-  // Seed service cards from services.html content
-  const { rows: existingCards } = await pool.query('SELECT id FROM service_cards LIMIT 1');
-  if (existingCards.length === 0) {
-    const seedCards = [
-      { title: 'House Wash — Rancher / Single Story', sort_order: 10,
-        description: 'Our soft wash house cleaning service safely removes all organic growth, dirt, mold, mildew, and algae. All packages include SH Neutralizer for plant and surface protection.',
-        image_url: 'https://media.istockphoto.com/id/576935936/photo/simple-one-story-house-exterior-with-blue-and-red-trim.jpg?s=612x612&w=0&k=20&c=qGkVJ7cVIr56sNRNV8PSJoa7b_Z_pFbNuSqnb435YoM=',
-        list_items: [
-          {text:'House Wash',price_key:'house-rancher',strong:true},
-          {text:'Add Roof Wash',price_key:'house-addon-roof-rancher',prefix:'+'},
-          {text:'Add Driveway Hot Wash',price_key:'house-addon-driveway-hot-rancher',prefix:'+'},
-          {text:'Add Driveway Heavy Stain (Peroxide/Degreaser)',price_key:'house-addon-driveway-stain-rancher',prefix:'+'},
-          {text:'Add UV Protectant',price_key:'house-addon-uv-rancher',prefix:'+'},
-          {text:'Add Streak-Free Window Cleaning',price_key:'house-addon-windows-rancher',prefix:'+'}
-        ]},
-      { title: 'House Wash — Single Family (Two Story)', sort_order: 20,
-        description: '',
-        image_url: 'https://media.istockphoto.com/id/1276724606/photo/two-story-home-near-in-suburb-of-chicago.jpg?s=612x612&w=0&k=20&c=dziv8kRmV2ysgfYWz3CWczmU1BD51P9iCny-OQcuDSE=',
-        list_items: [
-          {text:'House Wash',price_key:'house-single',strong:true},
-          {text:'Add Roof Wash',price_key:'house-addon-roof-single',prefix:'+'},
-          {text:'Add Driveway Hot Wash',price_key:'house-addon-driveway-hot-single',prefix:'+'},
-          {text:'Add Driveway Heavy Stain (Peroxide/Degreaser)',price_key:'house-addon-driveway-stain-single',prefix:'+'},
-          {text:'Add UV Protectant',price_key:'house-addon-uv-single',prefix:'+'},
-          {text:'Add Streak-Free Window Cleaning',price_key:'house-addon-windows-single',prefix:'+'}
-        ]},
-      { title: 'House Wash — Plus+ Single Family (Large/Multi-Story)', sort_order: 30,
-        description: '',
-        image_url: 'https://media.istockphoto.com/id/1256427095/photo/perfectly-sized-two-story-home-with-lots-of-charm.jpg?s=612x612&w=0&k=20&c=mSsAsKcmj73jLQ3ctA_vSm_KrHLFNlyEIVYSbhVnNn8=',
-        list_items: [
-          {text:'House Wash',price_key:'house-plus',strong:true},
-          {text:'Add Roof Wash',price_key:'house-addon-roof-plus',prefix:'+'},
-          {text:'Add Driveway Hot Wash',price_key:'house-addon-driveway-hot-plus',prefix:'+'},
-          {text:'Add Driveway Heavy Stain (Peroxide/Degreaser)',price_key:'house-addon-driveway-stain-plus',prefix:'+'},
-          {text:'Add UV Protectant',price_key:'house-addon-uv-plus',prefix:'+'},
-          {text:'Add Streak-Free Window Cleaning',price_key:'house-addon-windows-plus',prefix:'+'}
-        ]},
-      { title: 'Deck Soft Washing', sort_order: 40,
-        description: 'Gentle cleaning for wood, composite, and vinyl decks. Our soft wash process removes grime without damaging your deck surface.',
-        image_url: 'https://media.istockphoto.com/id/155015001/photo/large-wooden-deck-of-home.jpg?s=612x612&w=0&k=20&c=-qzyKf8Lie_a65q_Q7L86OafgaZVOJVpU5qrDsNFHv0=',
-        list_items: [
-          {text:'Little Deck (up to 100 sq ft)',price_key:'deck-little',strong:true},
-          {text:'Medium Deck (100–200 sq ft)',price_key:'deck-medium',strong:true},
-          {text:'Large Deck (200–350 sq ft)',price_key:'deck-large',strong:true},
-          {text:'Big Deck (350–500 sq ft)',price_key:'deck-big',strong:true},
-          {text:'Over 500 sq ft: Call for Estimate',call:true}
-        ]},
-      { title: 'Fence Soft Washing', sort_order: 50,
-        description: 'Wood, vinyl, and composite fences cleaned safely with our soft wash process.',
-        image_url: 'https://media.istockphoto.com/id/2173103845/photo/big-new-wooden-fence-around-the-house-and-trees-street-photo-fencing-and-gates-canadian.jpg?s=612x612&w=0&k=20&c=WxiA4MYVzh60ZU3K5vOJWc-ux1GpvMgaiaNDdtCqm1s=',
-        list_items: [
-          {text:'Standard (1/4 Acre Lot)',price_key:'fence-standard',strong:true},
-          {text:'Large (Up to 1/2 Acre Lot)',price_key:'fence-large',strong:true},
-          {text:'Extra Large (1/2 Acre+): Call for Estimate',call:true}
-        ]},
-      { title: 'RV Washing — Short Bus', sort_order: 60,
-        description: 'Your RV is a major investment. We remove road grime, oxidation, and black streaks to keep your rig looking great.',
-        image_url: 'https://media.istockphoto.com/id/1532640417/photo/a-forest-river-travel-trailer-rvr-pod-camper-trailer-rv-parked.jpg?s=612x612&w=0&k=20&c=IluPa1qu4qa8r5EjeA28DGHGk5GFsAu8zA6ZVKkTcrE=',
-        list_items: [
-          {text:'RV Wash',price_key:'rv-short',strong:true},
-          {text:'Add UV Protectant',price_key:'rv-addon-uv-short',prefix:'+'},
-          {text:'Add Streak-Free Window Cleaning',price_key:'rv-addon-windows-short',prefix:'+'}
-        ]},
-      { title: 'RV Washing — Medium Bumper Pull', sort_order: 70,
-        description: '',
-        image_url: 'https://media.istockphoto.com/id/1504461085/photo/a-travel-camper-in-tidioute-pennsylvania-usa.jpg?s=612x612&w=0&k=20&c=rOV7oWTRVqBkCRCKsLKHG6Gw1dZ7mv8PLemAbwdRL7w=',
-        list_items: [
-          {text:'RV Wash',price_key:'rv-medium',strong:true},
-          {text:'Add UV Protectant',price_key:'rv-addon-uv-medium',prefix:'+'},
-          {text:'Add Streak-Free Window Cleaning',price_key:'rv-addon-windows-medium',prefix:'+'}
-        ]},
-      { title: 'RV Washing — Big Boy 5th Wheel', sort_order: 80,
-        description: '',
-        image_url: 'https://media.istockphoto.com/id/1144351011/photo/fifth-wheel-camper.jpg?s=612x612&w=0&k=20&c=HKHZHvO-9qkbfjYrj9zn8rnwKcEtki7CnLAE9437v3E=',
-        list_items: [
-          {text:'RV Wash',price_key:'rv-large',strong:true},
-          {text:'Add UV Protectant',price_key:'rv-addon-uv-large',prefix:'+'},
-          {text:'Add Streak-Free Window Cleaning',price_key:'rv-addon-windows-large',prefix:'+'}
-        ]},
-      { title: 'Boat Cleaning', sort_order: 90,
-        description: 'Keep your boat looking showroom-ready. We safely remove algae, water stains, and oxidation from hull and deck.',
-        image_url: 'https://media.istockphoto.com/id/978292440/photo/a-pleasure-boat-lining-the-pier-of-the-marina.jpg?s=612x612&w=0&k=20&c=hELPb00z5THvQCEzXLan47Uf6TZsQpzjAHNc-Uhx61Q=',
-        list_items: [
-          {text:'20ft or Less Fishing or Pleasure Boat',price_key:'boat-small',strong:true},
-          {text:'21ft to 26ft Fishing or Pleasure Boat',price_key:'boat-medium',strong:true},
-          {text:'26ft or Greater (Any Kind): Call for Estimate',call:true}
-        ]},
-      { title: 'Heavy Equipment Cleaning', sort_order: 100,
-        description: 'Peroxide/Degreaser hot wash for construction, agricultural, and industrial equipment. Dirty equipment can hide maintenance issues and project a poor image.\n\nWe clean:',
-        image_url: 'https://media.istockphoto.com/id/1131943250/vector/a-large-set-of-construction-equipment-in-yellow-special-machines-for-the-building-work.jpg?s=612x612&w=0&k=20&c=ciInTjlUgDXvssbrD2oYXVCbPpPgjPQSEKXf5em41_I=',
-        list_items: [
-          {text:'Excavators and backhoes'},
-          {text:'Tractors and farm equipment'},
-          {text:'Skid steers and loaders'},
-          {text:'Dump trucks and trailers'},
-          {text:'Forklifts'},
-          {text:'Fleet vehicles'},
-          {text:'Call for Estimate',call:true}
-        ]},
-      { title: 'Commercial Soft Washing', sort_order: 110,
-        description: 'First impressions matter for your business. Keep your commercial property looking professional.\n\nWe service:',
-        image_url: 'https://media.istockphoto.com/id/135877652/photo/new-shopping-center.jpg?s=612x612&w=0&k=20&c=rmPt1VBDUhPI_nqvtOL7xgKUtk1n-HjLZi--njdgBPc=',
-        list_items: [
-          {text:'Storefronts'},
-          {text:'Office buildings'},
-          {text:'Restaurants'},
-          {text:'Apartment complexes'},
-          {text:'HOA communities'},
-          {text:'Call for Estimate',call:true}
-        ]}
-    ];
-    for (const card of seedCards) {
-      await pool.query(
-        'INSERT INTO service_cards (title, description, image_url, list_items, sort_order) VALUES ($1,$2,$3,$4,$5)',
-        [card.title, card.description, card.image_url, JSON.stringify(card.list_items), card.sort_order]
-      );
-    }
-  }
-
-  await pool.query(`
     CREATE TABLE IF NOT EXISTS gallery_items (
       id SERIAL PRIMARY KEY,
       title TEXT NOT NULL DEFAULT '',
@@ -434,44 +288,6 @@ async function initDb() {
   await pool.query(`ALTER TABLE reviews ADD COLUMN IF NOT EXISTS admin_response TEXT`);
   // Migration: fix old pending reviews to live so they appear publicly
   await pool.query(`UPDATE reviews SET status = 'live' WHERE status = 'pending' AND source = 'public'`);
-
-  // Amazon Products catalog
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS amazon_products (
-      id SERIAL PRIMARY KEY,
-      asin TEXT NOT NULL UNIQUE,
-      title TEXT NOT NULL DEFAULT '',
-      category TEXT NOT NULL DEFAULT '',
-      model_number TEXT NOT NULL DEFAULT '',
-      part_number TEXT NOT NULL DEFAULT '',
-      ppu NUMERIC(10,2) NOT NULL DEFAULT 0,
-      seller_name TEXT NOT NULL DEFAULT '',
-      notes TEXT NOT NULL DEFAULT '',
-      product_url TEXT NOT NULL DEFAULT '',
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  await pool.query(`ALTER TABLE amazon_products ADD COLUMN IF NOT EXISTS product_url TEXT NOT NULL DEFAULT ''`);
-  await pool.query(`ALTER TABLE amazon_products ALTER COLUMN asin DROP NOT NULL`);
-
-  // Amazon Order Log
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS amazon_orders (
-      id SERIAL PRIMARY KEY,
-      order_tag TEXT NOT NULL DEFAULT '',
-      asin TEXT NOT NULL DEFAULT '',
-      product_title TEXT NOT NULL DEFAULT '',
-      qty INTEGER NOT NULL DEFAULT 1,
-      unit_price NUMERIC(10,2) NOT NULL DEFAULT 0,
-      total_price NUMERIC(10,2) NOT NULL DEFAULT 0,
-      seller_name TEXT NOT NULL DEFAULT '',
-      notes TEXT NOT NULL DEFAULT '',
-      status TEXT NOT NULL DEFAULT 'ordered',
-      ordered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
 
   // Seed services (ON CONFLICT DO NOTHING = safe to re-run, won't overwrite admin edits)
   const seedServices = [
@@ -723,11 +539,11 @@ function generateInvoiceEmail(wo, woId, dateLabel, deadlineLabel) {
     '</table>' + notesBlock +
     '<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:12px 18px;margin-bottom:20px;text-align:center;">' +
     '<span style="color:#dc2626;font-weight:700;font-size:1em;">PAYMENT STATUS: NOT PAID</span></div>' +
-    '<p style="color:#555;">Payment is due within 30 days. We accept Cash, Check, Card, PayPal (@dgsoftwash), or Venmo (@dgsoftwash). To pay by phone, call <strong>(804) 832-1953</strong>.</p>' +
-    '<p style="color:#555;">If you have any questions, please call or text us at <strong>(804) 832-1953</strong> or email <strong>service@dgsoftwash.com</strong>.</p>' +
+    '<p style="color:#555;">Payment is due within 30 days. We accept Cash, Check, Card, PayPal (@dgsoftwash), or Venmo (@dgsoftwash). To pay by phone, call <strong>(757) 330-4260</strong>.</p>' +
+    '<p style="color:#555;">If you have any questions, please call or text us at <strong>(757) 330-4260</strong> or email <strong>service@dgsoftwash.com</strong>.</p>' +
     '</div>' +
     '<div style="background:#f8f9fa;padding:16px 30px;text-align:center;color:#888;font-size:0.85em;border-top:1px solid #e5e7eb;">' +
-    'D&amp;G Soft Wash &mdash; (804) 832-1953 &mdash; service@dgsoftwash.com</div>' +
+    'D&amp;G Soft Wash &mdash; (757) 330-4260 &mdash; service@dgsoftwash.com</div>' +
     '</div></body></html>';
 }
 
@@ -753,10 +569,10 @@ function generatePaidEmail(wo, woId, dateLabel) {
     '<div style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:8px;padding:12px 18px;margin-bottom:20px;text-align:center;">' +
     '<span style="color:#065f46;font-weight:700;font-size:1em;">&#10003; PAID IN FULL</span></div>' +
     '<p style="color:#555;">Thank you for your business! We appreciate your trust in D&amp;G Soft Wash. We hope to serve you again soon.</p>' +
-    '<p style="color:#555;">If you have any questions, please call or text us at <strong>(804) 832-1953</strong>.</p>' +
+    '<p style="color:#555;">If you have any questions, please call or text us at <strong>(757) 330-4260</strong>.</p>' +
     '</div>' +
     '<div style="background:#f8f9fa;padding:16px 30px;text-align:center;color:#888;font-size:0.85em;border-top:1px solid #e5e7eb;">' +
-    'D&amp;G Soft Wash &mdash; (804) 832-1953 &mdash; service@dgsoftwash.com</div>' +
+    'D&amp;G Soft Wash &mdash; (757) 330-4260 &mdash; service@dgsoftwash.com</div>' +
     '</div></body></html>';
 }
 
@@ -782,11 +598,11 @@ function generateQuoteEmail(name, service, price, notes) {
     '</table>' + notesBlock +
     '<div style="background:#dbeafe;border:1px solid #93c5fd;border-radius:8px;padding:16px 18px;margin-bottom:20px;text-align:center;">' +
     '<p style="margin:0 0 8px;color:#1e40af;font-weight:600;">Ready to book?</p>' +
-    '<p style="margin:0;color:#1e40af;">Call or text us at <strong>(804) 832-1953</strong></p></div>' +
+    '<p style="margin:0;color:#1e40af;">Call or text us at <strong>(757) 330-4260</strong></p></div>' +
     '<p style="color:#555;font-size:0.9em;">This estimate is valid for 30 days. Final price may vary based on actual job conditions.</p>' +
     '</div>' +
     '<div style="background:#f8f9fa;padding:16px 30px;text-align:center;color:#888;font-size:0.85em;border-top:1px solid #e5e7eb;">' +
-    'D&amp;G Soft Wash &mdash; (804) 832-1953 &mdash; service@dgsoftwash.com</div>' +
+    'D&amp;G Soft Wash &mdash; (757) 330-4260 &mdash; service@dgsoftwash.com</div>' +
     '</div></body></html>';
 }
 
@@ -804,11 +620,11 @@ function generateReviewEmail(customerName, reviewUrl) {
     '<p style="color:#555;">If you had a great experience, a quick Google review would mean the world to us &mdash; it only takes a minute!</p>' +
     '<div style="text-align:center;margin:30px 0;">' +
     '<a href="' + reviewUrl + '" style="background:#1a1a2e;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:1.05em;">&#11088; Leave a Google Review</a></div>' +
-    '<p style="color:#555;font-size:0.9em;">If there\'s anything we could have done better, please reach out at <strong>(804) 832-1953</strong> &mdash; we always want the chance to make it right.</p>' +
+    '<p style="color:#555;font-size:0.9em;">If there\'s anything we could have done better, please reach out at <strong>(757) 330-4260</strong> &mdash; we always want the chance to make it right.</p>' +
     '<p style="color:#555;">Thank you for supporting a local, veteran-owned business!</p>' +
     '</div>' +
     '<div style="background:#f8f9fa;padding:16px 30px;text-align:center;color:#888;font-size:0.85em;border-top:1px solid #e5e7eb;">' +
-    'D&amp;G Soft Wash &mdash; (804) 832-1953 &mdash; service@dgsoftwash.com</div>' +
+    'D&amp;G Soft Wash &mdash; (757) 330-4260 &mdash; service@dgsoftwash.com</div>' +
     '</div></body></html>';
 }
 
@@ -911,52 +727,6 @@ app.get('/api/gallery/:id/after', async (req, res) => {
 });
 
 // --- Gallery API (admin) ---
-// --- Service Cards (Services page content) ---
-app.get('/api/services-content', async (req, res) => {
-  try {
-    const { rows } = await pool.query('SELECT * FROM service_cards WHERE active = true ORDER BY sort_order, id');
-    res.json(rows);
-  } catch(e) { res.status(500).json({ error: 'Failed to load services' }); }
-});
-
-app.get('/api/admin/service-cards', requireAdmin, async (req, res) => {
-  try {
-    const { rows } = await pool.query('SELECT * FROM service_cards ORDER BY sort_order, id');
-    res.json(rows);
-  } catch(e) { res.status(500).json({ error: 'Failed to load service cards' }); }
-});
-
-app.post('/api/admin/service-cards', requireAdmin, async (req, res) => {
-  const { title, description, image_url, list_items, sort_order } = req.body;
-  if (!title) return res.status(400).json({ error: 'Title is required' });
-  try {
-    const { rows } = await pool.query(
-      'INSERT INTO service_cards (title, description, image_url, list_items, sort_order) VALUES ($1,$2,$3,$4,$5) RETURNING id',
-      [title.trim(), description || '', image_url || '', JSON.stringify(list_items || []), parseInt(sort_order || 0)]
-    );
-    res.json({ success: true, id: rows[0].id });
-  } catch(e) { res.status(500).json({ error: 'Failed to create service card' }); }
-});
-
-app.put('/api/admin/service-cards/:id', requireAdmin, async (req, res) => {
-  const { title, description, image_url, list_items, sort_order, active } = req.body;
-  if (!title) return res.status(400).json({ error: 'Title is required' });
-  try {
-    await pool.query(
-      'UPDATE service_cards SET title=$1, description=$2, image_url=$3, list_items=$4, sort_order=$5, active=$6 WHERE id=$7',
-      [title.trim(), description || '', image_url || '', JSON.stringify(list_items || []), parseInt(sort_order || 0), active !== false, parseInt(req.params.id)]
-    );
-    res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: 'Failed to update service card' }); }
-});
-
-app.delete('/api/admin/service-cards/:id', requireAdmin, async (req, res) => {
-  try {
-    await pool.query('DELETE FROM service_cards WHERE id = $1', [parseInt(req.params.id)]);
-    res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: 'Failed to delete service card' }); }
-});
-
 app.get('/api/admin/gallery', requireAdmin, async (req, res) => {
   try {
     const { rows } = await pool.query(
@@ -1342,7 +1112,7 @@ app.post('/api/contact', async (req, res) => {
           from: 'service@dgsoftwash.com',
           to: email,
           subject: `Your D&G Soft Wash Appointment is Confirmed!`,
-          text: `Hi ${name},\n\nThank you for booking with D&G Soft Wash! Here are your appointment details:\n\nService: ${serviceLabel}\n${scheduleText}\nAddress: ${address}\n${isMultiDay ? '\nYour service package requires two consecutive days. We will arrive at 9:00 AM on Day 1 and ' + formatSlot(day2StartTime) + ' on Day 2.\n' : ''}\nIf you need to make any changes or have questions, please call or text us at (804) 832-1953.\n\nWe look forward to serving you!\n\nD&G Soft Wash\nVeteran Owned & Operated`
+          text: `Hi ${name},\n\nThank you for booking with D&G Soft Wash! Here are your appointment details:\n\nService: ${serviceLabel}\n${scheduleText}\nAddress: ${address}\n${isMultiDay ? '\nYour service package requires two consecutive days. We will arrive at 9:00 AM on Day 1 and ' + formatSlot(day2StartTime) + ' on Day 2.\n' : ''}\nIf you need to make any changes or have questions, please call or text us at (757) 330-4260.\n\nWe look forward to serving you!\n\nD&G Soft Wash\nVeteran Owned & Operated`
         });
       }
     } else {
@@ -1488,46 +1258,6 @@ app.post('/api/admin/pricing/schedule', requireAdmin, async (req, res) => {
 // DELETE /api/admin/pricing/schedule/:id
 app.delete('/api/admin/pricing/schedule/:id', requireAdmin, async (req, res) => {
   await pool.query('DELETE FROM pricing_schedule WHERE id = $1 AND applied = false', [req.params.id]);
-  res.json({ success: true });
-});
-
-// POST /api/admin/pricing/service/new — add a new service
-app.post('/api/admin/pricing/service/new', requireAdmin, async (req, res) => {
-  const { label, category, parent_key, price, duration, bookable_group } = req.body;
-  if (!label || !category || !price) return res.status(400).json({ error: 'label, category, and price are required' });
-  const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Date.now();
-  await pool.query(
-    'INSERT INTO services (key, label, category, parent_key, price, duration, sort_order, bookable_group) VALUES ($1,$2,$3,$4,$5,$6,99,$7)',
-    [key, label.trim(), category, parent_key || null, parseInt(price), parseFloat(duration || 1), bookable_group || null]
-  );
-  invalidatePricingCache();
-  res.json({ success: true });
-});
-
-// DELETE /api/admin/pricing/service/:id — remove a service
-app.delete('/api/admin/pricing/service/:id', requireAdmin, async (req, res) => {
-  await pool.query('DELETE FROM services WHERE id = $1', [parseInt(req.params.id)]);
-  invalidatePricingCache();
-  res.json({ success: true });
-});
-
-// POST /api/admin/pricing/discount/new — add a new discount
-app.post('/api/admin/pricing/discount/new', requireAdmin, async (req, res) => {
-  const { label, percent, auto_apply, min_services } = req.body;
-  if (!label || percent === undefined) return res.status(400).json({ error: 'label and percent are required' });
-  const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Date.now();
-  await pool.query(
-    'INSERT INTO discounts (key, label, percent, auto_apply, min_services) VALUES ($1,$2,$3,$4,$5)',
-    [key, label.trim(), parseInt(percent), auto_apply === true || auto_apply === 'true', parseInt(min_services || 0)]
-  );
-  invalidatePricingCache();
-  res.json({ success: true });
-});
-
-// DELETE /api/admin/pricing/discount/:id — remove a discount
-app.delete('/api/admin/pricing/discount/:id', requireAdmin, async (req, res) => {
-  await pool.query('DELETE FROM discounts WHERE id = $1', [parseInt(req.params.id)]);
-  invalidatePricingCache();
   res.json({ success: true });
 });
 
@@ -1750,7 +1480,7 @@ app.patch('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
                 (wo.completion_notes ? '<div style="background:#f0fdf4; border-left:4px solid #2d6a4f; padding:12px 16px; margin:16px 0; border-radius:0 6px 6px 0;"><strong>Service Notes:</strong><br>' + wo.completion_notes + '</div>' : '') +
                 '<p><strong>Payment is due within 10 days.</strong> We accept Cash, Check, Card, PayPal (@dgsoftwash), or Venmo (@dgsoftwash).</p>' +
                 '<p>To make a payment or if you have any questions, please give us a call:</p>' +
-                '<p style="text-align:center; margin:20px 0;"><a href="tel:8048321953" style="display:inline-block; background:#1a1a2e; color:#fff; padding:12px 28px; border-radius:8px; text-decoration:none; font-weight:600; font-size:1.1em;">📞 Call (804) 832-1953</a></p>' +
+                '<p style="text-align:center; margin:20px 0;"><a href="tel:7573304260" style="display:inline-block; background:#1a1a2e; color:#fff; padding:12px 28px; border-radius:8px; text-decoration:none; font-weight:600; font-size:1.1em;">📞 Call (757) 330-4260</a></p>' +
                 '<p style="color:#555;">You can also text us or email <strong>service@dgsoftwash.com</strong></p>' +
                 '<p>Thank you for choosing D&amp;G Soft Wash!</p>' +
                 '<div style="margin-top:24px; padding-top:16px; border-top:1px solid #e5e7eb; text-align:center; color:#888; font-size:0.85em;">' +
@@ -1858,7 +1588,7 @@ app.patch('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
                 '</table></div>' +
                 '<p>We appreciate your business! If you were happy with our work, we\'d love a review:</p>' +
                 '<p style="text-align:center; margin:16px 0;"><a href="https://dgsoftwash.com/reviews" style="display:inline-block; background:#1a1a2e; color:#fff; padding:10px 24px; border-radius:8px; text-decoration:none; font-weight:600;">⭐ Leave a Review</a></p>' +
-                '<p style="color:#555;">Questions? Call us at <strong>(804) 832-1953</strong> or email <strong>service@dgsoftwash.com</strong></p>' +
+                '<p style="color:#555;">Questions? Call us at <strong>(757) 330-4260</strong> or email <strong>service@dgsoftwash.com</strong></p>' +
                 '<div style="margin-top:24px; padding-top:16px; border-top:1px solid #e5e7eb; text-align:center; color:#888; font-size:0.85em;">' +
                 'D&amp;G Soft Wash &mdash; Integrity You Can See &mdash; Veteran Owned &amp; Operated</div>' +
                 '</div></div>'
@@ -2274,31 +2004,6 @@ app.get('/api/admin/revenue-report', requireAdmin, async (req, res) => {
   }
 });
 
-app.get('/api/admin/revenue-alltime', requireAdmin, async (req, res) => {
-  try {
-    const { rows: paidWos } = await pool.query(`
-      SELECT wo.mileage, COALESCE(b.price, wo.price) as price
-      FROM work_orders wo
-      LEFT JOIN bookings b ON wo.booking_id = b.id
-      WHERE wo.status_paid = true
-    `);
-    const { rows: expenseRows } = await pool.query(
-      `SELECT amount, category FROM expenses`
-    );
-    const gross = paidWos.reduce((s, w) => s + parsePrice(w.price), 0);
-    const expenses = expenseRows
-      .filter(e => !['AMEX Prime','AMEX Blue','Chase Ink','Capital One Spark'].includes(e.category))
-      .reduce((s, e) => s + parseFloat(e.amount), 0);
-    const net = gross - expenses;
-    const taxReserve = gross * 0.33;
-    const expReserve = Math.max(0, gross * 0.15 - expenses);
-    const netAfterReserves = net - taxReserve - expReserve;
-    res.json({ gross, expenses, net, tax_reserve: taxReserve, exp_reserve: expReserve, net_after_reserves: netAfterReserves });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
 app.get('/api/admin/year-end-report', requireAdmin, async (req, res) => {
   try {
     const year = parseInt(req.query.year) || new Date().getFullYear();
@@ -2525,9 +2230,9 @@ app.post('/api/admin/work-orders/:id/email', requireAdmin, async (req, res) => {
         '</table>' +
         (wo.booking_notes ? '<div style="background:#f8f9fa; padding:12px; border-radius:6px; margin-bottom:16px; font-family:monospace; font-size:0.9em; white-space:pre-line;">' + wo.booking_notes + '</div>' : '') +
         (wo.completion_notes ? '<div style="margin-bottom:16px;"><strong>Completion Notes:</strong><br>' + wo.completion_notes + '</div>' : '') +
-        '<p style="color:#555;">If you have any questions, please call or text us at <strong>(804) 832-1953</strong> or email <strong>service@dgsoftwash.com</strong>.</p>' +
+        '<p style="color:#555;">If you have any questions, please call or text us at <strong>(757) 330-4260</strong> or email <strong>service@dgsoftwash.com</strong>.</p>' +
         '<div style="margin-top:20px; padding-top:16px; border-top:1px solid #e5e7eb; text-align:center; color:#888; font-size:0.85em;">' +
-        'D&amp;G Soft Wash &mdash; (804) 832-1953 &mdash; service@dgsoftwash.com</div>' +
+        'D&amp;G Soft Wash &mdash; (757) 330-4260 &mdash; service@dgsoftwash.com</div>' +
         '</div></div>'
     });
     res.json({ success: true });
@@ -2582,7 +2287,7 @@ app.post('/api/admin/purchase-orders/:id/email', requireAdmin, async (req, res) 
         itemsHtml +
         (po.notes ? '<div style="background:#f8f9fa; padding:12px; border-radius:6px; margin-bottom:16px;"><strong>Notes:</strong> ' + po.notes + '</div>' : '') +
         '<div style="margin-top:20px; padding-top:16px; border-top:1px solid #e5e7eb; text-align:center; color:#888; font-size:0.85em;">' +
-        'D&amp;G Soft Wash &mdash; (804) 832-1953 &mdash; service@dgsoftwash.com</div>' +
+        'D&amp;G Soft Wash &mdash; (757) 330-4260 &mdash; service@dgsoftwash.com</div>' +
         '</div></div>'
     });
     res.json({ success: true });
@@ -2617,7 +2322,7 @@ app.post('/api/admin/work-orders/:id/sms-reminder', requireAdmin, async (req, re
     const dateLabel = wo.date ? new Date(wo.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : '';
     const timeLabel = wo.time ? formatSlot(wo.time) : '';
     const address = wo.booking_address || wo.customer_address || '';
-    const body = `Hi ${name}! Reminder: D&G Soft Wash is scheduled${dateLabel ? ' for ' + dateLabel : ''}${timeLabel ? ' at ' + timeLabel : ''}${address ? ' at ' + address : ''}. Questions? Call/text (804) 832-1953.`;
+    const body = `Hi ${name}! Reminder: D&G Soft Wash is scheduled${dateLabel ? ' for ' + dateLabel : ''}${timeLabel ? ' at ' + timeLabel : ''}${address ? ' at ' + address : ''}. Questions? Call/text (757) 330-4260.`;
     await twilioClient.messages.create({
       body,
       from: process.env.TWILIO_FROM_NUMBER,
@@ -2991,24 +2696,14 @@ app.delete('/gabe/api/admin/scholarships/:id', requireGabeAdmin, (req, res) => {
 });
 
 // AI Discovery
-// Debug endpoint to bypass cache
-app.get('/gabe/api/admin/debug-discover', requireGabeAdmin, (req, res) => {
-  res.json({ 
-    message: 'Debug endpoint working',
-    timestamp: new Date().toISOString(),
-    server: 'live'
-  });
-});
-
-// Handle both GET and POST for backward compatibility
-app.all('/gabe/api/admin/discover', requireGabeAdmin, async (req, res) => {
+app.post('/gabe/api/admin/discover', requireGabeAdmin, async (req, res) => {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) return res.status(503).json({ error: 'ANTHROPIC_API_KEY not set' });
 
   const { scholarships } = gabeReadDb();
   const existingTitles = scholarships.map(s => '- ' + s.title).join('\n');
 
-  const prompt = `Suggest scholarship opportunities specifically for:
+  const prompt = `Search the web for scholarship opportunities specifically for:
 - Military dependents and children of veterans
 - Virginia college students (especially Hampton Roads area)
 - Students who may also have GI Bill benefits to stack on top of
@@ -3016,7 +2711,7 @@ app.all('/gabe/api/admin/discover', requireGabeAdmin, async (req, res) => {
 We already have these scholarships — do NOT include them:
 ${existingTitles}
 
-Suggest 5-8 realistic scholarship programs that would typically be available for these students. Focus on well-known, established scholarship programs.
+Find 5-8 NEW scholarships not in that list above. Focus on currently-active, real scholarships with real application URLs.
 
 Return ONLY a valid JSON array (no markdown fences, no explanation text), where each object has exactly these fields:
 {
@@ -3024,7 +2719,7 @@ Return ONLY a valid JSON array (no markdown fences, no explanation text), where 
   "description": "2-3 sentences describing eligibility and what it covers",
   "amount": "Dollar amount or range (e.g. 'Up to $5,000/yr') or 'See website'",
   "deadline": "Deadline info (e.g. 'March 1 each year') or 'See website'",
-  "url": "https://example.com/scholarship",
+  "url": "Direct URL to the scholarship application or info page",
   "category": "one of: gi-bill, state, military, local, tools, general"
 }`;
 
@@ -3032,25 +2727,20 @@ Return ONLY a valid JSON array (no markdown fences, no explanation text), where 
     const Anthropic = require('@anthropic-ai/sdk');
     const client = new Anthropic({ apiKey: key });
     const response = await client.messages.create({
-      model: 'claude-3-haiku-20240307',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 4096,
+      tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }],
       messages: [{ role: 'user', content: prompt }]
     });
     const textBlocks = response.content.filter(b => b.type === 'text');
     const text = textBlocks.map(b => b.text).join('');
-    console.log('AI response text:', text.substring(0, 200) + '...');
-    
     const jsonMatch = text.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) {
-      console.error('No JSON array found in AI response:', text);
-      return res.status(500).json({ error: 'Could not parse scholarships from AI response. Raw response: ' + text.substring(0, 100) + '...' });
-    }
-    
+    if (!jsonMatch) return res.status(500).json({ error: 'Could not parse scholarships from AI response. Try again.' });
     const discovered = JSON.parse(jsonMatch[0]);
     res.json({ scholarships: Array.isArray(discovered) ? discovered : [] });
   } catch (e) {
-    console.error('Discover error:', e.message, e.stack);
-    res.status(500).json({ error: 'Server error: ' + e.message });
+    console.error('Discover error:', e.message);
+    res.status(500).json({ error: e.message || 'Search failed' });
   }
 });
 // ── End Scholarship Guide ────────────────────────────────────────────────────
@@ -3620,292 +3310,9 @@ app.post('/api/admin/backup/run', requireAdmin, (req, res) => {
   }
 });
 
-// --- Amazon Image Proxy (scrapes product page for real image, caches to disk) ---
-const AMAZON_IMG_CACHE = path.join(__dirname, 'public', 'amazon-img-cache');
-const AMAZON_HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-  'Accept-Language': 'en-US,en;q=0.9',
-  'Accept-Encoding': 'gzip, deflate, br',
-  'Cache-Control': 'no-cache'
-};
-
-async function fetchAmazonImageUrl(asin) {
-  try {
-    const pageRes = await fetch('https://www.amazon.com/dp/' + asin, { headers: AMAZON_HEADERS });
-    if (!pageRes.ok) return null;
-    const html = await pageRes.text();
-    // Try og:image meta tag first
-    const og = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
-                || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
-    if (og && og[1] && og[1].startsWith('http')) return og[1];
-    // Try hiRes image from JSON data block
-    const hiRes = html.match(/"hiRes"\s*:\s*"(https:\/\/m\.media-amazon\.com\/images\/I\/[^"]+)"/);
-    if (hiRes) return hiRes[1];
-    // Try large image from JSON data block
-    const large = html.match(/"large"\s*:\s*"(https:\/\/m\.media-amazon\.com\/images\/I\/[^"]+)"/);
-    if (large) return large[1];
-    // Try landing image src
-    const landing = html.match(/id=["']landingImage["'][^>]+src=["']([^"']+)["']/i)
-                  || html.match(/id=["']imgTagWrapperId["'][^>]*>[\s\S]{0,200}?<img[^>]+src=["']([^"']+)["']/i);
-    if (landing && landing[1] && landing[1].startsWith('http')) return landing[1];
-    return null;
-  } catch { return null; }
-}
-
-app.get('/api/amazon-image/:asin', async (req, res) => {
-  const asin = (req.params.asin || '').replace(/[^A-Z0-9]/gi, '').substring(0, 20).toUpperCase();
-  if (!asin) return res.status(400).end();
-  const cachePath = path.join(AMAZON_IMG_CACHE, asin + '.jpg');
-  if (fs.existsSync(cachePath)) {
-    return res.setHeader('Content-Type', 'image/jpeg').setHeader('Cache-Control', 'public,max-age=2592000').sendFile(cachePath);
-  }
-  try {
-    const imgUrl = await fetchAmazonImageUrl(asin);
-    if (!imgUrl) return res.status(404).end();
-    const imgRes = await fetch(imgUrl, { headers: AMAZON_HEADERS });
-    if (!imgRes.ok) return res.status(404).end();
-    const buf = Buffer.from(await imgRes.arrayBuffer());
-    if (buf.length < 1000) return res.status(404).end();
-    fs.writeFileSync(cachePath, buf);
-    return res.setHeader('Content-Type', 'image/jpeg').setHeader('Cache-Control', 'public,max-age=2592000').send(buf);
-  } catch { res.status(404).end(); }
-});
-
-// Generic product image proxy — scrapes og:image from any product URL, caches by product ID
-app.get('/api/product-image/:id', async (req, res) => {
-  const id = parseInt(req.params.id);
-  if (!id) return res.status(400).end();
-  const cachePath = path.join(AMAZON_IMG_CACHE, 'p' + id + '.jpg');
-  if (fs.existsSync(cachePath)) {
-    return res.setHeader('Content-Type', 'image/jpeg').setHeader('Cache-Control', 'public,max-age=2592000').sendFile(cachePath);
-  }
-  try {
-    const row = (await pool.query('SELECT product_url FROM amazon_products WHERE id=$1', [id])).rows[0];
-    if (!row || !row.product_url) return res.status(404).end();
-    const pageRes = await fetch(row.product_url, { headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'text/html,application/xhtml+xml' } });
-    if (!pageRes.ok) return res.status(404).end();
-    const html = await pageRes.text();
-    const ogMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
-                    html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
-    if (!ogMatch) return res.status(404).end();
-    let resolvedImg = ogMatch[1];
-    if (resolvedImg.startsWith('//')) resolvedImg = 'https:' + resolvedImg;
-    const imgRes = await fetch(resolvedImg, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-    if (!imgRes.ok) return res.status(404).end();
-    const buf = Buffer.from(await imgRes.arrayBuffer());
-    if (buf.length < 1000) return res.status(404).end();
-    fs.writeFileSync(cachePath, buf);
-    const ct = imgRes.headers.get('content-type') || 'image/jpeg';
-    return res.setHeader('Content-Type', ct).setHeader('Cache-Control', 'public,max-age=2592000').send(buf);
-  } catch { res.status(404).end(); }
-});
-
-// Background batch: pre-fetch all uncached product images on startup
-async function prewarmAmazonImages() {
-  try {
-    const rows = (await pool.query('SELECT id, asin, product_url FROM amazon_products ORDER BY id')).rows;
-    const missing = rows.filter(r => {
-      if (r.asin) return !fs.existsSync(path.join(AMAZON_IMG_CACHE, r.asin + '.jpg'));
-      return r.product_url && !fs.existsSync(path.join(AMAZON_IMG_CACHE, 'p' + r.id + '.jpg'));
-    });
-    if (!missing.length) return;
-    console.log(`[amazon-img] Pre-fetching ${missing.length} product images in background...`);
-    for (const row of missing) {
-      try {
-        if (row.asin) {
-          const cachePath = path.join(AMAZON_IMG_CACHE, row.asin + '.jpg');
-          if (fs.existsSync(cachePath)) continue;
-          const imgUrl = await fetchAmazonImageUrl(row.asin);
-          if (imgUrl) {
-            const imgRes = await fetch(imgUrl, { headers: AMAZON_HEADERS });
-            if (imgRes.ok) {
-              const buf = Buffer.from(await imgRes.arrayBuffer());
-              if (buf.length > 1000) { fs.writeFileSync(cachePath, buf); console.log(`[amazon-img] cached ${row.asin}`); }
-            }
-          }
-          await new Promise(r => setTimeout(r, 800));
-        } else if (row.product_url) {
-          const cachePath = path.join(AMAZON_IMG_CACHE, 'p' + row.id + '.jpg');
-          if (fs.existsSync(cachePath)) continue;
-          const pageRes = await fetch(row.product_url, { headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'text/html' } });
-          if (pageRes.ok) {
-            const html = await pageRes.text();
-            const ogMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
-                            html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
-            if (ogMatch) {
-              let resolvedImg = ogMatch[1];
-              if (resolvedImg.startsWith('//')) resolvedImg = 'https:' + resolvedImg;
-              const imgRes = await fetch(resolvedImg, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-              if (imgRes.ok) {
-                const buf = Buffer.from(await imgRes.arrayBuffer());
-                if (buf.length > 1000) { fs.writeFileSync(cachePath, buf); console.log(`[product-img] cached product ${row.id}`); }
-              }
-            }
-          }
-          await new Promise(r => setTimeout(r, 500));
-        }
-      } catch {}
-    }
-    console.log('[amazon-img] Pre-fetch complete.');
-  } catch {}
-}
-
-// --- Amazon Products (Catalog) ---
-app.get('/api/admin/amazon-products', requireAdmin, async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM amazon_products ORDER BY category, title');
-    res.json(result.rows);
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/admin/amazon-products', requireAdmin, async (req, res) => {
-  try {
-    const { asin, title, category, model_number, part_number, ppu, seller_name, notes, product_url } = req.body;
-    const cleanAsin = (asin || '').trim().toUpperCase() || null;
-    const cleanUrl = (product_url || '').trim() || null;
-    if ((!cleanAsin && !cleanUrl) || !title) return res.status(400).json({ error: 'Title and either ASIN or Product URL are required' });
-    const result = await pool.query(
-      `INSERT INTO amazon_products (asin, title, category, model_number, part_number, ppu, seller_name, notes, product_url)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-      [cleanAsin, title.trim(), category||'', model_number||'', part_number||'', parseFloat(ppu)||0, seller_name||'', notes||'', cleanUrl||'']
-    );
-    const newProduct = result.rows[0];
-    res.json({ success: true, product: newProduct });
-    // Fetch image in background (don't await — don't delay response)
-    setImmediate(async () => {
-      try {
-        if (cleanAsin) {
-          const cp = path.join(AMAZON_IMG_CACHE, cleanAsin + '.jpg');
-          if (!fs.existsSync(cp)) {
-            const imgUrl = await fetchAmazonImageUrl(cleanAsin);
-            if (imgUrl) { const r = await fetch(imgUrl, { headers: AMAZON_HEADERS }); if (r.ok) { const b = Buffer.from(await r.arrayBuffer()); if (b.length > 1000) fs.writeFileSync(cp, b); } }
-          }
-        } else if (cleanUrl) {
-          const cp = path.join(AMAZON_IMG_CACHE, 'p' + newProduct.id + '.jpg');
-          if (!fs.existsSync(cp)) {
-            const pageRes = await fetch(cleanUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'text/html,application/xhtml+xml' } });
-            if (pageRes.ok) {
-              const html = await pageRes.text();
-              const ogMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
-                              html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
-              if (ogMatch) {
-                let resolvedImg = ogMatch[1];
-                if (resolvedImg.startsWith('//')) resolvedImg = 'https:' + resolvedImg;
-                const imgRes = await fetch(resolvedImg, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-                if (imgRes.ok) { const b = Buffer.from(await imgRes.arrayBuffer()); if (b.length > 1000) fs.writeFileSync(cp, b); }
-              }
-            }
-          }
-        }
-      } catch {}
-    });
-  } catch (e) {
-    if (e.code === '23505') return res.status(400).json({ error: 'A product with that ASIN already exists' });
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.put('/api/admin/amazon-products/:id', requireAdmin, async (req, res) => {
-  try {
-    const { asin, title, category, model_number, part_number, ppu, seller_name, notes, product_url } = req.body;
-    const cleanAsin = (asin || '').trim().toUpperCase() || null;
-    const cleanUrl = (product_url || '').trim() || null;
-    if ((!cleanAsin && !cleanUrl) || !title) return res.status(400).json({ error: 'Title and either ASIN or Product URL are required' });
-    const result = await pool.query(
-      `UPDATE amazon_products SET asin=$1, title=$2, category=$3, model_number=$4, part_number=$5,
-       ppu=$6, seller_name=$7, notes=$8, product_url=$9, updated_at=NOW() WHERE id=$10 RETURNING *`,
-      [cleanAsin, title.trim(), category||'', model_number||'', part_number||'', parseFloat(ppu)||0, seller_name||'', notes||'', cleanUrl||'', req.params.id]
-    );
-    if (!result.rows.length) return res.status(404).json({ error: 'Product not found' });
-    res.json({ success: true, product: result.rows[0] });
-  } catch (e) {
-    if (e.code === '23505') return res.status(400).json({ error: 'A product with that ASIN already exists' });
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.delete('/api/admin/amazon-products/:id', requireAdmin, async (req, res) => {
-  try {
-    await pool.query('DELETE FROM amazon_products WHERE id=$1', [req.params.id]);
-    res.json({ success: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// --- Amazon Order Log ---
-app.get('/api/admin/amazon-orders', requireAdmin, async (req, res) => {
-  try {
-    const { year } = req.query;
-    let query = 'SELECT * FROM amazon_orders';
-    const params = [];
-    if (year) {
-      query += ' WHERE EXTRACT(YEAR FROM ordered_at) = $1';
-      params.push(parseInt(year));
-    }
-    query += ' ORDER BY ordered_at DESC';
-    const result = await pool.query(query, params);
-    res.json(result.rows);
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// PO route must come before /:id to avoid being matched as an id
-app.get('/api/admin/amazon-orders/po', requireAdmin, async (req, res) => {
-  try {
-    const ids = (req.query.ids || '').split(',').map(Number).filter(Boolean);
-    if (!ids.length) return res.status(400).json({ error: 'No order IDs provided' });
-    const result = await pool.query(
-      'SELECT * FROM amazon_orders WHERE id = ANY($1) ORDER BY ordered_at DESC',
-      [ids]
-    );
-    const orders = result.rows;
-    const total = orders.reduce((s, o) => s + parseFloat(o.total_price), 0);
-    res.json({ success: true, orders, total: total.toFixed(2), poNumber: 'PO-' + Date.now() });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/admin/amazon-orders', requireAdmin, async (req, res) => {
-  try {
-    const { order_tag, asin, product_title, qty, unit_price, seller_name, notes, status, ordered_at } = req.body;
-    const q = parseInt(qty) || 1;
-    const up = parseFloat(unit_price) || 0;
-    const total = q * up;
-    const tag = order_tag || ('ORD-' + Date.now());
-    const result = await pool.query(
-      `INSERT INTO amazon_orders (order_tag, asin, product_title, qty, unit_price, total_price, seller_name, notes, status, ordered_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
-      [tag, asin||'', product_title||'', q, up, total, seller_name||'', notes||'', status||'ordered', ordered_at ? new Date(ordered_at) : new Date()]
-    );
-    res.json({ success: true, order: result.rows[0] });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.put('/api/admin/amazon-orders/:id', requireAdmin, async (req, res) => {
-  try {
-    const { order_tag, asin, product_title, qty, unit_price, seller_name, notes, status, ordered_at } = req.body;
-    const q = parseInt(qty) || 1;
-    const up = parseFloat(unit_price) || 0;
-    const total = q * up;
-    const result = await pool.query(
-      `UPDATE amazon_orders SET order_tag=$1, asin=$2, product_title=$3, qty=$4, unit_price=$5,
-       total_price=$6, seller_name=$7, notes=$8, status=$9, ordered_at=$10 WHERE id=$11 RETURNING *`,
-      [order_tag||'', asin||'', product_title||'', q, up, total, seller_name||'', notes||'', status||'ordered', ordered_at ? new Date(ordered_at) : new Date(), req.params.id]
-    );
-    if (!result.rows.length) return res.status(404).json({ error: 'Order not found' });
-    res.json({ success: true, order: result.rows[0] });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.delete('/api/admin/amazon-orders/:id', requireAdmin, async (req, res) => {
-  try {
-    await pool.query('DELETE FROM amazon_orders WHERE id=$1', [req.params.id]);
-    res.json({ success: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
 // --- Start server ---
 initDb().then(() => {
   applyDuePricingSchedules();
-  setTimeout(prewarmAmazonImages, 5000); // start image pre-fetch 5s after boot
   // Re-check scheduled pricing changes every hour
   setInterval(applyDuePricingSchedules, 60 * 60 * 1000);
     // Check for expired unreviewed reviews every 15 minutes
@@ -3968,119 +3375,9 @@ app.get('/api/testing/logs/:level', (req, res) => {
   }
 });
 
-  // Graceful shutdown handlers for pm2 reloads to prevent SQL fetch errors
-  const server = app.listen(PORT, () => {
+  app.listen(PORT, () => {
     console.log(`D&G Soft Wash website running on port ${PORT}`);
   });
-
-  // Handle graceful shutdown during pm2 reload/restart
-  const gracefulShutdown = async (signal) => {
-    console.log(`Received ${signal}, starting graceful shutdown...`);
-    
-    // Close HTTP server first
-    server.close(() => {
-      console.log('HTTP server closed');
-    });
-    
-    // Close database pool connections
-    try {
-      await pool.end();
-      console.log('Database pool closed');
-    } catch (err) {
-      console.error('Error closing database pool:', err);
-    }
-    
-    process.exit(0);
-  };
-
-  // Internal testing scheduler - runs at 8 AM daily
-  function scheduleTestingAlarm() {
-    const now = new Date();
-    const target = new Date();
-    target.setHours(5, 0, 0, 0); // 5:00 AM daily
-    
-    // If 8 AM has passed today, schedule for tomorrow
-    if (now > target) {
-      target.setDate(target.getDate() + 1);
-    }
-    
-    const timeUntilNext = target.getTime() - now.getTime();
-    console.log(`Internal testing alarm scheduled for ${target.toLocaleString()}`);
-    
-    setTimeout(() => {
-      console.log('Internal testing alarm triggered - running Level 1 & 2 tests');
-      
-      // Run tests sequentially (Level 1 then Level 2)
-      const { spawn } = require('child_process');
-      
-      // Run Level 1 first
-      const test1Process = spawn('/opt/homebrew/bin/node', [
-        '/tmp/test-runner-fixed.js', '1'
-      ], {
-        cwd: '/Volumes/1TB SSD/dg-softwash',
-        env: {
-          ...process.env,
-          NODE_PATH: '/Volumes/1TB SSD/dg-softwash/node_modules'
-        }
-      });
-      
-      test1Process.stdout.on('data', (data) => {
-        console.log('Level 1 output:', data.toString());
-      });
-      
-      test1Process.stderr.on('data', (data) => {
-        console.error('Level 1 error:', data.toString());
-      });
-      
-      test1Process.on('close', (code1) => {
-        console.log(`Level 1 completed with code ${code1}`);
-        
-        // Run Level 2 after Level 1 finishes
-        setTimeout(() => {
-          const test2Process = spawn('/opt/homebrew/bin/node', [
-            '/tmp/test-runner-fixed.js', '2'
-          ], {
-            cwd: '/Volumes/1TB SSD/dg-softwash',
-            env: {
-              ...process.env,
-              NODE_PATH: '/Volumes/1TB SSD/dg-softwash/node_modules'
-            }
-          });
-          
-          // Add timeout to prevent hanging
-          const test2Timeout = setTimeout(() => {
-            console.log('Level 2 test timeout - killing process');
-            test2Process.kill();
-          }, 120000); // 2 minute timeout
-          
-          test2Process.stdout.on('data', (data) => {
-            console.log('Level 2 output:', data.toString());
-          });
-          
-          test2Process.stderr.on('data', (data) => {
-            console.error('Level 2 error:', data.toString());
-          });
-          
-          test2Process.on('close', (code2) => {
-            clearTimeout(test2Timeout);
-            console.log(`Level 2 completed with code ${code2}`);
-            console.log('Both tests completed - scheduling next day');
-            // Schedule next day
-            scheduleTestingAlarm();
-          });
-          
-        }, 5000); // 5 second delay between tests
-      });
-      
-    }, timeUntilNext);
-  }
-  
-  // Start the testing scheduler
-  scheduleTestingAlarm();
-
-  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-  process.on('SIGHUP', () => gracefulShutdown('SIGHUP')); // pm2 reload signal
 }).catch(err => {
   console.error('Failed to initialize database:', err);
   process.exit(1);

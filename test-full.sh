@@ -27,6 +27,9 @@ CUSTOMER_IDS=()
 WO_IDS=()
 EXPENSE_IDS=()
 GALLERY_IDS=()
+AMAZON_PRODUCT_IDS=()
+AMAZON_ORDER_IDS=()
+PO_IDS=()
 
 ok()   { echo -e "  ${GREEN}PASS${NC}  $1"; ((PASS++)); }
 fail() { echo -e "  ${RED}FAIL${NC}  $1 ${RED}← ERROR${NC}"; ((FAIL++)); }
@@ -463,6 +466,152 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# STEP 11 — Orders: Product Catalog
+# ---------------------------------------------------------------------------
+head "11. ORDERS — PRODUCT CATALOG"
+
+# Create a test product
+PROD_RESP=$(curl -sf -X POST "$BASE/api/admin/amazon-products" $AUTH_H \
+  -d '{"asin":"B00TEST1234","title":"TEST Product - Soft Wash Nozzle","category":"Home Improvement","model_number":"TM-001","part_number":"PT-001","ppu":"12.99","seller_name":"TestSeller","notes":"test-full.sh automated test product","product_url":""}' 2>/dev/null)
+PROD_ID=$(echo "$PROD_RESP" | node -e "
+  const d=require('fs').readFileSync('/dev/stdin','utf8');
+  try { const p=JSON.parse(d); console.log(p.product?p.product.id:''); } catch(e){console.log('');}
+" 2>/dev/null)
+if [ -n "$PROD_ID" ] && [ "$PROD_ID" != "" ]; then
+  ok "Create amazon product → id=$PROD_ID (B00TEST1234)"
+  AMAZON_PRODUCT_IDS+=("$PROD_ID")
+else
+  fail "Create amazon product: $PROD_RESP"
+fi
+
+# List products — verify it's there
+PROD_LIST=$(curl -sf "$BASE/api/admin/amazon-products" $AUTH_H 2>/dev/null)
+if echo "$PROD_LIST" | grep -q 'B00TEST1234'; then
+  ok "List amazon products returns test product"
+else
+  fail "List amazon products missing test product: $PROD_LIST"
+fi
+
+# Edit the product
+if [ -n "$PROD_ID" ]; then
+  EDIT_RESP=$(curl -sf -X PUT "$BASE/api/admin/amazon-products/$PROD_ID" $AUTH_H \
+    -d '{"asin":"B00TEST1234","title":"TEST Product - Soft Wash Nozzle (edited)","category":"Home Improvement","model_number":"TM-001","part_number":"PT-001","ppu":"14.99","seller_name":"TestSeller","notes":"edited","product_url":""}' 2>/dev/null)
+  if echo "$EDIT_RESP" | grep -q '"success":true'; then
+    ok "Edit amazon product → ppu updated to \$14.99"
+  else
+    fail "Edit amazon product: $EDIT_RESP"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# STEP 12 — Orders: Order Log & Reorder Flow
+# ---------------------------------------------------------------------------
+head "12. ORDERS — ORDER LOG & REORDER"
+
+# Log a reorder entry
+ORDER_RESP=$(curl -sf -X POST "$BASE/api/admin/amazon-orders" $AUTH_H \
+  -d "{\"order_tag\":\"TEST-ORD-001\",\"asin\":\"B00TEST1234\",\"product_title\":\"TEST Product - Soft Wash Nozzle\",\"qty\":\"3\",\"unit_price\":\"14.99\",\"seller_name\":\"TestSeller\",\"notes\":\"test-full.sh reorder test\",\"status\":\"ordered\",\"ordered_at\":\"$TODAY\"}" 2>/dev/null)
+ORDER_ID=$(echo "$ORDER_RESP" | node -e "
+  const d=require('fs').readFileSync('/dev/stdin','utf8');
+  try { const p=JSON.parse(d); console.log(p.order?p.order.id:''); } catch(e){console.log('');}
+" 2>/dev/null)
+if [ -n "$ORDER_ID" ] && [ "$ORDER_ID" != "" ]; then
+  ok "Log amazon order → id=$ORDER_ID (qty=3 × \$14.99 = \$44.97)"
+  AMAZON_ORDER_IDS+=("$ORDER_ID")
+else
+  fail "Log amazon order: $ORDER_RESP"
+fi
+
+# Verify total was calculated correctly
+ORDER_TOTAL=$(echo "$ORDER_RESP" | node -e "
+  const d=require('fs').readFileSync('/dev/stdin','utf8');
+  try { const p=JSON.parse(d); console.log(p.order?p.order.total_price:''); } catch(e){console.log('');}
+" 2>/dev/null)
+if [ "$ORDER_TOTAL" = "44.97" ]; then
+  ok "Order total calculated correctly → \$44.97"
+else
+  fail "Order total wrong — expected 44.97, got: $ORDER_TOTAL"
+fi
+
+# List orders — verify entry is there
+ORDER_LIST=$(curl -sf "$BASE/api/admin/amazon-orders" $AUTH_H 2>/dev/null)
+if echo "$ORDER_LIST" | grep -q 'TEST-ORD-001'; then
+  ok "List amazon orders returns test order"
+else
+  fail "List amazon orders missing test order"
+fi
+
+# Edit order status
+if [ -n "$ORDER_ID" ]; then
+  UPD_RESP=$(curl -sf -X PUT "$BASE/api/admin/amazon-orders/$ORDER_ID" $AUTH_H \
+    -d "{\"order_tag\":\"TEST-ORD-001\",\"asin\":\"B00TEST1234\",\"product_title\":\"TEST Product - Soft Wash Nozzle\",\"qty\":\"3\",\"unit_price\":\"14.99\",\"seller_name\":\"TestSeller\",\"notes\":\"test-full.sh reorder test\",\"status\":\"received\",\"ordered_at\":\"$TODAY\"}" 2>/dev/null)
+  if echo "$UPD_RESP" | grep -q '"success":true'; then
+    ok "Update order status → received"
+  else
+    fail "Update order status: $UPD_RESP"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# STEP 13 — Orders: PO Generation
+# ---------------------------------------------------------------------------
+head "13. ORDERS — PO GENERATION"
+
+# Generate PO from order log entry
+if [ -n "$ORDER_ID" ]; then
+  PO_DATA=$(curl -sf "$BASE/api/admin/amazon-orders/po?ids=$ORDER_ID" $AUTH_H 2>/dev/null)
+  if echo "$PO_DATA" | grep -q '"success":true'; then
+    PO_TOTAL=$(echo "$PO_DATA" | node -e "
+      const d=require('fs').readFileSync('/dev/stdin','utf8');
+      try { const p=JSON.parse(d); console.log(p.total||''); } catch(e){console.log('');}
+    " 2>/dev/null)
+    ok "Generate PO from order log → total=\$$PO_TOTAL"
+  else
+    fail "Generate PO from order log: $PO_DATA"
+  fi
+fi
+
+# Create PO in expenses system (simulates what reorder button does)
+PO_RESP=$(curl -sf -X POST "$BASE/api/admin/purchase-orders" $AUTH_H \
+  -d "{\"date\":\"$TODAY\",\"vendor\":\"TestSeller\",\"vendor_email\":\"\",\"items\":[{\"desc\":\"TEST Product - Soft Wash Nozzle\",\"qty\":3,\"unit_price\":14.99}],\"total\":44.97,\"status\":\"ordered\",\"notes\":\"Reorder — ASIN: B00TEST1234 | TEST-ORD-001\"}" 2>/dev/null)
+EXPENSES_PO_ID=$(echo "$PO_RESP" | node -e "
+  const d=require('fs').readFileSync('/dev/stdin','utf8');
+  try { const p=JSON.parse(d); console.log(p.po?p.po.id:''); } catch(e){console.log('');}
+" 2>/dev/null)
+if [ -n "$EXPENSES_PO_ID" ] && [ "$EXPENSES_PO_ID" != "" ]; then
+  PO_NUM=$(echo "$PO_RESP" | node -e "
+    const d=require('fs').readFileSync('/dev/stdin','utf8');
+    try { const p=JSON.parse(d); console.log(p.po?p.po.po_number:''); } catch(e){console.log('');}
+  " 2>/dev/null)
+  ok "Create PO in expenses system → $PO_NUM (id=$EXPENSES_PO_ID)"
+  PO_IDS+=("$EXPENSES_PO_ID")
+else
+  fail "Create PO in expenses system: $PO_RESP"
+fi
+
+# Fetch the PO back — verify date is valid YYYY-MM-DD format
+if [ -n "$EXPENSES_PO_ID" ]; then
+  PO_FETCH=$(curl -sf "$BASE/api/admin/purchase-orders/$EXPENSES_PO_ID" $AUTH_H 2>/dev/null)
+  PO_DATE=$(echo "$PO_FETCH" | node -e "
+    const d=require('fs').readFileSync('/dev/stdin','utf8');
+    try { const p=JSON.parse(d); console.log(p.date||''); } catch(e){console.log('');}
+  " 2>/dev/null)
+  if echo "$PO_DATE" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}'; then
+    ok "PO date is valid YYYY-MM-DD format → $PO_DATE"
+  else
+    fail "PO date format invalid → '$PO_DATE' (should be YYYY-MM-DD)"
+  fi
+fi
+
+# Image proxy — test one known product ASIN
+IMG_STATUS=$(curl -sf -o /dev/null -w "%{http_code}" "$BASE/api/amazon-image/B07T3J9ZFZ" 2>/dev/null)
+if [ "$IMG_STATUS" = "200" ]; then
+  ok "Amazon image proxy → 200 for B07T3J9ZFZ"
+else
+  fail "Amazon image proxy returned $IMG_STATUS for B07T3J9ZFZ"
+fi
+
+# ---------------------------------------------------------------------------
 # CLEANUP — Delete everything created by this test
 # ---------------------------------------------------------------------------
 head "CLEANUP — Removing all test data"
@@ -484,6 +633,36 @@ for id in "${EXPENSE_IDS[@]}"; do
     ok "Deleted expense id=$id"
   else
     fail "Failed to delete expense id=$id: $R"
+  fi
+done
+
+# Delete Purchase Orders (expenses system)
+for id in "${PO_IDS[@]}"; do
+  R=$(curl -sf -X DELETE "$BASE/api/admin/purchase-orders/$id" $AUTH_H 2>/dev/null)
+  if echo "$R" | grep -q '"success":true'; then
+    ok "Deleted purchase order id=$id"
+  else
+    fail "Failed to delete purchase order id=$id: $R"
+  fi
+done
+
+# Delete Amazon order log entries
+for id in "${AMAZON_ORDER_IDS[@]}"; do
+  R=$(curl -sf -X DELETE "$BASE/api/admin/amazon-orders/$id" $AUTH_H 2>/dev/null)
+  if echo "$R" | grep -q '"success":true'; then
+    ok "Deleted amazon order id=$id"
+  else
+    fail "Failed to delete amazon order id=$id: $R"
+  fi
+done
+
+# Delete Amazon catalog products
+for id in "${AMAZON_PRODUCT_IDS[@]}"; do
+  R=$(curl -sf -X DELETE "$BASE/api/admin/amazon-products/$id" $AUTH_H 2>/dev/null)
+  if echo "$R" | grep -q '"success":true'; then
+    ok "Deleted amazon product id=$id"
+  else
+    fail "Failed to delete amazon product id=$id: $R"
   fi
 done
 

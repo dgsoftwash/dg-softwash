@@ -27,15 +27,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Mobile Menu Toggle
 (function() {
-  var menuOpen = false;
+  function isMenuOpen() {
+    var hamburger = document.querySelector('.hamburger');
+    var navLinks = document.querySelector('.nav-links');
+    return hamburger && hamburger.classList.contains('active') && 
+           navLinks && navLinks.classList.contains('open');
+  }
 
   function openMenu() {
     var hamburger = document.querySelector('.hamburger');
     var navLinks = document.querySelector('.nav-links');
     if (hamburger && navLinks) {
       hamburger.classList.add('active');
-      navLinks.style.display = 'flex';
-      menuOpen = true;
+      navLinks.classList.add('open');
     }
   }
 
@@ -44,35 +48,38 @@ document.addEventListener('DOMContentLoaded', function() {
     var navLinks = document.querySelector('.nav-links');
     if (hamburger && navLinks) {
       hamburger.classList.remove('active');
-      navLinks.style.display = '';
-      menuOpen = false;
+      navLinks.classList.remove('open');
     }
   }
 
-  document.addEventListener('DOMContentLoaded', function() {
+  function toggleMenu() {
+    if (isMenuOpen()) {
+      closeMenu();
+    } else {
+      openMenu();
+    }
+  }
+
+  // Use a small delay to ensure other scripts have initialized first
+  function initHamburgerMenu() {
     var hamburger = document.querySelector('.hamburger');
     var navLinks = document.querySelector('.nav-links');
 
+    if (!hamburger || !navLinks) {
+      // Elements not ready yet, try again in 100ms
+      setTimeout(initHamburgerMenu, 100);
+      return;
+    }
+
+    // Ensure clean state on page load
+    closeMenu();
+
     if (hamburger) {
+      // Single click handler instead of both click and touchend
       hamburger.addEventListener('click', function(e) {
         e.preventDefault();
         e.stopPropagation();
-        if (menuOpen) {
-          closeMenu();
-        } else {
-          openMenu();
-        }
-      });
-
-      // Also handle touch for Safari iOS
-      hamburger.addEventListener('touchend', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (menuOpen) {
-          closeMenu();
-        } else {
-          openMenu();
-        }
+        toggleMenu();
       });
 
       // Close menu when a link is clicked
@@ -84,18 +91,35 @@ document.addEventListener('DOMContentLoaded', function() {
         });
       }
 
-      // Close menu when tapping outside
+      // Close menu when clicking outside
+      // Close menu when clicking outside
       document.addEventListener('click', function(e) {
-        if (menuOpen && !navLinks.contains(e.target) && !hamburger.contains(e.target)) {
+        if (isMenuOpen() && navLinks && !navLinks.contains(e.target) && !hamburger.contains(e.target)) {
           closeMenu();
         }
       });
     }
-  });
+  }
+  
+  // Initialize when DOM is ready, with fallback delay
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+      setTimeout(initHamburgerMenu, 50);
+    });
+  } else {
+    setTimeout(initHamburgerMenu, 50);
+  }
 
   // Reset on page show (back-forward cache)
   window.addEventListener('pageshow', function() {
     closeMenu();
+  });
+
+  // Reset on page visibility change (handles iOS app switching)
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible') {
+      closeMenu();
+    }
   });
 })();
 

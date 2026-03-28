@@ -14,7 +14,7 @@
       'padding:16px', 'box-sizing:border-box'
     ].join(';');
 
-    var isMobile = window.innerWidth < 480;
+    var isMobile = window.innerWidth <= 768;
 
     var card = document.createElement('div');
     card.style.cssText = [

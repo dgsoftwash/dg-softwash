@@ -541,7 +541,7 @@ document.addEventListener('DOMContentLoaded', function() {
         '<div style="text-align:right;"><strong>Schedule</strong><br>' + dateLabel + '<br><span style="color:#555;">' + bookingsForDay.length + ' booking' + (bookingsForDay.length !== 1 ? 's' : '') + '</span></div>' +
       '</div>' +
       rows +
-      '<div style="text-align:center; margin-top:30px; color:#aaa; font-size:0.85em;">Printed from D&amp;G Soft Wash Admin Dashboard &mdash; (757) 330-4260</div>' +
+      '<div style="text-align:center; margin-top:30px; color:#aaa; font-size:0.85em;">Printed from D&amp;G Soft Wash Admin Dashboard &mdash; (804) 832-1953</div>' +
       '<div style="text-align:center; margin-top:16px;"><button onclick="window.print()" style="padding:10px 30px; font-size:1em; cursor:pointer;">Print</button> <button onclick="window.close();window.history.back()" style="padding:10px 30px; font-size:1em; cursor:pointer; margin-left:10px;">← Back</button></div>' +
       '</body></html>');
     printWindow.document.close();
@@ -1045,7 +1045,7 @@ document.addEventListener('DOMContentLoaded', function() {
       (wo.admin_notes ? '<div class="section"><strong>D&amp;G Comments:</strong><br><span style="white-space:pre-line;">' + escapeHtml(wo.admin_notes) + '</span></div>' : '') +
       (wo.completion_notes ? '<div class="section"><strong>Completion Notes:</strong><br><span style="white-space:pre-line;">' + escapeHtml(wo.completion_notes) + '</span></div>' : '') +
       (wo.mileage ? '<div class="section"><strong>Mileage:</strong> ' + wo.mileage + ' mi</div>' : '') +
-      '<div style="text-align:center; margin-top:40px; color:#aaa; font-size:0.85em;">D&amp;G Soft Wash &mdash; (757) 330-4260 &mdash; service@dgsoftwash.com</div>' +
+      '<div style="text-align:center; margin-top:40px; color:#aaa; font-size:0.85em;">D&amp;G Soft Wash &mdash; (804) 832-1953 &mdash; service@dgsoftwash.com</div>' +
       '<div style="text-align:center; margin-top:16px;"><button onclick="window.print()" style="padding:10px 30px; font-size:1em; cursor:pointer;">Print</button> <button onclick="window.close();window.history.back()" style="padding:10px 30px; font-size:1em; cursor:pointer; margin-left:10px;">← Back</button></div>' +
       '</body></html>');
     printWindow.document.close();
@@ -1079,7 +1079,7 @@ document.addEventListener('DOMContentLoaded', function() {
       '</table>' +
       itemsHtml +
       (po.notes ? '<div style="background:#f8f9fa; border-radius:8px; padding:14px; margin:16px 0;"><strong>Notes:</strong> ' + escapeHtml(po.notes) + '</div>' : '') +
-      '<div style="text-align:center; margin-top:40px; color:#aaa; font-size:0.85em;">D&amp;G Soft Wash &mdash; (757) 330-4260 &mdash; service@dgsoftwash.com</div>' +
+      '<div style="text-align:center; margin-top:40px; color:#aaa; font-size:0.85em;">D&amp;G Soft Wash &mdash; (804) 832-1953 &mdash; service@dgsoftwash.com</div>' +
       '<div style="text-align:center; margin-top:16px;"><button onclick="window.print()" style="padding:10px 30px; font-size:1em; cursor:pointer;">Print</button> <button onclick="window.close();window.history.back()" style="padding:10px 30px; font-size:1em; cursor:pointer; margin-left:10px;">← Back</button></div>' +
       '</body></html>');
     printWindow.document.close();
@@ -1669,6 +1669,9 @@ document.addEventListener('DOMContentLoaded', function() {
       if (tab === 'reviews-admin') loadReviewsAdmin();
       if (tab === 'loc') loadLocTab();
       if (tab === 'analytics') loadAnalyticsTab();
+      if (tab === 'orders') loadOrdersTab();
+      if (tab === 'mix-calc') initMixCalc();
+      if (tab === 'services-admin') loadServicesAdmin();
     });
   });
 
@@ -1678,22 +1681,25 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!container) return;
     container.innerHTML = '<p style="color:#666;">Loading...</p>';
     try {
-      const [revRes, settingsRes, timeRes] = await Promise.all([
+      const [revRes, settingsRes, timeRes, alltimeRes] = await Promise.all([
         fetch('/api/admin/revenue-report?year=' + currentRevenueYear, { headers: { 'x-admin-token': adminToken } }),
         fetch('/api/admin/settings', { headers: { 'x-admin-token': adminToken } }),
-        fetch('/api/admin/analytics/time-tracking', { headers: { 'x-admin-token': adminToken } })
+        fetch('/api/admin/analytics/time-tracking', { headers: { 'x-admin-token': adminToken } }),
+        fetch('/api/admin/revenue-alltime', { headers: { 'x-admin-token': adminToken } })
       ]);
       if (revRes.status === 401) { handleAuthExpired(); return; }
       const data     = await revRes.json();
       const settings = settingsRes.ok ? await settingsRes.json() : {};
       const timeData = timeRes.ok ? await timeRes.json() : { tracked_jobs: [], by_service: [] };
-      renderRevenueReport(data, settings, timeData);
+      const alltime  = alltimeRes.ok ? await alltimeRes.json() : { net_after_reserves: 0 };
+      renderRevenueReport(data, settings, timeData, alltime);
     } catch (e) {
       container.innerHTML = '<p style="color:#dc2626;">Failed to load revenue report.</p>';
     }
   }
 
-  function renderRevenueReport(data, settings, timeData) {
+  function renderRevenueReport(data, settings, timeData, alltime) {
+    alltime = alltime || { net_after_reserves: 0 };
     timeData = timeData || { tracked_jobs: [], by_service: [] };
     var container = document.getElementById('revenue-admin-container');
     var thisYear = new Date().getFullYear();
@@ -1726,6 +1732,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Financial Cushion Cards
     var availBal = parseFloat((settings && settings.available_balance) || '0');
+    var buildCost = parseFloat((settings && settings.build_cost) || '0');
+    var alltimeNAR = alltime.net_after_reserves || 0;
+    var buildRemaining = buildCost - alltimeNAR;
+    var brokeEven = buildRemaining <= 0;
     html += '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:16px; margin-bottom:28px;">';
     html += '<div style="background:#dbeafe; border-radius:10px; padding:16px; text-align:center;">' +
       '<div style="display:flex; align-items:center; justify-content:center; gap:2px;">' +
@@ -1743,6 +1753,20 @@ document.addEventListener('DOMContentLoaded', function() {
     html += '<div style="background:#fef3c7; border-radius:10px; padding:16px; text-align:center;">' +
       '<div style="font-size:1.6em; font-weight:700; color:#92400e;">$' + expReserve.toFixed(2) + '</div>' +
       '<div style="color:#92400e; font-size:0.85em; margin-top:4px;">Expense Reserve (15% Gross &minus; ' + data.year + ' Expenses)</div>' +
+      '</div>';
+    // Build Cost / Break-Even tile
+    html += '<div style="background:' + (brokeEven ? '#d1fae5' : '#1a1a2e') + '; border-radius:10px; padding:16px; text-align:center;">' +
+      '<div style="font-size:0.75em; font-weight:600; color:' + (brokeEven ? '#065f46' : '#94a3b8') + '; letter-spacing:0.05em; margin-bottom:6px; text-transform:uppercase;">Total Build Cost</div>' +
+      '<div style="display:flex; align-items:center; justify-content:center; gap:2px;">' +
+      '<span style="font-size:1.4em; font-weight:700; color:' + (brokeEven ? '#065f46' : '#e2e8f0') + ';">$</span>' +
+      '<input type="number" id="build-cost-input" value="' + buildCost.toFixed(2) + '" step="0.01" min="0" ' +
+      'style="width:130px; font-size:1.4em; font-weight:700; color:' + (brokeEven ? '#065f46' : '#e2e8f0') + '; border:none; background:transparent; text-align:center; border-bottom:2px solid ' + (brokeEven ? '#6ee7b7' : '#475569') + '; outline:none;">' +
+      '</div>' +
+      '<div style="font-size:0.78em; color:' + (brokeEven ? '#065f46' : '#94a3b8') + '; margin-top:8px;">All-Time Net After Reserves: <strong style="color:' + (brokeEven ? '#065f46' : '#e2e8f0') + ';">$' + alltimeNAR.toFixed(2) + '</strong></div>' +
+      '<div style="font-size:1em; font-weight:700; margin-top:6px; color:' + (brokeEven ? '#065f46' : '#f87171') + ';">' +
+        (brokeEven ? '&#10003; Ahead by $' + Math.abs(buildRemaining).toFixed(2) : '$' + buildRemaining.toFixed(2) + ' to break even') +
+      '</div>' +
+      '<p id="build-cost-status" style="font-size:0.75em; margin:4px 0 0; min-height:1em; color:' + (brokeEven ? '#065f46' : '#94a3b8') + ';"></p>' +
       '</div>';
     html += '</div>';
 
@@ -1859,6 +1883,29 @@ document.addEventListener('DOMContentLoaded', function() {
           });
           statusEl.textContent = saveRes.ok ? 'Saved.' : 'Save failed.';
           setTimeout(function() { statusEl.textContent = ''; }, 2000);
+        } catch(e) {
+          statusEl.textContent = 'Error saving.';
+        }
+      });
+    }
+
+    var buildInput = document.getElementById('build-cost-input');
+    if (buildInput) {
+      buildInput.addEventListener('change', async function() {
+        var statusEl = document.getElementById('build-cost-status');
+        statusEl.textContent = 'Saving...';
+        try {
+          var saveRes = await fetch('/api/admin/settings', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+            body: JSON.stringify({ key: 'build_cost', value: this.value })
+          });
+          if (saveRes.ok) {
+            statusEl.textContent = 'Saved.';
+            setTimeout(function() { loadRevenueTab(); }, 600);
+          } else {
+            statusEl.textContent = 'Save failed.';
+          }
         } catch(e) {
           statusEl.textContent = 'Error saving.';
         }
@@ -2078,27 +2125,54 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         Object.keys(byParent).forEach(function(pk) {
           var parentLabel = PARENT_LABELS[pk] || pk;
-          html += renderServiceSection(CATEGORY_LABELS[cat] + ' (' + parentLabel + ')', byParent[pk]);
+          html += renderServiceSection(CATEGORY_LABELS[cat] + ' (' + parentLabel + ')', byParent[pk], cat, pk);
+        });
+        // Also show an add-addon section for any parent not yet having addons
+        var addonParents = cat === 'house-addon'
+          ? ['house-rancher','house-single','house-plus']
+          : ['rv-short','rv-medium','rv-large'];
+        addonParents.forEach(function(pk) {
+          if (!byParent[pk]) {
+            var parentLabel = PARENT_LABELS[pk] || pk;
+            html += renderServiceSection(CATEGORY_LABELS[cat] + ' (' + parentLabel + ')', [], cat, pk);
+          }
         });
       } else {
-        html += renderServiceSection(CATEGORY_LABELS[cat] || cat, services);
+        html += renderServiceSection(CATEGORY_LABELS[cat] || cat, services, cat, null);
       }
     });
 
     // Discounts
     html += '<div class="bookings-table-container" style="margin-top:30px;">';
     html += '<h3>Discounts</h3>';
-    html += '<table class="bookings-table"><thead><tr><th>Discount</th><th>Percent</th><th>Actions</th></tr></thead><tbody>';
-    pricingAdminData.discounts.filter(function(d) { return !d.auto_apply; }).forEach(function(d) {
+    html += '<table class="bookings-table"><thead><tr><th>Discount</th><th>Percent</th><th>Auto?</th><th>Min Svcs</th><th>Actions</th></tr></thead><tbody>';
+    pricingAdminData.discounts.forEach(function(d) {
       html += '<tr id="discount-row-' + d.id + '">' +
         '<td>' + escapeHtml(d.label) + '</td>' +
         '<td><input type="number" id="disc-pct-' + d.id + '" value="' + d.percent + '" min="0" max="100" step="1" style="width:70px; padding:4px 6px; border:1px solid #ddd; border-radius:4px;"> %</td>' +
+        '<td>' + (d.auto_apply ? 'Yes' : 'No') + '</td>' +
+        '<td>' + (d.min_services || '—') + '</td>' +
         '<td style="white-space:nowrap;">' +
           '<button type="button" class="btn btn-primary" style="padding:4px 12px; font-size:0.85em; margin-right:6px;" onclick="saveDiscountNow(' + d.id + ')">Save Now</button>' +
-          '<button type="button" class="btn btn-secondary" style="padding:4px 12px; font-size:0.85em;" onclick="openScheduleDiscount(' + d.id + ', \'' + escapeHtml(d.label) + '\')">Schedule</button>' +
+          '<button type="button" class="btn btn-secondary" style="padding:4px 12px; font-size:0.85em; margin-right:6px;" onclick="openScheduleDiscount(' + d.id + ', \'' + escapeHtml(d.label) + '\')">Schedule</button>' +
+          '<button type="button" class="btn-cancel" style="padding:4px 12px; font-size:0.85em;" onclick="deleteDiscount(' + d.id + ', \'' + escapeHtml(d.label) + '\')">Delete</button>' +
         '</td></tr>';
     });
-    html += '</tbody></table></div>';
+    html += '</tbody></table>';
+
+    // Add Discount inline form
+    html += '<div style="margin-top:12px; padding:14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">';
+    html += '<strong style="font-size:0.95em;">Add Discount</strong>';
+    html += '<div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; align-items:flex-end;">';
+    html += '<div><label style="font-size:0.85em; display:block; margin-bottom:3px;">Name</label><input type="text" id="new-disc-label" placeholder="e.g. Senior Discount" style="padding:6px 10px; border:1px solid #ddd; border-radius:5px; width:180px;"></div>';
+    html += '<div><label style="font-size:0.85em; display:block; margin-bottom:3px;">Percent (%)</label><input type="number" id="new-disc-pct" min="1" max="100" step="1" placeholder="10" style="padding:6px 10px; border:1px solid #ddd; border-radius:5px; width:80px;"></div>';
+    html += '<div><label style="font-size:0.85em; display:block; margin-bottom:3px;">Auto-apply?</label><select id="new-disc-auto" style="padding:6px 10px; border:1px solid #ddd; border-radius:5px;"><option value="false">No (customer selects)</option><option value="true">Yes (auto-apply)</option></select></div>';
+    html += '<div><label style="font-size:0.85em; display:block; margin-bottom:3px;">Min Services (if auto)</label><input type="number" id="new-disc-min" min="0" step="1" value="0" style="padding:6px 10px; border:1px solid #ddd; border-radius:5px; width:80px;"></div>';
+    html += '<div><button type="button" class="btn btn-primary" style="padding:7px 16px; font-size:0.9em;" onclick="addDiscountNow()">+ Add</button></div>';
+    html += '<span id="new-disc-msg" style="font-size:0.85em; color:#2d6a4f;"></span>';
+    html += '</div></div>';
+
+    html += '</div>';
 
     // Scheduled Changes
     html += '<div class="bookings-table-container" style="margin-top:30px;">';
@@ -2195,7 +2269,15 @@ document.addEventListener('DOMContentLoaded', function() {
     return opts;
   }
 
-  function renderServiceSection(title, services) {
+  function renderServiceSection(title, services, category, parentKey) {
+    var isAddon = category === 'house-addon' || category === 'rv-addon';
+    var addonParents = category === 'house-addon'
+      ? [['house-rancher','Rancher'],['house-single','Single Family'],['house-plus','Plus+']]
+      : category === 'rv-addon'
+      ? [['rv-short','Short Bus'],['rv-medium','Medium Bumper Pull'],['rv-large','Big Boy 5th Wheel']]
+      : [];
+    var bookableGroup = category === 'house' ? 'house' : category === 'rv' ? 'rv' : '';
+
     var html = '<div class="bookings-table-container" style="margin-bottom:20px;">';
     html += '<h3>' + title + '</h3>';
     html += '<table class="bookings-table"><thead><tr><th>Service</th><th>Price</th><th>Duration (hrs)</th><th>Actions</th></tr></thead><tbody>';
@@ -2206,10 +2288,30 @@ document.addEventListener('DOMContentLoaded', function() {
         '<td><input type="number" id="svc-dur-' + svc.id + '" value="' + svc.duration + '" min="0.25" step="0.25" style="width:80px; padding:4px 6px; border:1px solid #ddd; border-radius:4px;"></td>' +
         '<td style="white-space:nowrap;">' +
           '<button type="button" class="btn btn-primary" style="padding:4px 12px; font-size:0.85em; margin-right:6px;" onclick="saveServiceNow(' + svc.id + ')">Save Now</button>' +
-          '<button type="button" class="btn btn-secondary" style="padding:4px 12px; font-size:0.85em;" onclick="openScheduleService(' + svc.id + ', \'' + escapeHtml(svc.label) + '\')">Schedule</button>' +
+          '<button type="button" class="btn btn-secondary" style="padding:4px 12px; font-size:0.85em; margin-right:6px;" onclick="openScheduleService(' + svc.id + ', \'' + escapeHtml(svc.label) + '\')">Schedule</button>' +
+          '<button type="button" class="btn-cancel" style="padding:4px 12px; font-size:0.85em;" onclick="deleteService(' + svc.id + ', \'' + escapeHtml(svc.label) + '\')">Delete</button>' +
         '</td></tr>';
     });
-    html += '</tbody></table></div>';
+    html += '</tbody></table>';
+
+    // Add Service inline form
+    var addId = 'add-svc-' + (category || 'misc') + (parentKey ? '-' + parentKey : '');
+    html += '<div style="margin-top:12px; padding:14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">';
+    html += '<strong style="font-size:0.95em;">Add Service to ' + title + '</strong>';
+    html += '<div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; align-items:flex-end;">';
+    html += '<div><label style="font-size:0.85em; display:block; margin-bottom:3px;">Name</label><input type="text" id="' + addId + '-label" placeholder="e.g. Giant Deck" style="padding:6px 10px; border:1px solid #ddd; border-radius:5px; width:180px;"></div>';
+    html += '<div><label style="font-size:0.85em; display:block; margin-bottom:3px;">Price ($)</label><input type="number" id="' + addId + '-price" min="1" step="1" placeholder="0" style="padding:6px 10px; border:1px solid #ddd; border-radius:5px; width:90px;"></div>';
+    html += '<div><label style="font-size:0.85em; display:block; margin-bottom:3px;">Duration (hrs)</label><input type="number" id="' + addId + '-dur" min="0.25" step="0.25" value="1" style="padding:6px 10px; border:1px solid #ddd; border-radius:5px; width:90px;"></div>';
+    if (isAddon) {
+      html += '<div><label style="font-size:0.85em; display:block; margin-bottom:3px;">Applies To</label><select id="' + addId + '-parent" style="padding:6px 10px; border:1px solid #ddd; border-radius:5px;">';
+      addonParents.forEach(function(p) { html += '<option value="' + p[0] + '"' + (parentKey === p[0] ? ' selected' : '') + '>' + p[1] + '</option>'; });
+      html += '</select></div>';
+    }
+    html += '<div><button type="button" class="btn btn-primary" style="padding:7px 16px; font-size:0.9em;" onclick="addServiceNow(\'' + addId + '\',\'' + category + '\',\'' + (parentKey || '') + '\',\'' + bookableGroup + '\')">+ Add</button></div>';
+    html += '<span id="' + addId + '-msg" style="font-size:0.85em; color:#2d6a4f;"></span>';
+    html += '</div></div>';
+
+    html += '</div>';
     return html;
   }
 
@@ -2283,6 +2385,87 @@ document.addEventListener('DOMContentLoaded', function() {
     } catch (e) {}
   };
 
+  window.deleteService = async function(id, label) {
+    if (!confirm('Delete "' + label + '"? This will remove it from the pricing calculator.')) return;
+    try {
+      var r = await fetch('/api/admin/pricing/service/' + id, {
+        method: 'DELETE',
+        headers: { 'x-admin-token': adminToken }
+      });
+      if (r.ok) { loadPricingAdmin(); }
+      else { alert('Delete failed.'); }
+    } catch (e) { alert('Delete failed.'); }
+  };
+
+  window.addServiceNow = async function(addId, category, parentKey, bookableGroup) {
+    var label = (document.getElementById(addId + '-label') || {}).value || '';
+    var price = (document.getElementById(addId + '-price') || {}).value || '';
+    var dur   = (document.getElementById(addId + '-dur') || {}).value || '1';
+    var parentEl = document.getElementById(addId + '-parent');
+    var resolvedParent = parentEl ? parentEl.value : (parentKey || null);
+    var msgEl = document.getElementById(addId + '-msg');
+    if (!label.trim() || !price) {
+      if (msgEl) { msgEl.style.color = '#dc2626'; msgEl.textContent = 'Name and price required.'; }
+      return;
+    }
+    try {
+      var r = await fetch('/api/admin/pricing/service/new', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+        body: JSON.stringify({ label: label.trim(), category: category, parent_key: resolvedParent || null, price: parseInt(price), duration: parseFloat(dur), bookable_group: bookableGroup || null })
+      });
+      var data = await r.json();
+      if (data.success) {
+        if (msgEl) { msgEl.style.color = '#2d6a4f'; msgEl.textContent = 'Added!'; }
+        setTimeout(loadPricingAdmin, 600);
+      } else {
+        if (msgEl) { msgEl.style.color = '#dc2626'; msgEl.textContent = data.error || 'Failed.'; }
+      }
+    } catch (e) {
+      if (msgEl) { msgEl.style.color = '#dc2626'; msgEl.textContent = 'Error.'; }
+    }
+  };
+
+  window.deleteDiscount = async function(id, label) {
+    if (!confirm('Delete discount "' + label + '"?')) return;
+    try {
+      var r = await fetch('/api/admin/pricing/discount/' + id, {
+        method: 'DELETE',
+        headers: { 'x-admin-token': adminToken }
+      });
+      if (r.ok) { loadPricingAdmin(); }
+      else { alert('Delete failed.'); }
+    } catch (e) { alert('Delete failed.'); }
+  };
+
+  window.addDiscountNow = async function() {
+    var label   = (document.getElementById('new-disc-label') || {}).value || '';
+    var pct     = (document.getElementById('new-disc-pct') || {}).value || '';
+    var auto    = (document.getElementById('new-disc-auto') || {}).value || 'false';
+    var minSvcs = (document.getElementById('new-disc-min') || {}).value || '0';
+    var msgEl   = document.getElementById('new-disc-msg');
+    if (!label.trim() || !pct) {
+      if (msgEl) { msgEl.style.color = '#dc2626'; msgEl.textContent = 'Name and percent required.'; }
+      return;
+    }
+    try {
+      var r = await fetch('/api/admin/pricing/discount/new', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+        body: JSON.stringify({ label: label.trim(), percent: parseInt(pct), auto_apply: auto === 'true', min_services: parseInt(minSvcs) })
+      });
+      var data = await r.json();
+      if (data.success) {
+        if (msgEl) { msgEl.style.color = '#2d6a4f'; msgEl.textContent = 'Added!'; }
+        setTimeout(loadPricingAdmin, 600);
+      } else {
+        if (msgEl) { msgEl.style.color = '#dc2626'; msgEl.textContent = data.error || 'Failed.'; }
+      }
+    } catch (e) {
+      if (msgEl) { msgEl.style.color = '#dc2626'; msgEl.textContent = 'Error.'; }
+    }
+  };
+
   window.submitScheduledChange = async function() {
     var targetVal = document.getElementById('schedule-target').value;
     var field = document.getElementById('schedule-field').value;
@@ -2322,6 +2505,226 @@ document.addEventListener('DOMContentLoaded', function() {
       msgEl.style.color = '#dc2626';
       msgEl.textContent = 'Error. Please try again.';
     }
+  };
+
+  // --- Services Admin Tab ---
+  async function loadServicesAdmin() {
+    var container = document.getElementById('services-admin-container');
+    if (!container) return;
+    container.innerHTML = '<p style="color:#666;">Loading...</p>';
+    try {
+      var res = await fetch('/api/admin/service-cards', { headers: { 'x-admin-token': adminToken } });
+      if (res.status === 401) { handleAuthExpired(); return; }
+      var cards = await res.json();
+      renderServicesAdmin(cards);
+    } catch(e) {
+      container.innerHTML = '<p style="color:#dc2626;">Failed to load services.</p>';
+    }
+  }
+
+  function renderServicesAdmin(cards) {
+    var container = document.getElementById('services-admin-container');
+
+    var html = '<h2 style="margin-bottom:20px;">Services</h2>';
+
+    // Add new service form
+    html += '<div class="bookings-table-container" style="margin-bottom:28px;">';
+    html += '<h3 style="margin:0 0 16px;">Add New Service</h3>';
+    html += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px;">';
+    html += '<div class="form-group" style="grid-column:1/-1;"><label>Title *</label><input type="text" id="svc-title" placeholder="e.g. House Washing" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"></div>';
+    html += '<div class="form-group" style="grid-column:1/-1;"><label>Description</label><textarea id="svc-desc" rows="2" placeholder="Short description of the service" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box; resize:vertical;"></textarea></div>';
+    html += '<div class="form-group" style="grid-column:1/-1;"><label>Image URL</label><input type="text" id="svc-image" placeholder="e.g. /images/house-washing.jpg" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"></div>';
+    html += '<div class="form-group" style="grid-column:1/-1;"><label>Feature List (one item per line)</label><textarea id="svc-list" rows="3" placeholder="Safe for all surfaces\nEco-friendly solution\nFully insured" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box; resize:vertical;"></textarea></div>';
+    html += '<div class="form-group"><label>Sort Order</label><input type="number" id="svc-sort" value="0" min="0" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"></div>';
+    html += '</div>';
+    html += '<p id="svc-add-msg" style="min-height:1.2em; color:#dc2626; margin-bottom:8px;"></p>';
+    html += '<button type="button" id="svc-add-btn" class="btn btn-primary" style="padding:9px 28px;">Add Service</button>';
+    html += '</div>';
+
+    // Existing cards
+    html += '<div class="bookings-table-container">';
+    html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">';
+    html += '<h3 style="margin:0;">Current Services (' + cards.length + ')</h3></div>';
+
+    if (cards.length === 0) {
+      html += '<p style="color:#666; padding:10px 0;">No service cards yet. Add your first service above.</p>';
+    } else {
+      cards.forEach(function(card) {
+        var listItems = Array.isArray(card.list_items) ? card.list_items : [];
+        var isActive = card.active !== false;
+        html += '<div id="svc-row-' + card.id + '" style="border:1px solid ' + (isActive ? '#e5e7eb' : '#fca5a5') + '; border-radius:10px; padding:16px; margin-bottom:16px; background:' + (isActive ? '#fff' : '#fff8f8') + ';">';
+        html += '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">';
+
+        // Info / edit form
+        html += '<div style="flex:1;" id="svc-view-' + card.id + '">';
+        html += '<div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">';
+        html += '<span style="font-weight:700; font-size:1em;">' + escapeHtml(card.title) + '</span>';
+        html += '<span style="font-size:0.75em; padding:2px 8px; border-radius:10px; font-weight:600; background:' + (isActive ? '#d1fae5' : '#fee2e2') + '; color:' + (isActive ? '#065f46' : '#991b1b') + ';">' + (isActive ? 'Active' : 'Hidden') + '</span>';
+        html += '<span style="font-size:0.75em; color:#888;">Sort: ' + card.sort_order + '</span>';
+        html += '</div>';
+        if (card.description) html += '<div style="font-size:0.9em; color:#444; margin-bottom:6px;">' + escapeHtml(card.description) + '</div>';
+        if (card.image_url) html += '<div style="font-size:0.8em; color:#888; margin-bottom:4px;">Image: ' + escapeHtml(card.image_url) + '</div>';
+        if (listItems.length) {
+          html += '<ul style="margin:4px 0 0 0; padding-left:18px; font-size:0.85em; color:#555;">';
+          listItems.forEach(function(li) {
+            var text = typeof li === 'object' ? (li.text || JSON.stringify(li)) : li;
+            html += '<li>' + escapeHtml(text) + '</li>';
+          });
+          html += '</ul>';
+        }
+        html += '</div>';
+
+        // Edit form (hidden)
+        html += '<div style="flex:1; display:none;" id="svc-edit-' + card.id + '">';
+        html += '<div class="form-group" style="margin-bottom:8px;"><label style="font-size:0.85em;">Title *</label><input type="text" id="svc-edit-title-' + card.id + '" value="' + escapeHtml(card.title) + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:5px; box-sizing:border-box;"></div>';
+        html += '<div class="form-group" style="margin-bottom:8px;"><label style="font-size:0.85em;">Description</label><textarea id="svc-edit-desc-' + card.id + '" rows="2" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:5px; box-sizing:border-box; resize:vertical;">' + escapeHtml(card.description || '') + '</textarea></div>';
+        html += '<div class="form-group" style="margin-bottom:8px;"><label style="font-size:0.85em;">Image URL</label><input type="text" id="svc-edit-image-' + card.id + '" value="' + escapeHtml(card.image_url || '') + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:5px; box-sizing:border-box;"></div>';
+        var listText = listItems.map(function(li) { return typeof li === 'object' ? (li.text || '') : li; }).join('\n');
+        html += '<div class="form-group" style="margin-bottom:8px;"><label style="font-size:0.85em;">Feature List (one per line)</label><textarea id="svc-edit-list-' + card.id + '" rows="3" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:5px; box-sizing:border-box; resize:vertical;">' + escapeHtml(listText) + '</textarea></div>';
+        html += '<div class="form-group" style="margin-bottom:8px;"><label style="font-size:0.85em;">Sort Order</label><input type="number" id="svc-edit-sort-' + card.id + '" value="' + card.sort_order + '" min="0" style="width:80px; padding:6px 8px; border:1px solid #ddd; border-radius:5px;"></div>';
+        html += '<p id="svc-edit-msg-' + card.id + '" style="min-height:1.2em; font-size:0.85em; color:#dc2626; margin:4px 0;"></p>';
+        html += '</div>';
+
+        // Action buttons
+        html += '<div style="display:flex; flex-direction:column; gap:6px; min-width:100px;" id="svc-btns-' + card.id + '">';
+        html += '<button type="button" class="btn btn-primary" style="padding:5px 14px; font-size:0.85em;" onclick="editServiceCard(' + card.id + ')">Edit</button>';
+        html += '<button type="button" class="btn btn-secondary" style="padding:5px 14px; font-size:0.85em;" onclick="toggleServiceCard(' + card.id + ', ' + !isActive + ')">' + (isActive ? 'Hide' : 'Show') + '</button>';
+        html += '<button type="button" class="btn-cancel" style="padding:5px 14px; font-size:0.85em;" onclick="deleteServiceCard(' + card.id + ')">Delete</button>';
+        html += '</div>';
+
+        // Save/Cancel buttons (hidden)
+        html += '<div style="display:none; flex-direction:column; gap:6px; min-width:100px;" id="svc-save-btns-' + card.id + '">';
+        html += '<button type="button" class="btn btn-primary" style="padding:5px 14px; font-size:0.85em;" onclick="saveServiceCard(' + card.id + ')">Save</button>';
+        html += '<button type="button" class="btn btn-secondary" style="padding:5px 14px; font-size:0.85em;" onclick="cancelEditServiceCard(' + card.id + ')">Cancel</button>';
+        html += '</div>';
+
+        html += '</div></div>';
+      });
+    }
+    html += '</div>';
+
+    container.innerHTML = html;
+
+    // Wire Add button
+    document.getElementById('svc-add-btn').addEventListener('click', async function() {
+      var msgEl = document.getElementById('svc-add-msg');
+      var title = document.getElementById('svc-title').value.trim();
+      if (!title) { msgEl.textContent = 'Title is required.'; return; }
+      var listRaw = document.getElementById('svc-list').value;
+      var listItems = listRaw.split('\n').map(function(s) { return s.trim(); }).filter(Boolean);
+      msgEl.style.color = '#555';
+      msgEl.textContent = 'Saving...';
+      this.disabled = true;
+      try {
+        var res = await fetch('/api/admin/service-cards', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+          body: JSON.stringify({
+            title: title,
+            description: document.getElementById('svc-desc').value.trim(),
+            image_url: document.getElementById('svc-image').value.trim(),
+            list_items: listItems,
+            sort_order: parseInt(document.getElementById('svc-sort').value) || 0
+          })
+        });
+        if (res.ok) {
+          loadServicesAdmin();
+        } else {
+          var err = await res.json();
+          msgEl.style.color = '#dc2626';
+          msgEl.textContent = err.error || 'Failed to add service.';
+          this.disabled = false;
+        }
+      } catch(e) {
+        msgEl.style.color = '#dc2626';
+        msgEl.textContent = 'Error. Please try again.';
+        this.disabled = false;
+      }
+    });
+  }
+
+  window.editServiceCard = function(id) {
+    document.getElementById('svc-view-' + id).style.display = 'none';
+    document.getElementById('svc-edit-' + id).style.display = 'block';
+    document.getElementById('svc-btns-' + id).style.display = 'none';
+    document.getElementById('svc-save-btns-' + id).style.display = 'flex';
+  };
+
+  window.cancelEditServiceCard = function(id) {
+    document.getElementById('svc-view-' + id).style.display = 'block';
+    document.getElementById('svc-edit-' + id).style.display = 'none';
+    document.getElementById('svc-btns-' + id).style.display = 'flex';
+    document.getElementById('svc-save-btns-' + id).style.display = 'none';
+  };
+
+  window.saveServiceCard = async function(id) {
+    var msgEl = document.getElementById('svc-edit-msg-' + id);
+    var title = document.getElementById('svc-edit-title-' + id).value.trim();
+    if (!title) { msgEl.textContent = 'Title is required.'; return; }
+    var listRaw = document.getElementById('svc-edit-list-' + id).value;
+    var listItems = listRaw.split('\n').map(function(s) { return s.trim(); }).filter(Boolean);
+    msgEl.style.color = '#555';
+    msgEl.textContent = 'Saving...';
+    try {
+      var res = await fetch('/api/admin/service-cards/' + id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+        body: JSON.stringify({
+          title: title,
+          description: document.getElementById('svc-edit-desc-' + id).value.trim(),
+          image_url: document.getElementById('svc-edit-image-' + id).value.trim(),
+          list_items: listItems,
+          sort_order: parseInt(document.getElementById('svc-edit-sort-' + id).value) || 0,
+          active: true
+        })
+      });
+      if (res.ok) {
+        loadServicesAdmin();
+      } else {
+        var err = await res.json();
+        msgEl.style.color = '#dc2626';
+        msgEl.textContent = err.error || 'Failed to save.';
+      }
+    } catch(e) {
+      msgEl.style.color = '#dc2626';
+      msgEl.textContent = 'Error. Please try again.';
+    }
+  };
+
+  window.toggleServiceCard = async function(id, makeActive) {
+    try {
+      var row = document.getElementById('svc-row-' + id);
+      if (row) row.style.opacity = '0.5';
+      // Fetch current card data to preserve all fields
+      var getRes = await fetch('/api/admin/service-cards', { headers: { 'x-admin-token': adminToken } });
+      var cards = getRes.ok ? await getRes.json() : [];
+      var card = cards.find(function(c) { return c.id === id; });
+      if (!card) { loadServicesAdmin(); return; }
+      await fetch('/api/admin/service-cards/' + id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+        body: JSON.stringify({
+          title: card.title,
+          description: card.description,
+          image_url: card.image_url,
+          list_items: Array.isArray(card.list_items) ? card.list_items : [],
+          sort_order: card.sort_order,
+          active: makeActive
+        })
+      });
+      loadServicesAdmin();
+    } catch(e) { alert('Failed to update visibility.'); }
+  };
+
+  window.deleteServiceCard = async function(id) {
+    if (!confirm('Delete this service? This cannot be undone.')) return;
+    try {
+      await fetch('/api/admin/service-cards/' + id, {
+        method: 'DELETE',
+        headers: { 'x-admin-token': adminToken }
+      });
+      loadServicesAdmin();
+    } catch(e) { alert('Delete failed.'); }
   };
 
   // --- Gallery Admin Tab ---
@@ -2813,7 +3216,7 @@ document.addEventListener('DOMContentLoaded', function() {
       var statusColors = { draft: '#888', ordered: '#1e40af', received: '#065f46' };
       html += '<div style="overflow-x:auto;"><table class="bookings-table"><thead><tr><th>PO#</th><th>Date</th><th>Vendor</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
       pos.forEach(function(p) {
-        var dateLabel = p.date ? new Date(p.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+        var dateLabel = p.date ? new Date(p.date.toString().substring(0, 10) + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
         var color = statusColors[p.status] || '#888';
         html += '<tr>' +
           '<td style="font-weight:600;">' + escapeHtml(p.po_number) + '</td>' +
@@ -3006,7 +3409,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     var html = '<table style="width:100%; border-collapse:collapse; font-size:0.95em; margin-bottom:16px;">' +
       '<tr><td style="padding:5px 8px; color:#555; width:100px;">PO Number</td><td style="padding:5px 8px; font-weight:600;">' + (po ? escapeHtml(po.po_number) : 'Auto-assigned') + '</td></tr>' +
-      '<tr><td style="padding:5px 8px; color:#555;">Date</td><td style="padding:5px 8px;"><input type="date" id="po-date" value="' + (po ? po.date : todayStr) + '" style="padding:4px 6px; border:1px solid #ddd; border-radius:4px;"></td></tr>' +
+      '<tr><td style="padding:5px 8px; color:#555;">Date</td><td style="padding:5px 8px;"><input type="date" id="po-date" value="' + (po ? (po.date || '').toString().substring(0, 10) : todayStr) + '" style="padding:4px 6px; border:1px solid #ddd; border-radius:4px;"></td></tr>' +
       '<tr><td style="padding:5px 8px; color:#555;">Vendor</td><td style="padding:5px 8px;"><input type="text" id="po-vendor" value="' + escapeHtml(po ? (po.vendor || '') : '') + '" placeholder="Vendor name" style="width:100%; padding:4px 6px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></td></tr>' +
       '<tr><td style="padding:5px 8px; color:#555;">Vendor Email</td><td style="padding:5px 8px;"><input type="email" id="po-vendor-email" value="' + escapeHtml(po ? (po.vendor_email || '') : '') + '" placeholder="vendor@email.com" style="width:100%; padding:4px 6px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></td></tr>' +
       '<tr><td style="padding:5px 8px; color:#555;">Status</td><td style="padding:5px 8px;"><select id="po-status" style="padding:4px 8px; border:1px solid #ddd; border-radius:4px;">' + statusOpts + '</select></td></tr>' +
@@ -4390,6 +4793,836 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
   }
+
+  // ===================== ORDERS TAB =====================
+  var ordersView = 'catalog'; // 'catalog' or 'log'
+  var allProducts = [];
+  var allOrderLogs = [];
+  var selectedOrderIds = new Set();
+  var editingProductId = null;
+  var editingOrderId = null;
+
+  async function loadOrdersTab() {
+    var container = document.getElementById('orders-admin-container');
+    if (!container) return;
+    container.innerHTML = '<p style="color:#666;">Loading...</p>';
+    try {
+      const [prodRes, ordRes] = await Promise.all([
+        fetch('/api/admin/amazon-products', { headers: { 'x-admin-token': adminToken } }),
+        fetch('/api/admin/amazon-orders', { headers: { 'x-admin-token': adminToken } })
+      ]);
+      if (prodRes.status === 401) { handleAuthExpired(); return; }
+      allProducts = await prodRes.json();
+      allOrderLogs = ordRes.ok ? await ordRes.json() : [];
+      renderOrdersTab(container);
+    } catch (e) {
+      container.innerHTML = '<p style="color:#dc2626;">Failed to load orders data.</p>';
+    }
+  }
+
+  function renderOrdersTab(container) {
+    container.innerHTML = `
+      <div style="display:flex;gap:8px;margin-bottom:20px;align-items:center;flex-wrap:wrap;">
+        <button id="orders-view-catalog" onclick="window._ordersViewCatalog()" style="padding:8px 20px;border:none;border-bottom:3px solid ${ordersView==='catalog'?'#1a1a2e':'transparent'};background:none;font-size:0.95em;font-weight:600;cursor:pointer;color:${ordersView==='catalog'?'#1a1a2e':'#666'};">Product Catalog</button>
+        <button id="orders-view-log" onclick="window._ordersViewLog()" style="padding:8px 20px;border:none;border-bottom:3px solid ${ordersView==='log'?'#1a1a2e':'transparent'};background:none;font-size:0.95em;font-weight:600;cursor:pointer;color:${ordersView==='log'?'#1a1a2e':'#666'};">Order Log</button>
+        <div style="flex:1;"></div>
+        ${ordersView==='catalog' ? '<button onclick="window._openProductModal(null)" class="btn btn-primary" style="padding:7px 16px;font-size:0.9em;">+ Add Product</button>' : ''}
+        ${ordersView==='log' ? '<button onclick="window._openOrderLogModal(null)" class="btn btn-primary" style="padding:7px 16px;font-size:0.9em;">+ Log Order</button>' : ''}
+        ${ordersView==='log' ? '<button onclick="window._generatePO()" class="btn btn-secondary" style="padding:7px 16px;font-size:0.9em;">Generate PO</button>' : ''}
+      </div>
+      <div id="orders-sub-container"></div>
+      <div id="orders-modal-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;overflow-y:auto;"></div>
+    `;
+    if (ordersView === 'catalog') renderProductCatalog();
+    else renderOrderLog();
+  }
+
+  window._ordersViewCatalog = function() {
+    ordersView = 'catalog';
+    var container = document.getElementById('orders-admin-container');
+    if (container) renderOrdersTab(container);
+  };
+  window._ordersViewLog = function() {
+    ordersView = 'log';
+    var container = document.getElementById('orders-admin-container');
+    if (container) renderOrdersTab(container);
+  };
+
+  function renderProductCatalog() {
+    var sub = document.getElementById('orders-sub-container');
+    if (!sub) return;
+
+    var categories = [...new Set(allProducts.map(p => p.category).filter(Boolean))].sort();
+
+    sub.innerHTML = `
+      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
+        <input id="prod-search" type="text" placeholder="Search by title, ASIN, model..." style="padding:7px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9em;min-width:200px;flex:1;">
+        <select id="prod-cat-filter" style="padding:7px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9em;">
+          <option value="">All Categories</option>
+          ${categories.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('')}
+        </select>
+        <span style="color:#666;font-size:0.85em;" id="prod-count">${allProducts.length} product${allProducts.length !== 1 ? 's' : ''}</span>
+      </div>
+      <div id="prod-table-wrap">
+        <div style="overflow-x:auto;width:100%;">
+          <table style="border-collapse:collapse;font-size:0.82em;width:100%;table-layout:fixed;">
+            <colgroup>
+              <col style="width:52px;">
+              <col style="width:22%;">
+              <col style="width:13%;">
+              <col style="width:11%;">
+              <col style="width:11%;">
+              <col style="width:7%;">
+              <col style="width:13%;">
+              <col style="width:86px;">
+            </colgroup>
+            <thead>
+              <tr style="background:#f3f4f6;text-align:left;">
+                <th style="padding:8px 6px;">Img</th>
+                <th style="padding:8px 6px;">ASIN / Title</th>
+                <th style="padding:8px 6px;">Category</th>
+                <th style="padding:8px 6px;">Model #</th>
+                <th style="padding:8px 6px;">Part #</th>
+                <th style="padding:8px 6px;">PPU</th>
+                <th style="padding:8px 6px;">Seller</th>
+                <th style="padding:8px 6px;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="prod-tbody">
+              ${allProducts.map(function(p) {
+                var linkUrl = p.product_url || (p.asin ? 'https://www.amazon.com/dp/' + encodeURIComponent(p.asin) : '');
+                var titleCell = p.asin
+                  ? `<a href="${linkUrl}" target="_blank" rel="noopener" style="font-weight:600;color:#1a1a2e;text-decoration:none;font-size:0.9em;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(p.asin)}</a><span style="color:#374151;font-size:0.85em;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escHtml(p.title)}">${escHtml(p.title)}</span>`
+                  : (linkUrl ? `<a href="${linkUrl}" target="_blank" rel="noopener" style="font-weight:600;color:#2563eb;text-decoration:underline;font-size:0.9em;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escHtml(p.title)}">${escHtml(p.title)}</a>` : `<span style="font-weight:600;font-size:0.9em;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escHtml(p.title)}">${escHtml(p.title)}</span>`);
+                return `<tr style="border-bottom:1px solid #e5e7eb;" id="prod-row-${p.id}">
+                  <td style="padding:6px;">${linkUrl ? `<a href="${linkUrl}" target="_blank" rel="noopener">` : ''}<img id="pimg-${p.id}" alt="" style="width:44px;height:44px;object-fit:contain;border:1px solid #e5e7eb;border-radius:3px;background:#f3f4f6;opacity:0;transition:opacity 0.3s;">${linkUrl ? '</a>' : ''}</td>
+                  <td style="padding:6px;overflow:hidden;">${titleCell}</td>
+                  <td style="padding:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escHtml(p.category)}">${escHtml(p.category)}</td>
+                  <td style="padding:6px;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escHtml(p.model_number)}">${escHtml(p.model_number)}</td>
+                  <td style="padding:6px;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escHtml(p.part_number)}">${escHtml(p.part_number)}</td>
+                  <td style="padding:6px;font-weight:600;white-space:nowrap;">$${parseFloat(p.ppu||0).toFixed(2)}</td>
+                  <td style="padding:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escHtml(p.seller_name)}">${escHtml(p.seller_name)}</td>
+                  <td style="padding:6px;width:86px;">
+                    <div style="display:flex;flex-direction:column;gap:3px;">
+                      <button onclick="window._reorderProduct(${p.id})" style="padding:4px 0;background:#16a34a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.78em;width:100%;">Reorder</button>
+                      <button onclick="window._openProductModal(${p.id})" style="padding:4px 0;background:#1a1a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.78em;width:100%;">Edit</button>
+                      <button onclick="window._deleteProduct(${p.id})" style="padding:4px 0;background:#dc2626;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.78em;width:100%;">Delete</button>
+                    </div>
+                  </td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+        <p id="prod-no-results" style="color:#666;text-align:center;padding:30px;display:none;">No products found.</p>
+      </div>
+    `;
+
+    // Wire up search/filter with direct event listeners (more reliable than inline oninput)
+    var searchEl = document.getElementById('prod-search');
+    var catEl = document.getElementById('prod-cat-filter');
+    if (searchEl) {
+      searchEl.addEventListener('input', window._filterProducts);
+      searchEl.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); window._filterProducts(); } });
+    }
+    if (catEl) catEl.addEventListener('change', window._filterProducts);
+
+    _preloadProductImages(allProducts);
+  }
+
+  window._filterProducts = function() {
+    var search = ((document.getElementById('prod-search')||{}).value || '').toLowerCase().trim();
+    var cat = (document.getElementById('prod-cat-filter')||{}).value || '';
+    var count = 0;
+    allProducts.forEach(function(p) {
+      var row = document.getElementById('prod-row-' + p.id);
+      if (!row) return;
+      var matchCat = !cat || p.category === cat;
+      var matchSearch = !search ||
+        (p.title||'').toLowerCase().includes(search) ||
+        (p.asin||'').toLowerCase().includes(search) ||
+        (p.model_number||'').toLowerCase().includes(search) ||
+        (p.part_number||'').toLowerCase().includes(search) ||
+        (p.seller_name||'').toLowerCase().includes(search);
+      var visible = matchCat && matchSearch;
+      row.style.display = visible ? '' : 'none';
+      if (visible) count++;
+    });
+    var countEl = document.getElementById('prod-count');
+    if (countEl) countEl.textContent = count + ' product' + (count !== 1 ? 's' : '');
+    var noResults = document.getElementById('prod-no-results');
+    if (noResults) noResults.style.display = count === 0 ? 'block' : 'none';
+  };
+
+  function _preloadProductImages(products) {
+    var concurrency = 6;
+    var queue = products.slice();
+    var active = 0;
+    function next() {
+      while (active < concurrency && queue.length) {
+        var p = queue.shift();
+        var url = p.asin ? '/api/amazon-image/' + encodeURIComponent(p.asin) : (p.product_url ? '/api/product-image/' + p.id : null);
+        if (!url) { next(); return; }
+        active++;
+        var img = new Image();
+        img.onload = function(pid, src) {
+          return function() {
+            var el = document.getElementById('pimg-' + pid);
+            if (el) { el.src = src; el.style.opacity = '1'; }
+            active--;
+            next();
+          };
+        }(p.id, url);
+        img.onerror = function() { active--; next(); };
+        img.src = url;
+      }
+    }
+    next();
+  }
+
+  function escHtml(str) {
+    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  var _pendingReorder = false;
+
+  window._reorderProduct = function(id) {
+    var p = allProducts.find(x => x.id === id);
+    if (!p) return;
+    _pendingReorder = true;
+    window._openOrderLogModal(null, p);
+  };
+
+  function parseAsinFromInput(val) {
+    val = (val || '').trim();
+    // Try to extract ASIN from an Amazon URL
+    var m = val.match(/\/dp\/([A-Z0-9]{10})/) || val.match(/\/gp\/product\/([A-Z0-9]{10})/) || val.match(/[?&]asin=([A-Z0-9]{10})/i);
+    if (m) return m[1];
+    // If it looks like a bare ASIN (10 alphanumeric chars)
+    if (/^[A-Z0-9]{10}$/i.test(val)) return val.toUpperCase();
+    return val; // return as-is, let server validate
+  }
+
+  window._openProductModal = function(id) {
+    editingProductId = id;
+    var p = id ? allProducts.find(x => x.id === id) : null;
+    var overlay = document.getElementById('orders-modal-overlay');
+    if (!overlay) return;
+    overlay.style.display = 'block';
+    var existingAsin = (p||{}).asin || '';
+    var existingUrl = (p||{}).product_url || '';
+    overlay.innerHTML = `
+      <div style="background:#fff;max-width:540px;margin:40px auto;border-radius:10px;padding:28px;box-shadow:0 4px 24px rgba(0,0,0,0.18);">
+        <h3 style="margin:0 0 16px;">${p ? 'Edit Product' : 'Add Product'}</h3>
+        <div id="prod-modal-error" style="color:#dc2626;margin-bottom:10px;padding:8px 12px;background:#fef2f2;border-radius:6px;display:none;"></div>
+        <div style="display:grid;gap:12px;">
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div>
+              <label style="font-size:0.85em;font-weight:600;display:block;margin-bottom:3px;">ASIN</label>
+              <input id="pm-asin" value="${escHtml(existingAsin)}" placeholder="e.g. B07T3J9ZFZ" oninput="window._onPmAsinInput()" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9em;box-sizing:border-box;">
+              <div id="pm-asin-link" style="margin-top:4px;font-size:0.78em;${existingAsin?'':'display:none;'}">
+                <a id="pm-asin-anchor" href="https://www.amazon.com/dp/${escHtml(existingAsin)}" target="_blank" rel="noopener" style="color:#2563eb;">View on Amazon ↗</a>
+              </div>
+            </div>
+            <div>
+              <label style="font-size:0.85em;font-weight:600;display:block;margin-bottom:3px;">Product URL</label>
+              <input id="pm-url" value="${escHtml(existingUrl)}" placeholder="https://..." style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9em;box-sizing:border-box;">
+              <div style="font-size:0.78em;color:#888;margin-top:4px;">Required if no ASIN</div>
+            </div>
+          </div>
+
+          <div>
+            <label style="font-size:0.85em;font-weight:600;display:block;margin-bottom:3px;">Title *</label>
+            <input id="pm-title" value="${escHtml((p||{}).title||'')}" placeholder="Product title" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9em;box-sizing:border-box;">
+          </div>
+
+          <div>
+            <label style="font-size:0.85em;font-weight:600;display:block;margin-bottom:3px;">Category</label>
+            <input id="pm-category" value="${escHtml((p||{}).category||'')}" placeholder="e.g. Home Improvement" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9em;box-sizing:border-box;">
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div>
+              <label style="font-size:0.85em;font-weight:600;display:block;margin-bottom:3px;">Model #</label>
+              <input id="pm-model" value="${escHtml((p||{}).model_number||'')}" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9em;box-sizing:border-box;">
+            </div>
+            <div>
+              <label style="font-size:0.85em;font-weight:600;display:block;margin-bottom:3px;">Part #</label>
+              <input id="pm-part" value="${escHtml((p||{}).part_number||'')}" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9em;box-sizing:border-box;">
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div>
+              <label style="font-size:0.85em;font-weight:600;display:block;margin-bottom:3px;">PPU ($)</label>
+              <input id="pm-ppu" type="number" step="0.01" min="0" value="${parseFloat((p||{}).ppu||0).toFixed(2)}" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9em;box-sizing:border-box;">
+            </div>
+            <div>
+              <label style="font-size:0.85em;font-weight:600;display:block;margin-bottom:3px;">Seller</label>
+              <input id="pm-seller" value="${escHtml((p||{}).seller_name||'')}" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9em;box-sizing:border-box;">
+            </div>
+          </div>
+
+          <div>
+            <label style="font-size:0.85em;font-weight:600;display:block;margin-bottom:3px;">Notes</label>
+            <textarea id="pm-notes" rows="2" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9em;box-sizing:border-box;">${escHtml((p||{}).notes||'')}</textarea>
+          </div>
+
+        </div>
+        <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
+          <button onclick="window._closeOrdersModal()" style="padding:8px 18px;border:1px solid #d1d5db;background:#fff;border-radius:6px;cursor:pointer;">Cancel</button>
+          <button onclick="window._saveProduct()" class="btn btn-primary" style="padding:8px 20px;">Save Product</button>
+        </div>
+      </div>
+    `;
+  };
+
+  window._onPmAsinInput = function() {
+    var val = ((document.getElementById('pm-asin')||{}).value || '').trim();
+    var linkDiv = document.getElementById('pm-asin-link');
+    var anchor = document.getElementById('pm-asin-anchor');
+    if (/^[A-Z0-9]{10}$/i.test(val)) {
+      if (anchor) anchor.href = 'https://www.amazon.com/dp/' + val.toUpperCase();
+      if (linkDiv) linkDiv.style.display = 'block';
+    } else {
+      if (linkDiv) linkDiv.style.display = 'none';
+    }
+  };
+
+  window._closeOrdersModal = function() {
+    _pendingReorder = false;
+    var overlay = document.getElementById('orders-modal-overlay');
+    if (overlay) { overlay.style.display = 'none'; overlay.innerHTML = ''; }
+  };
+
+  window._saveProduct = async function() {
+    var errEl = document.getElementById('prod-modal-error');
+    var asin = parseAsinFromInput((document.getElementById('pm-asin')||{}).value || '');
+    var body = {
+      asin: asin,
+      title: (document.getElementById('pm-title')||{}).value || '',
+      category: (document.getElementById('pm-category')||{}).value || '',
+      model_number: (document.getElementById('pm-model')||{}).value || '',
+      part_number: (document.getElementById('pm-part')||{}).value || '',
+      ppu: (document.getElementById('pm-ppu')||{}).value || '0',
+      seller_name: (document.getElementById('pm-seller')||{}).value || '',
+      notes: (document.getElementById('pm-notes')||{}).value || '',
+      product_url: (document.getElementById('pm-url')||{}).value || ''
+    };
+    if (!body.title) {
+      if (errEl) { errEl.textContent = 'Title is required.'; errEl.style.display = 'block'; }
+      return;
+    }
+    if (!body.asin && !body.product_url) {
+      if (errEl) { errEl.textContent = 'Either ASIN or Product URL is required.'; errEl.style.display = 'block'; }
+      return;
+    }
+    try {
+      var url = editingProductId ? '/api/admin/amazon-products/' + editingProductId : '/api/admin/amazon-products';
+      var method = editingProductId ? 'PUT' : 'POST';
+      var res = await fetch(url, { method, headers: { 'x-admin-token': adminToken, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (res.status === 401) { handleAuthExpired(); return; }
+      var data = await res.json();
+      if (data.success) {
+        window._closeOrdersModal();
+        await loadOrdersTab();
+      } else {
+        if (errEl) { errEl.textContent = data.error || 'Failed to save.'; errEl.style.display = 'block'; }
+      }
+    } catch (e) {
+      if (errEl) { errEl.textContent = 'Network error.'; errEl.style.display = 'block'; }
+    }
+  };
+
+  window._deleteProduct = async function(id) {
+    if (!confirm('Delete this product from the catalog?')) return;
+    try {
+      var res = await fetch('/api/admin/amazon-products/' + id, { method: 'DELETE', headers: { 'x-admin-token': adminToken } });
+      if (res.status === 401) { handleAuthExpired(); return; }
+      await loadOrdersTab();
+    } catch (e) { alert('Failed to delete.'); }
+  };
+
+  // --- Order Log ---
+  function renderOrderLog() {
+    var sub = document.getElementById('orders-sub-container');
+    if (!sub) return;
+    selectedOrderIds = new Set();
+
+    var years = [...new Set(allOrderLogs.map(o => new Date(o.ordered_at).getFullYear()))].sort((a,b)=>b-a);
+    var currentYear = new Date().getFullYear();
+
+    sub.innerHTML = `
+      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
+        <select id="log-year-filter" onchange="window._filterOrderLog()" style="padding:7px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9em;">
+          <option value="">All Years</option>
+          ${years.map(y => `<option value="${y}"${y===currentYear?' selected':''}>${y}</option>`).join('')}
+        </select>
+        <select id="log-status-filter" onchange="window._filterOrderLog()" style="padding:7px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9em;">
+          <option value="">All Statuses</option>
+          <option value="ordered">Ordered</option>
+          <option value="received">Received</option>
+          <option value="pending">Pending</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+        <input id="log-search" type="text" placeholder="Search..." style="padding:7px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9em;min-width:180px;flex:1;" oninput="window._filterOrderLog()">
+        <span id="log-count" style="color:#666;font-size:0.85em;">${allOrderLogs.length} orders</span>
+      </div>
+      <div id="log-table-wrap"></div>
+    `;
+    window._filterOrderLog();
+  }
+
+  window._filterOrderLog = function() {
+    var year = (document.getElementById('log-year-filter') || {}).value || '';
+    var status = (document.getElementById('log-status-filter') || {}).value || '';
+    var search = ((document.getElementById('log-search') || {}).value || '').toLowerCase();
+    var filtered = allOrderLogs.filter(function(o) {
+      var y = String(new Date(o.ordered_at).getFullYear());
+      var matchYear = !year || y === year;
+      var matchStatus = !status || o.status === status;
+      var matchSearch = !search || o.order_tag.toLowerCase().includes(search) ||
+        o.asin.toLowerCase().includes(search) || o.product_title.toLowerCase().includes(search) ||
+        (o.seller_name||'').toLowerCase().includes(search);
+      return matchYear && matchStatus && matchSearch;
+    });
+    var countEl = document.getElementById('log-count');
+    if (countEl) countEl.textContent = filtered.length + ' order' + (filtered.length !== 1 ? 's' : '');
+    var wrap = document.getElementById('log-table-wrap');
+    if (!wrap) return;
+    if (!filtered.length) {
+      wrap.innerHTML = '<p style="color:#666;text-align:center;padding:30px;">No orders found.</p>';
+      return;
+    }
+    var total = filtered.reduce(function(s,o){ return s + parseFloat(o.total_price||0); }, 0);
+    wrap.innerHTML = `
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:0.88em;">
+          <thead>
+            <tr style="background:#f3f4f6;text-align:left;">
+              <th style="padding:10px 8px;"><input type="checkbox" id="log-select-all" onchange="window._toggleSelectAll(this.checked)"></th>
+              <th style="padding:10px 8px;white-space:nowrap;">Order Tag</th>
+              <th style="padding:10px 8px;white-space:nowrap;">Date</th>
+              <th style="padding:10px 8px;white-space:nowrap;">ASIN / Product</th>
+              <th style="padding:10px 8px;white-space:nowrap;">Qty</th>
+              <th style="padding:10px 8px;white-space:nowrap;">Unit $</th>
+              <th style="padding:10px 8px;white-space:nowrap;">Total</th>
+              <th style="padding:10px 8px;white-space:nowrap;">Seller</th>
+              <th style="padding:10px 8px;white-space:nowrap;">Status</th>
+              <th style="padding:10px 8px;white-space:nowrap;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filtered.map(function(o) {
+              var d = new Date(o.ordered_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+              var amazonUrl = o.asin ? 'https://www.amazon.com/dp/' + encodeURIComponent(o.asin) : '#';
+              var statusColor = {ordered:'#2563eb',received:'#16a34a',pending:'#d97706',cancelled:'#6b7280'}[o.status]||'#666';
+              return `<tr style="border-bottom:1px solid #e5e7eb;">
+                <td style="padding:8px;"><input type="checkbox" class="log-select-cb" data-id="${o.id}" ${selectedOrderIds.has(o.id)?'checked':''} onchange="window._toggleOrderSelect(${o.id},this.checked)"></td>
+                <td style="padding:8px;font-weight:600;white-space:nowrap;">${escHtml(o.order_tag)}</td>
+                <td style="padding:8px;white-space:nowrap;color:#666;">${d}</td>
+                <td style="padding:8px;max-width:220px;">
+                  ${o.asin ? `<a href="${amazonUrl}" target="_blank" rel="noopener" style="font-weight:600;color:#1a1a2e;font-size:0.85em;">${escHtml(o.asin)}</a><br>` : ''}
+                  <span style="font-size:0.83em;color:#374151;">${escHtml(o.product_title)}</span>
+                </td>
+                <td style="padding:8px;text-align:center;">${o.qty}</td>
+                <td style="padding:8px;white-space:nowrap;">$${parseFloat(o.unit_price).toFixed(2)}</td>
+                <td style="padding:8px;white-space:nowrap;font-weight:600;">$${parseFloat(o.total_price).toFixed(2)}</td>
+                <td style="padding:8px;font-size:0.85em;">${escHtml(o.seller_name)}</td>
+                <td style="padding:8px;"><span style="color:${statusColor};font-weight:600;font-size:0.85em;">${escHtml(o.status)}</span></td>
+                <td style="padding:8px;white-space:nowrap;">
+                  <button onclick="window._openOrderLogModal(${o.id})" style="padding:4px 10px;background:#1a1a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.82em;margin-right:4px;">Edit</button>
+                  <button onclick="window._deleteOrderLog(${o.id})" style="padding:4px 10px;background:#dc2626;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.82em;">Del</button>
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+          <tfoot>
+            <tr style="background:#f9fafb;font-weight:600;">
+              <td colspan="6" style="padding:10px 8px;text-align:right;">Total (filtered):</td>
+              <td style="padding:10px 8px;white-space:nowrap;">$${total.toFixed(2)}</td>
+              <td colspan="3"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    `;
+  };
+
+  window._toggleSelectAll = function(checked) {
+    document.querySelectorAll('.log-select-cb').forEach(function(cb) {
+      cb.checked = checked;
+      var id = parseInt(cb.getAttribute('data-id'));
+      if (checked) selectedOrderIds.add(id); else selectedOrderIds.delete(id);
+    });
+  };
+
+  window._toggleOrderSelect = function(id, checked) {
+    if (checked) selectedOrderIds.add(id); else selectedOrderIds.delete(id);
+  };
+
+  window._openOrderLogModal = function(id, prefill) {
+    editingOrderId = id;
+    var o = id ? allOrderLogs.find(x => x.id === id) : null;
+    var p = prefill || null;
+    var overlay = document.getElementById('orders-modal-overlay');
+    if (!overlay) return;
+    overlay.style.display = 'block';
+
+    // Build product dropdown options
+    var prodOptions = allProducts.map(function(prod) {
+      var sel = (o && o.asin === prod.asin) || (p && p.asin === prod.asin) ? ' selected' : '';
+      return `<option value="${escHtml(prod.asin)}" data-title="${escHtml(prod.title)}" data-ppu="${escHtml(String(prod.ppu))}" data-seller="${escHtml(prod.seller_name)}"${sel}>${escHtml(prod.asin)} — ${escHtml(prod.title)}</option>`;
+    }).join('');
+
+    var today = new Date().toISOString().slice(0,10);
+    var ordDate = o ? new Date(o.ordered_at).toISOString().slice(0,10) : today;
+
+    overlay.innerHTML = `
+      <div style="background:#fff;max-width:520px;margin:60px auto;border-radius:10px;padding:28px;box-shadow:0 4px 24px rgba(0,0,0,0.18);">
+        <h3 style="margin:0 0 18px;">${o ? 'Edit Order Log Entry' : 'Log Order'}</h3>
+        <div id="log-modal-error" style="color:#dc2626;margin-bottom:8px;display:none;"></div>
+        <div style="display:grid;gap:12px;">
+          <div>
+            <label style="font-size:0.85em;font-weight:600;display:block;margin-bottom:3px;">Order Tag</label>
+            <input id="lm-tag" value="${escHtml((o||{}).order_tag||'')}" placeholder="Auto-generated if blank" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9em;box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:0.85em;font-weight:600;display:block;margin-bottom:3px;">Product (from catalog)</label>
+            <select id="lm-product-select" onchange="window._onLogProductSelect()" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9em;box-sizing:border-box;">
+              <option value="">— Select or enter manually below —</option>
+              ${prodOptions}
+            </select>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div>
+              <label style="font-size:0.85em;font-weight:600;display:block;margin-bottom:3px;">ASIN</label>
+              <input id="lm-asin" value="${escHtml((o||p||{}).asin||'')}" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9em;box-sizing:border-box;">
+            </div>
+            <div>
+              <label style="font-size:0.85em;font-weight:600;display:block;margin-bottom:3px;">Date</label>
+              <input id="lm-date" type="date" value="${ordDate}" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9em;box-sizing:border-box;">
+            </div>
+          </div>
+          <div>
+            <label style="font-size:0.85em;font-weight:600;display:block;margin-bottom:3px;">Product Title</label>
+            <input id="lm-title" value="${escHtml((o||p||{}).product_title||(p||{}).title||'')}" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9em;box-sizing:border-box;">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+            <div>
+              <label style="font-size:0.85em;font-weight:600;display:block;margin-bottom:3px;">Qty</label>
+              <input id="lm-qty" type="number" min="1" value="${(o||{}).qty||1}" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9em;box-sizing:border-box;" oninput="window._updateLogTotal()">
+            </div>
+            <div>
+              <label style="font-size:0.85em;font-weight:600;display:block;margin-bottom:3px;">Unit Price ($)</label>
+              <input id="lm-uprice" type="number" step="0.01" min="0" value="${parseFloat((o||p||{}).unit_price||(p||{}).ppu||'0').toFixed(2)}" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9em;box-sizing:border-box;" oninput="window._updateLogTotal()">
+            </div>
+            <div>
+              <label style="font-size:0.85em;font-weight:600;display:block;margin-bottom:3px;">Total</label>
+              <input id="lm-total" type="number" step="0.01" readonly style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9em;box-sizing:border-box;background:#f9fafb;" value="${parseFloat((o||{}).total_price||(p?parseFloat(p.ppu||0)*1:0)||0).toFixed(2)}">
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div>
+              <label style="font-size:0.85em;font-weight:600;display:block;margin-bottom:3px;">Seller</label>
+              <input id="lm-seller" value="${escHtml((o||p||{}).seller_name||'')}" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9em;box-sizing:border-box;">
+            </div>
+            <div>
+              <label style="font-size:0.85em;font-weight:600;display:block;margin-bottom:3px;">Status</label>
+              <select id="lm-status" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9em;box-sizing:border-box;">
+                <option value="ordered"${(o||{}).status==='ordered'?' selected':''}>Ordered</option>
+                <option value="received"${(o||{}).status==='received'?' selected':''}>Received</option>
+                <option value="pending"${(o||{}).status==='pending'?' selected':''}>Pending</option>
+                <option value="cancelled"${(o||{}).status==='cancelled'?' selected':''}>Cancelled</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label style="font-size:0.85em;font-weight:600;display:block;margin-bottom:3px;">Notes</label>
+            <textarea id="lm-notes" rows="2" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9em;box-sizing:border-box;">${escHtml((o||{}).notes||'')}</textarea>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
+          <button onclick="window._closeOrdersModal()" style="padding:8px 18px;border:1px solid #d1d5db;background:#fff;border-radius:6px;cursor:pointer;">Cancel</button>
+          <button onclick="window._saveOrderLog()" class="btn btn-primary" style="padding:8px 18px;">Save</button>
+        </div>
+      </div>
+    `;
+  };
+
+  window._onLogProductSelect = function() {
+    var sel = document.getElementById('lm-product-select');
+    if (!sel || !sel.value) return;
+    var opt = sel.options[sel.selectedIndex];
+    document.getElementById('lm-asin').value = sel.value;
+    document.getElementById('lm-title').value = opt.getAttribute('data-title') || '';
+    document.getElementById('lm-uprice').value = parseFloat(opt.getAttribute('data-ppu') || '0').toFixed(2);
+    document.getElementById('lm-seller').value = opt.getAttribute('data-seller') || '';
+    window._updateLogTotal();
+  };
+
+  window._updateLogTotal = function() {
+    var qty = parseFloat((document.getElementById('lm-qty')||{}).value) || 0;
+    var up = parseFloat((document.getElementById('lm-uprice')||{}).value) || 0;
+    var totalEl = document.getElementById('lm-total');
+    if (totalEl) totalEl.value = (qty * up).toFixed(2);
+  };
+
+  window._saveOrderLog = async function() {
+    var errEl = document.getElementById('log-modal-error');
+    var body = {
+      order_tag: (document.getElementById('lm-tag')||{}).value || '',
+      asin: (document.getElementById('lm-asin')||{}).value || '',
+      product_title: (document.getElementById('lm-title')||{}).value || '',
+      qty: (document.getElementById('lm-qty')||{}).value || '1',
+      unit_price: (document.getElementById('lm-uprice')||{}).value || '0',
+      seller_name: (document.getElementById('lm-seller')||{}).value || '',
+      notes: (document.getElementById('lm-notes')||{}).value || '',
+      status: (document.getElementById('lm-status')||{}).value || 'ordered',
+      ordered_at: (document.getElementById('lm-date')||{}).value || ''
+    };
+    try {
+      var url = editingOrderId ? '/api/admin/amazon-orders/' + editingOrderId : '/api/admin/amazon-orders';
+      var method = editingOrderId ? 'PUT' : 'POST';
+      var res = await fetch(url, { method, headers: { 'x-admin-token': adminToken, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (res.status === 401) { handleAuthExpired(); return; }
+      var data = await res.json();
+      if (data.success) {
+        var wasReorder = _pendingReorder;
+        var savedOrder = data.order || null;
+        _pendingReorder = false;
+        window._closeOrdersModal();
+        await loadOrdersTab();
+        if (wasReorder && savedOrder) {
+          // Create a real PO in the Expenses system from this order
+          var poItems = [{ desc: savedOrder.product_title || savedOrder.asin || 'Item', qty: savedOrder.qty || 1, unit_price: parseFloat(savedOrder.unit_price) || 0 }];
+          var poTotal = parseFloat(savedOrder.total_price) || 0;
+          var poRes = await fetch('/api/admin/purchase-orders', {
+            method: 'POST',
+            headers: { 'x-admin-token': adminToken, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              date: new Date(savedOrder.ordered_at).toISOString().split('T')[0],
+              vendor: savedOrder.seller_name || 'Amazon',
+              vendor_email: '',
+              items: poItems,
+              total: poTotal,
+              status: 'ordered',
+              notes: 'Reorder — ASIN: ' + (savedOrder.asin || '') + (savedOrder.order_tag ? ' | ' + savedOrder.order_tag : '')
+            })
+          });
+          if (poRes.ok) {
+            var poData = await poRes.json();
+            if (poData.success && poData.po) {
+              // Switch to Expenses tab and open the PO
+              var expTab = document.querySelector('[data-tab="expenses"]');
+              if (expTab) expTab.click();
+              setTimeout(function() { if (typeof openPoModal === 'function') openPoModal(poData.po.id); }, 600);
+            }
+          }
+        }
+      } else {
+        if (errEl) { errEl.textContent = data.error || 'Failed to save.'; errEl.style.display = 'block'; }
+      }
+    } catch (e) {
+      _pendingReorder = false;
+      if (errEl) { errEl.textContent = 'Network error.'; errEl.style.display = 'block'; }
+    }
+  };
+
+  window._deleteOrderLog = async function(id) {
+    if (!confirm('Delete this order log entry?')) return;
+    try {
+      var res = await fetch('/api/admin/amazon-orders/' + id, { method: 'DELETE', headers: { 'x-admin-token': adminToken } });
+      if (res.status === 401) { handleAuthExpired(); return; }
+      await loadOrdersTab();
+    } catch (e) { alert('Failed to delete.'); }
+  };
+
+  window._generatePO = async function(preOpenedWin) {
+    if (!selectedOrderIds.size) {
+      alert('Select at least one order to generate a PO.');
+      return;
+    }
+    // Use pre-opened window if provided (avoids popup blocker after awaits)
+    var win = preOpenedWin || window.open('', '_blank');
+    if (!win) { alert('Pop-up blocked. Please allow pop-ups to generate PO.'); return; }
+    try {
+      var ids = [...selectedOrderIds].join(',');
+      var res = await fetch('/api/admin/amazon-orders/po?ids=' + ids, { headers: { 'x-admin-token': adminToken } });
+      if (res.status === 401) { handleAuthExpired(); return; }
+      var data = await res.json();
+      if (!data.success) { alert(data.error || 'Failed to generate PO.'); return; }
+      var orders = data.orders;
+      var total = data.total;
+      var poNum = data.poNumber;
+      var today = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+      var rows = orders.map(function(o) {
+        return `<tr style="border-bottom:1px solid #e5e7eb;">
+          <td style="padding:8px 12px;">${escHtml(o.asin)}</td>
+          <td style="padding:8px 12px;">${escHtml(o.product_title)}</td>
+          <td style="padding:8px 12px;text-align:center;">${o.qty}</td>
+          <td style="padding:8px 12px;text-align:right;">$${parseFloat(o.unit_price).toFixed(2)}</td>
+          <td style="padding:8px 12px;text-align:right;font-weight:600;">$${parseFloat(o.total_price).toFixed(2)}</td>
+          <td style="padding:8px 12px;">${escHtml(o.seller_name)}</td>
+          <td style="padding:8px 12px;color:#666;">${new Date(o.ordered_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</td>
+        </tr>`;
+      }).join('');
+      var poHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${poNum}</title><style>
+        body{font-family:Arial,sans-serif;margin:40px;color:#1a1a2e;}
+        h1{font-size:1.6em;margin-bottom:4px;}
+        .meta{color:#666;font-size:0.9em;margin-bottom:24px;}
+        table{width:100%;border-collapse:collapse;font-size:0.9em;}
+        th{background:#1a1a2e;color:#fff;padding:10px 12px;text-align:left;}
+        tr:nth-child(even){background:#f9fafb;}
+        .total-row td{font-weight:700;font-size:1em;background:#f3f4f6;}
+        @media print{button{display:none!important;}}
+      </style></head><body>
+        <h1>Purchase Order</h1>
+        <div class="meta">
+          <strong>PO Number:</strong> ${poNum}<br>
+          <strong>Date:</strong> ${today}<br>
+          <strong>Prepared by:</strong> D&amp;G Soft Wash
+        </div>
+        <table>
+          <thead><tr>
+            <th>ASIN</th><th>Product</th><th style="text-align:center;">Qty</th>
+            <th style="text-align:right;">Unit Price</th><th style="text-align:right;">Total</th>
+            <th>Seller</th><th>Order Date</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+          <tfoot><tr class="total-row">
+            <td colspan="4" style="padding:10px 12px;text-align:right;">Grand Total:</td>
+            <td style="padding:10px 12px;text-align:right;">$${total}</td>
+            <td colspan="2"></td>
+          </tr></tfoot>
+        </table>
+        <div style="margin-top:30px;text-align:right;">
+          <button onclick="window.print()" style="padding:10px 24px;background:#1a1a2e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:1em;">Print / Save PDF</button>
+        </div>
+      </body></html>`;
+      win.document.write(poHtml);
+      win.document.close();
+    } catch (e) { win.close(); alert('Failed to generate PO.'); }
+  };
+  // ===================== END ORDERS TAB =====================
+
+  // ===================== MIX CALCULATOR TAB =====================
+  function initMixCalc() {
+    const wrap = document.getElementById('mix-calc-wrap');
+    if (!wrap || wrap.dataset.mcInit) return;
+    wrap.dataset.mcInit = '1';
+
+    const mcComponents = {
+      'Water':        { mul: 4.0, id: 'mc-water',       label: 'Fresh Water (1")' },
+      'SH':           { mul: 1.0, id: 'mc-sh',          label: 'SH (1/2")' },
+      'Elemonator':   { mul: 1.0, id: 'mc-elemonator',  label: 'Elemonator (1/2")' },
+      'F-13':         { mul: 1.0, id: 'mc-f13',         label: 'F-13 Gutter Grenade (1/2")' },
+      'Neutralizer':  { mul: 1.0, id: 'mc-neutralizer', label: 'Neutralizer (1/2")' },
+      'UV Protectant':{ mul: 1.0, id: 'mc-uv',          label: 'UV Protectant (1/2")' }
+    };
+
+    const mcRecipes = {
+      houseWash:    { name:'House Wash',       type:'sh',       base:{Water:10,Elemonator:1}, sh:{light:1,moderate:2,heavy:4,disgusting:6} },
+      roofWash:     { name:'Roof Wash',        type:'sh',       base:{Water:5, Elemonator:2}, sh:{light:4,moderate:6,heavy:9,disgusting:null} },
+      drivewayClean:{ name:'Driveway Clean',   type:'sh',       base:{Water:6, Elemonator:1}, sh:{light:2,moderate:4,heavy:7,disgusting:10} },
+      fenceDeckWash:{ name:'Fence/Deck Wash',  type:'sh',       base:{Water:10,Elemonator:1}, sh:{light:0.5,moderate:1,heavy:null,disgusting:null} },
+      gutterClean:  { name:'Gutter Clean',     type:'specialty',settings:{Water:8,SH:0,Elemonator:1,'F-13':5,Neutralizer:0,'UV Protectant':0} },
+      oxidation:    { name:'Oxidation Prep',   type:'specialty',settings:{Water:10,SH:0,Elemonator:2,'F-13':0,Neutralizer:0,'UV Protectant':0} },
+      neutralizer:  { name:'Neutralizer Rinse',type:'specialty',settings:{Water:10,SH:0,Elemonator:0,'F-13':0,Neutralizer:5,'UV Protectant':0} },
+      uvProtectant: { name:'UV Protectant Coat',type:'specialty',settings:{Water:10,SH:0,Elemonator:0,'F-13':0,Neutralizer:0,'UV Protectant':5} }
+    };
+
+    let mcCurrentRecipe = 'houseWash';
+    let mcCurrentLevel = 'moderate';
+
+    // Build sliders
+    const slidersEl = document.getElementById('mc-sliders');
+    Object.keys(mcComponents).forEach(key => {
+      const c = mcComponents[key];
+      slidersEl.innerHTML += '<div class="mc-slider-group">' +
+        '<label for="' + c.id + '"><span>' + c.label + '</span><span id="' + c.id + '-val">0</span></label>' +
+        '<input type="range" id="' + c.id + '" min="0" max="10" value="0" step="0.5" data-mc-comp="' + key + '">' +
+        '</div>';
+    });
+
+    const sliders = wrap.querySelectorAll('input[type=range]');
+    const bulkSH  = document.getElementById('mc-bulkSH');
+    const finalSHEl = document.getElementById('mc-finalSH');
+    const titleEl   = document.getElementById('mc-recipeTitle');
+    const tbody     = document.getElementById('mc-resultsBody');
+    const levelsDiv = document.getElementById('mc-levels');
+
+    function mcCalc() {
+      let total = 0; const flows = {};
+      sliders.forEach(s => {
+        const key = s.dataset.mcComp;
+        const v = parseFloat(s.value);
+        document.getElementById(mcComponents[key].id + '-val').textContent = v;
+        flows[key] = (v / 10) * mcComponents[key].mul;
+        total += flows[key];
+      });
+      tbody.innerHTML = '';
+      let shPct = 0;
+      Object.keys(mcComponents).forEach(key => {
+        const pct = total > 0 ? (flows[key] / total) * 100 : 0;
+        if (key === 'SH') shPct = pct;
+        tbody.innerHTML += '<tr><td>' + mcComponents[key].label + '</td><td>' + pct.toFixed(2) + '%</td><td>' +
+          ((pct/100)*16).toFixed(2) + '</td><td>' + ((pct/100)*8).toFixed(2) + '</td></tr>';
+      });
+      const finalSH = (shPct / 100) * (parseFloat(bulkSH.value) || 0);
+      finalSHEl.textContent = 'Final SH on Surface: ' + finalSH.toFixed(2) + '%';
+    }
+
+    function mcApplyRecipe(key) {
+      mcCurrentRecipe = key;
+      const r = mcRecipes[key];
+      sliders.forEach(s => s.value = 0);
+      if (r.type === 'sh') {
+        levelsDiv.style.display = '';
+        Object.keys(r.base).forEach(k => { const el = wrap.querySelector('input[data-mc-comp="' + k + '"]'); if(el) el.value = r.base[k]; });
+        mcApplyLevel(mcCurrentLevel);
+      } else {
+        levelsDiv.style.display = 'none';
+        Object.keys(r.settings).forEach(k => { const el = wrap.querySelector('input[data-mc-comp="' + k + '"]'); if(el) el.value = r.settings[k]; });
+        titleEl.textContent = r.name;
+      }
+      wrap.querySelectorAll('[data-mc-recipe]').forEach(b => b.classList.toggle('mc-active-recipe', b.dataset.mcRecipe === key));
+      mcCalc();
+    }
+
+    function mcApplyLevel(level) {
+      const r = mcRecipes[mcCurrentRecipe];
+      if (r.type !== 'sh') return;
+      wrap.querySelectorAll('[data-mc-level]').forEach(b => { b.disabled = r.sh[b.dataset.mcLevel] === null; });
+      const target = r.sh[level];
+      if (target !== null) {
+        mcCurrentLevel = level;
+        wrap.querySelector('input[data-mc-comp="SH"]').value = target;
+      } else {
+        mcCurrentLevel = 'moderate';
+        wrap.querySelector('input[data-mc-comp="SH"]').value = r.sh.moderate;
+      }
+      wrap.querySelectorAll('[data-mc-level]').forEach(b => b.classList.toggle('mc-active-level', b.dataset.mcLevel === mcCurrentLevel));
+      titleEl.textContent = r.name + ' (' + mcCurrentLevel + ')';
+      mcCalc();
+    }
+
+    wrap.querySelectorAll('[data-mc-recipe]').forEach(b => b.addEventListener('click', () => mcApplyRecipe(b.dataset.mcRecipe)));
+    wrap.querySelectorAll('[data-mc-level]').forEach(b => b.addEventListener('click', () => mcApplyLevel(b.dataset.mcLevel)));
+    sliders.forEach(s => s.addEventListener('input', e => {
+      wrap.querySelectorAll('[data-mc-recipe],[data-mc-level]').forEach(b => b.classList.remove('mc-active-recipe','mc-active-level'));
+      titleEl.textContent = 'Custom Mix';
+      const changed = e.target.dataset.mcComp;
+      if (changed === 'SH' && parseFloat(e.target.value) > 0) wrap.querySelector('input[data-mc-comp="F-13"]').value = 0;
+      if (changed === 'F-13' && parseFloat(e.target.value) > 0) wrap.querySelector('input[data-mc-comp="SH"]').value = 0;
+      mcCalc();
+    }));
+    bulkSH.addEventListener('input', mcCalc);
+
+    mcApplyRecipe('houseWash');
+  }
+  // ===================== END MIX CALCULATOR TAB =====================
 
   // Check if already logged in
   if (adminToken) {
