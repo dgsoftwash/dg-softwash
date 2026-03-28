@@ -533,8 +533,6 @@ async function initDb() {
   const seedDiscounts = [
     { key: 'cash', label: 'Cash Payment', percent: 10, auto_apply: false, min_services: 0 },
     { key: 'return-customer', label: 'Return Customer', percent: 10, auto_apply: false, min_services: 0 },
-    { key: 'multi-2', label: '2+ Services Discount', percent: 10, auto_apply: true, min_services: 2 },
-    { key: 'multi-3', label: '3+ Services Discount', percent: 15, auto_apply: true, min_services: 3 },
     { key: 'email-list', label: 'Email List (1st Service)', percent: 10, auto_apply: false, min_services: 0 }
   ];
   for (const disc of seedDiscounts) {
@@ -1444,8 +1442,15 @@ app.get('/api/admin/pricing', requireAdmin, async (req, res) => {
 app.post('/api/admin/pricing/service/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
   const { field, value } = req.body;
-  if (!['price', 'duration'].includes(field)) {
+  if (!['price', 'duration', 'label'].includes(field)) {
     return res.status(400).json({ error: 'Invalid field' });
+  }
+  if (field === 'label') {
+    const trimmed = String(value || '').trim();
+    if (!trimmed) return res.status(400).json({ error: 'Label cannot be empty' });
+    await pool.query(`UPDATE services SET label = $1 WHERE id = $2`, [trimmed, parseInt(id)]);
+    invalidatePricingCache();
+    return res.json({ success: true });
   }
   const numVal = field === 'price' ? parseInt(value) : parseFloat(value);
   if (isNaN(numVal) || numVal <= 0) {
@@ -1456,15 +1461,33 @@ app.post('/api/admin/pricing/service/:id', requireAdmin, async (req, res) => {
   res.json({ success: true });
 });
 
+// POST /api/admin/pricing/discount/new — add a new discount (MUST be before /:id)
+app.post('/api/admin/pricing/discount/new', requireAdmin, async (req, res) => {
+  const { label, percent, auto_apply, min_services } = req.body;
+  if (!label || percent === undefined) return res.status(400).json({ error: 'label and percent are required' });
+  const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Date.now();
+  await pool.query(
+    'INSERT INTO discounts (key, label, percent, auto_apply, min_services) VALUES ($1,$2,$3,$4,$5)',
+    [key, label.trim(), parseInt(percent), auto_apply === true || auto_apply === 'true', parseInt(min_services || 0)]
+  );
+  invalidatePricingCache();
+  res.json({ success: true });
+});
+
 // POST /api/admin/pricing/discount/:id — immediate update
 app.post('/api/admin/pricing/discount/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
-  const { percent } = req.body;
+  const { percent, auto_apply, min_services } = req.body;
   const numVal = parseInt(percent);
   if (isNaN(numVal) || numVal < 0 || numVal > 100) {
     return res.status(400).json({ error: 'Invalid percent' });
   }
-  await pool.query('UPDATE discounts SET percent = $1 WHERE id = $2', [numVal, parseInt(id)]);
+  const autoVal = auto_apply === true || auto_apply === 'true';
+  const minVal = Math.max(0, parseInt(min_services) || 0);
+  await pool.query(
+    'UPDATE discounts SET percent = $1, auto_apply = $2, min_services = $3 WHERE id = $4',
+    [numVal, autoVal, minVal, parseInt(id)]
+  );
   invalidatePricingCache();
   res.json({ success: true });
 });
@@ -1507,19 +1530,6 @@ app.post('/api/admin/pricing/service/new', requireAdmin, async (req, res) => {
 // DELETE /api/admin/pricing/service/:id — remove a service
 app.delete('/api/admin/pricing/service/:id', requireAdmin, async (req, res) => {
   await pool.query('DELETE FROM services WHERE id = $1', [parseInt(req.params.id)]);
-  invalidatePricingCache();
-  res.json({ success: true });
-});
-
-// POST /api/admin/pricing/discount/new — add a new discount
-app.post('/api/admin/pricing/discount/new', requireAdmin, async (req, res) => {
-  const { label, percent, auto_apply, min_services } = req.body;
-  if (!label || percent === undefined) return res.status(400).json({ error: 'label and percent are required' });
-  const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Date.now();
-  await pool.query(
-    'INSERT INTO discounts (key, label, percent, auto_apply, min_services) VALUES ($1,$2,$3,$4,$5)',
-    [key, label.trim(), parseInt(percent), auto_apply === true || auto_apply === 'true', parseInt(min_services || 0)]
-  );
   invalidatePricingCache();
   res.json({ success: true });
 });
@@ -1670,7 +1680,7 @@ app.get('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
 app.patch('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const { status_job_complete, status_invoiced, status_invoice_paid, status_paid, admin_notes, payment_method, completion_notes, mileage, actual_start, actual_end } = req.body;
+    const { status_job_complete, status_invoiced, status_invoice_paid, status_paid, admin_notes, payment_method, completion_notes, mileage, actual_start, actual_end, price, service, paid_at } = req.body;
 
     // Fetch current state before update
     const { rows: current } = await pool.query('SELECT * FROM work_orders WHERE id = $1', [id]);
@@ -1690,10 +1700,16 @@ app.patch('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
     if (mileage !== undefined) { updates.push(`mileage = $${idx++}`); values.push(parseFloat(mileage) || 0); }
     if (actual_start !== undefined) { updates.push(`actual_start = $${idx++}`); values.push(actual_start || ''); }
     if (actual_end !== undefined) { updates.push(`actual_end = $${idx++}`); values.push(actual_end || ''); }
+    if (price !== undefined) { updates.push(`price = $${idx++}`); values.push(String(price)); }
+    if (service !== undefined) { updates.push(`service = $${idx++}`); values.push(String(service)); }
     if (status_paid === true && !before.status_paid) {
       updates.push('paid_at = NOW()');
     } else if (status_paid === false && before.status_paid) {
       updates.push('paid_at = NULL');
+    } else if (paid_at !== undefined && status_paid === undefined) {
+      // Direct paid_at edit from payments tab
+      updates.push(`paid_at = $${idx++}`);
+      values.push(paid_at ? new Date(paid_at).toISOString() : null);
     }
     if (updates.length === 0) return res.json({ success: true, email_sent: null });
     values.push(id);

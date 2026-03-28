@@ -1159,4 +1159,52 @@ Net After Reserves = (Gross − Expenses) − (Gross × 33%) − max(0, Gross ×
 
 ---
 
-*Last updated: 2026-03-26 (Revenue tab build cost tile + all-time NAR endpoint; Orders tab SESW/SWT bulk import; search fix; EPERM auto-fix in boot-recovery.sh)*
+### Inline Editing — Payments & Pricing (added 2026-03-27)
+
+#### Payments Tab — Inline Edit
+Each transaction row has an **Edit** button. Clicking it makes the row editable in-place:
+- **Date Paid** (date picker) → writes `paid_at` on `work_orders`
+- **Service** (text) → writes `service` on `work_orders`
+- **Amount** (number) → writes `price` on `work_orders`
+- **Payment Method** (dropdown: Cash/Check/Zelle/Venmo/Credit Card/Other) → writes `payment_method`
+
+All four fields sent in a single `PATCH /api/admin/work-orders/:id` call. Save reloads the payments tab; Cancel discards.
+
+**Server change:** `PATCH /api/admin/work-orders/:id` now accepts `price`, `service`, and `paid_at` in addition to existing fields.
+
+#### Pricing Tab — Service Label Edit
+The service **Name** field is now an editable text input (was read-only). **Save Now** saves label + price + duration together via three parallel POSTs to `POST /api/admin/pricing/service/:id`.
+
+**Server change:** `POST /api/admin/pricing/service/:id` now accepts `field: "label"` in addition to `price` and `duration`.
+
+#### Pricing Tab — Discount Auto? + Min Services Edit
+The **Auto?** column is now a checkbox and **Min Svcs** is a number input. **Save Now** sends all three fields (percent, auto_apply, min_services) together.
+
+**Server change:** `POST /api/admin/pricing/discount/:id` now accepts `auto_apply` (boolean) and `min_services` (integer) alongside `percent`.
+
+#### Home Page — Bleach Neutralizer Banner (added 2026-03-27)
+Added `neutralizer-banner` div to `views/index.html` between the "Integrity You Can See" tagline and the pricing-highlight line. Same green glowing style as the services page banner.
+
+#### Test Coverage (test-full.sh)
+- **Step 9b** — Payment inline edit: PATCHes price/service/paid_at/method on the test WO, reads it back to confirm DB persistence, then leaves data for Step 3 cleanup.
+- **Step 10b** — Service label edit: edits label on first service, verifies DB read-back, restores original.
+- **Step 10c** — Discount auto_apply + min_services: edits first discount, verifies both fields persist, restores originals.
+
+**admin.js version:** v30 (bumped 2026-03-27)
+
+---
+
+### Discounts — multi-2 / multi-3 Removed (2026-03-27)
+
+**2+ Services Discount** and **3+ Services Discount** have been deleted from the DB and removed from the seed. They will NOT come back on server restart.
+
+- Removed from `server.js` seed array
+- Deleted from `discounts` table via `DELETE WHERE key IN ('multi-2','multi-3')`
+- `calculator.js` no longer has hardcoded key lookups for these — it now uses a generic loop: applies the highest-tier `auto_apply=true` discount whose `min_services ≤ serviceCount`
+- When you're ready to add them back, use the **Add Discount** form on the Pricing tab
+
+**Add discount bug fix (2026-03-27):** `POST /api/admin/pricing/discount/new` was registered *after* `/:id`, so Express treated "new" as an id. Moved `new` route above `/:id`.
+
+---
+
+*Last updated: 2026-03-27 (Inline edit for payments/services/discounts; neutralizer banner on home page; multi-2/multi-3 removed; add-discount route fix; test steps 9b/10b/10c)*

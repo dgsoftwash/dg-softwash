@@ -2005,18 +2005,22 @@ document.addEventListener('DOMContentLoaded', function() {
       html += '<p style="color:#666; padding:10px 0;">No payments recorded for this period.</p>';
     } else {
       html += '<div style="overflow-x:auto;"><table class="bookings-table"><thead><tr>' +
-        '<th>Date Paid</th><th>Customer</th><th>Service</th><th>Amount</th><th>Method</th><th>View</th>' +
+        '<th>Date Paid</th><th>Customer</th><th>Service</th><th>Amount</th><th>Method</th><th>Actions</th>' +
         '</tr></thead><tbody>';
       payments.forEach(function(p) {
         var dateLabel = new Date(p.paid_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        var dateIso = (p.paid_date || '').toString().substring(0, 10);
         var amt = parseFloat(String(p.price || '').replace(/[$,]/g, '')) || 0;
-        html += '<tr>' +
-          '<td>' + dateLabel + '</td>' +
+        html += '<tr id="pay-row-' + p.id + '">' +
+          '<td class="pay-cell-date-' + p.id + '">' + dateLabel + '</td>' +
           '<td>' + escapeHtml(p.customer_name || '—') + '</td>' +
-          '<td>' + escapeHtml(p.service || '—') + '</td>' +
-          '<td style="font-weight:600; color:#2d6a4f;">$' + amt.toFixed(2) + '</td>' +
-          '<td>' + escapeHtml(p.payment_method || '—') + '</td>' +
-          '<td><button type="button" onclick="openWorkOrderModal(' + p.id + ')" style="padding:3px 10px; font-size:0.8em; background:#1a1a2e; color:#fff; border:none; border-radius:4px; cursor:pointer;">View</button></td>' +
+          '<td class="pay-cell-service-' + p.id + '">' + escapeHtml(p.service || '—') + '</td>' +
+          '<td class="pay-cell-amt-' + p.id + '" style="font-weight:600; color:#2d6a4f;">$' + amt.toFixed(2) + '</td>' +
+          '<td class="pay-cell-method-' + p.id + '">' + escapeHtml(p.payment_method || '—') + '</td>' +
+          '<td style="white-space:nowrap;">' +
+            '<button type="button" onclick="openWorkOrderModal(' + p.id + ')" style="padding:3px 10px; font-size:0.8em; background:#1a1a2e; color:#fff; border:none; border-radius:4px; cursor:pointer; margin-right:4px;">View</button>' +
+            '<button type="button" onclick="startEditPayment(' + p.id + ',\'' + dateIso + '\',' + amt.toFixed(2) + ',\'' + escapeHtml(p.service || '').replace(/'/g, "\\'") + '\',\'' + escapeHtml(p.payment_method || '').replace(/'/g, "\\'") + '\')" style="padding:3px 10px; font-size:0.8em; background:#2563eb; color:#fff; border:none; border-radius:4px; cursor:pointer;">Edit</button>' +
+          '</td>' +
           '</tr>';
       });
       html += '</tbody></table></div>';
@@ -2064,6 +2068,50 @@ document.addEventListener('DOMContentLoaded', function() {
     var monthSuffix = currentPaymentMonth ? String(currentPaymentMonth).padStart(2, '0') : 'all';
     a.download = 'payments-' + currentPaymentYear + '-' + monthSuffix + '.csv';
     a.click();
+  };
+
+  window.startEditPayment = function(id, dateIso, amt, service, method) {
+    var row = document.getElementById('pay-row-' + id);
+    if (!row) return;
+    // Replace editable cells with inputs
+    row.querySelector('.pay-cell-date-' + id).innerHTML =
+      '<input type="date" id="pay-edit-date-' + id + '" value="' + dateIso + '" style="padding:3px 6px; border:1px solid #ddd; border-radius:4px; font-size:0.9em;">';
+    row.querySelector('.pay-cell-service-' + id).innerHTML =
+      '<input type="text" id="pay-edit-service-' + id + '" value="' + escapeHtml(service) + '" style="padding:3px 6px; border:1px solid #ddd; border-radius:4px; font-size:0.9em; width:140px;">';
+    row.querySelector('.pay-cell-amt-' + id).innerHTML =
+      '<input type="number" id="pay-edit-amt-' + id + '" value="' + amt.toFixed(2) + '" min="0" step="0.01" style="padding:3px 6px; border:1px solid #ddd; border-radius:4px; font-size:0.9em; width:80px;">';
+    row.querySelector('.pay-cell-method-' + id).innerHTML =
+      '<select id="pay-edit-method-' + id + '" style="padding:3px 6px; border:1px solid #ddd; border-radius:4px; font-size:0.9em;">' +
+        ['Cash','Check','Zelle','Venmo','Credit Card','Other'].map(function(m) {
+          return '<option value="' + m + '"' + (m === method ? ' selected' : '') + '>' + m + '</option>';
+        }).join('') +
+      '</select>';
+    // Replace action buttons
+    var actionCell = row.cells[row.cells.length - 1];
+    actionCell.innerHTML =
+      '<button type="button" onclick="saveEditPayment(' + id + ')" style="padding:3px 10px; font-size:0.8em; background:#2d6a4f; color:#fff; border:none; border-radius:4px; cursor:pointer; margin-right:4px;">Save</button>' +
+      '<button type="button" onclick="cancelEditPayment()" style="padding:3px 10px; font-size:0.8em; background:#888; color:#fff; border:none; border-radius:4px; cursor:pointer;">Cancel</button>';
+  };
+
+  window.saveEditPayment = async function(id) {
+    var dateVal = document.getElementById('pay-edit-date-' + id).value;
+    var serviceVal = document.getElementById('pay-edit-service-' + id).value.trim();
+    var amtVal = document.getElementById('pay-edit-amt-' + id).value;
+    var methodVal = document.getElementById('pay-edit-method-' + id).value;
+    if (!dateVal) { alert('Date is required.'); return; }
+    try {
+      var r = await fetch('/api/admin/work-orders/' + id, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+        body: JSON.stringify({ paid_at: dateVal, service: serviceVal, price: amtVal, payment_method: methodVal })
+      });
+      if (!r.ok) throw new Error('Save failed');
+      loadPaymentsTab();
+    } catch (e) { alert('Save failed: ' + e.message); }
+  };
+
+  window.cancelEditPayment = function() {
+    loadPaymentsTab();
   };
 
   // --- Pricing Admin ---
@@ -2150,8 +2198,8 @@ document.addEventListener('DOMContentLoaded', function() {
       html += '<tr id="discount-row-' + d.id + '">' +
         '<td>' + escapeHtml(d.label) + '</td>' +
         '<td><input type="number" id="disc-pct-' + d.id + '" value="' + d.percent + '" min="0" max="100" step="1" style="width:70px; padding:4px 6px; border:1px solid #ddd; border-radius:4px;"> %</td>' +
-        '<td>' + (d.auto_apply ? 'Yes' : 'No') + '</td>' +
-        '<td>' + (d.min_services || '—') + '</td>' +
+        '<td><input type="checkbox" id="disc-auto-' + d.id + '"' + (d.auto_apply ? ' checked' : '') + ' style="width:18px; height:18px; cursor:pointer;"></td>' +
+        '<td><input type="number" id="disc-min-' + d.id + '" value="' + (d.min_services || 0) + '" min="0" step="1" style="width:60px; padding:4px 6px; border:1px solid #ddd; border-radius:4px;"></td>' +
         '<td style="white-space:nowrap;">' +
           '<button type="button" class="btn btn-primary" style="padding:4px 12px; font-size:0.85em; margin-right:6px;" onclick="saveDiscountNow(' + d.id + ')">Save Now</button>' +
           '<button type="button" class="btn btn-secondary" style="padding:4px 12px; font-size:0.85em; margin-right:6px;" onclick="openScheduleDiscount(' + d.id + ', \'' + escapeHtml(d.label) + '\')">Schedule</button>' +
@@ -2283,7 +2331,7 @@ document.addEventListener('DOMContentLoaded', function() {
     html += '<table class="bookings-table"><thead><tr><th>Service</th><th>Price</th><th>Duration (hrs)</th><th>Actions</th></tr></thead><tbody>';
     services.forEach(function(svc) {
       html += '<tr id="svc-row-' + svc.id + '">' +
-        '<td>' + escapeHtml(svc.label) + '</td>' +
+        '<td><input type="text" id="svc-label-' + svc.id + '" value="' + escapeHtml(svc.label) + '" style="width:160px; padding:4px 6px; border:1px solid #ddd; border-radius:4px;"></td>' +
         '<td><input type="number" id="svc-price-' + svc.id + '" value="' + svc.price + '" min="1" step="1" style="width:80px; padding:4px 6px; border:1px solid #ddd; border-radius:4px;"></td>' +
         '<td><input type="number" id="svc-dur-' + svc.id + '" value="' + svc.duration + '" min="0.25" step="0.25" style="width:80px; padding:4px 6px; border:1px solid #ddd; border-radius:4px;"></td>' +
         '<td style="white-space:nowrap;">' +
@@ -2341,33 +2389,44 @@ document.addEventListener('DOMContentLoaded', function() {
   };
 
   window.saveServiceNow = async function(id) {
+    var labelVal = document.getElementById('svc-label-' + id).value.trim();
     var priceVal = document.getElementById('svc-price-' + id).value;
     var durVal = document.getElementById('svc-dur-' + id).value;
+    if (!labelVal) { showPricingMsg('Service name cannot be empty.', false); return; }
     var ok = true;
     try {
-      var r1 = await fetch('/api/admin/pricing/service/' + id, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
-        body: JSON.stringify({ field: 'price', value: priceVal })
-      });
-      var r2 = await fetch('/api/admin/pricing/service/' + id, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
-        body: JSON.stringify({ field: 'duration', value: durVal })
-      });
-      if (!r1.ok || !r2.ok) ok = false;
+      var [r1, r2, r3] = await Promise.all([
+        fetch('/api/admin/pricing/service/' + id, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+          body: JSON.stringify({ field: 'label', value: labelVal })
+        }),
+        fetch('/api/admin/pricing/service/' + id, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+          body: JSON.stringify({ field: 'price', value: priceVal })
+        }),
+        fetch('/api/admin/pricing/service/' + id, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+          body: JSON.stringify({ field: 'duration', value: durVal })
+        })
+      ]);
+      if (!r1.ok || !r2.ok || !r3.ok) ok = false;
     } catch (e) { ok = false; }
     showPricingMsg(ok ? 'Saved!' : 'Save failed.', ok);
   };
 
   window.saveDiscountNow = async function(id) {
     var pct = document.getElementById('disc-pct-' + id).value;
+    var auto = document.getElementById('disc-auto-' + id).checked;
+    var min = document.getElementById('disc-min-' + id).value;
     var ok = true;
     try {
       var r = await fetch('/api/admin/pricing/discount/' + id, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
-        body: JSON.stringify({ percent: pct })
+        body: JSON.stringify({ percent: pct, auto_apply: auto, min_services: min })
       });
       if (!r.ok) ok = false;
     } catch (e) { ok = false; }

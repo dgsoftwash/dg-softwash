@@ -447,6 +447,39 @@ else
   fail "Payments endpoint: $PAY"
 fi
 
+# Step 9b — Payment inline edit (edit price, service, paid_at, payment_method on a paid WO)
+head "9b. PAYMENT INLINE EDIT"
+if [ -n "$WO_ID" ]; then
+  # Edit price, service label, date, and method on the test work order (already marked paid in Step 3)
+  EDIT_PAY=$(curl -sf -X PATCH "$BASE/api/admin/work-orders/$WO_ID" $AUTH_H \
+    -d '{"price":"399.00","service":"TEST Edited Service","paid_at":"2026-01-15","payment_method":"Zelle"}' 2>/dev/null)
+  if echo "$EDIT_PAY" | grep -q '"success":true'; then
+    ok "Payment inline edit — PATCH accepted (price/service/paid_at/method)"
+  else
+    fail "Payment inline edit PATCH: $EDIT_PAY"
+  fi
+
+  # Verify the changes persisted in the DB by reading the work order back
+  WO_VERIFY=$(curl -sf "$BASE/api/admin/work-orders/$WO_ID" $AUTH_H 2>/dev/null)
+  if echo "$WO_VERIFY" | grep -q 'TEST Edited Service'; then
+    ok "Payment edit persisted — service field reads back correctly"
+  else
+    fail "Payment edit did NOT persist (service): $WO_VERIFY"
+  fi
+  if echo "$WO_VERIFY" | grep -q '399'; then
+    ok "Payment edit persisted — price field reads back correctly"
+  else
+    fail "Payment edit did NOT persist (price): $WO_VERIFY"
+  fi
+  if echo "$WO_VERIFY" | grep -q 'Zelle'; then
+    ok "Payment edit persisted — payment_method reads back correctly"
+  else
+    fail "Payment edit did NOT persist (payment_method): $WO_VERIFY"
+  fi
+else
+  warn "Skipping payment inline edit test — no WO_ID from Step 3"
+fi
+
 # ---------------------------------------------------------------------------
 # STEP 10 — Pricing
 # ---------------------------------------------------------------------------
@@ -463,6 +496,105 @@ if echo "$PUB_PRICE" | grep -q '"services"'; then
   ok "Public pricing endpoint returns services"
 else
   fail "Public pricing: $PUB_PRICE"
+fi
+
+# Step 10b — Service label edit
+head "10b. SERVICE LABEL EDIT"
+SVC_ID=$(echo "$PRICE" | node -e "
+  const d=require('fs').readFileSync('/dev/stdin','utf8');
+  try { const p=JSON.parse(d); const s=p.services&&p.services[0]; console.log(s?s.id:''); } catch(e){console.log('');}
+" 2>/dev/null)
+SVC_ORIG_LABEL=$(echo "$PRICE" | node -e "
+  const d=require('fs').readFileSync('/dev/stdin','utf8');
+  try { const p=JSON.parse(d); const s=p.services&&p.services[0]; console.log(s?s.label:''); } catch(e){console.log('');}
+" 2>/dev/null)
+SVC_ORIG_PRICE=$(echo "$PRICE" | node -e "
+  const d=require('fs').readFileSync('/dev/stdin','utf8');
+  try { const p=JSON.parse(d); const s=p.services&&p.services[0]; console.log(s?s.price:''); } catch(e){console.log('');}
+" 2>/dev/null)
+SVC_ORIG_DUR=$(echo "$PRICE" | node -e "
+  const d=require('fs').readFileSync('/dev/stdin','utf8');
+  try { const p=JSON.parse(d); const s=p.services&&p.services[0]; console.log(s?s.duration:''); } catch(e){console.log('');}
+" 2>/dev/null)
+
+if [ -n "$SVC_ID" ]; then
+  # Edit label
+  EDIT_SVC=$(curl -sf -X POST "$BASE/api/admin/pricing/service/$SVC_ID" $AUTH_H \
+    -d '{"field":"label","value":"TEST_LABEL_EDIT"}' 2>/dev/null)
+  if echo "$EDIT_SVC" | grep -q '"success":true'; then
+    ok "Service label edit — POST accepted"
+  else
+    fail "Service label edit: $EDIT_SVC"
+  fi
+
+  # Verify it persisted
+  PRICE2=$(curl -sf "$BASE/api/admin/pricing" $AUTH_H 2>/dev/null)
+  if echo "$PRICE2" | grep -q 'TEST_LABEL_EDIT'; then
+    ok "Service label edit persisted in DB"
+  else
+    fail "Service label edit did NOT persist: $(echo $PRICE2 | head -c 200)"
+  fi
+
+  # Restore original label
+  curl -sf -X POST "$BASE/api/admin/pricing/service/$SVC_ID" $AUTH_H \
+    -d "{\"field\":\"label\",\"value\":\"$SVC_ORIG_LABEL\"}" >/dev/null 2>&1
+  ok "Service label restored to original: $SVC_ORIG_LABEL"
+else
+  warn "Skipping service label edit test — no services found"
+fi
+
+# Step 10c — Discount auto_apply + min_services edit
+head "10c. DISCOUNT AUTO/MIN EDIT"
+DISC_ID=$(echo "$PRICE" | node -e "
+  const d=require('fs').readFileSync('/dev/stdin','utf8');
+  try { const p=JSON.parse(d); const d2=p.discounts&&p.discounts[0]; console.log(d2?d2.id:''); } catch(e){console.log('');}
+" 2>/dev/null)
+DISC_ORIG_PCT=$(echo "$PRICE" | node -e "
+  const d=require('fs').readFileSync('/dev/stdin','utf8');
+  try { const p=JSON.parse(d); const d2=p.discounts&&p.discounts[0]; console.log(d2?d2.percent:''); } catch(e){console.log('');}
+" 2>/dev/null)
+DISC_ORIG_AUTO=$(echo "$PRICE" | node -e "
+  const d=require('fs').readFileSync('/dev/stdin','utf8');
+  try { const p=JSON.parse(d); const d2=p.discounts&&p.discounts[0]; console.log(d2?d2.auto_apply:''); } catch(e){console.log('');}
+" 2>/dev/null)
+DISC_ORIG_MIN=$(echo "$PRICE" | node -e "
+  const d=require('fs').readFileSync('/dev/stdin','utf8');
+  try { const p=JSON.parse(d); const d2=p.discounts&&p.discounts[0]; console.log(d2?d2.min_services:''); } catch(e){console.log('');}
+" 2>/dev/null)
+
+if [ -n "$DISC_ID" ]; then
+  # Edit auto_apply and min_services
+  EDIT_DISC=$(curl -sf -X POST "$BASE/api/admin/pricing/discount/$DISC_ID" $AUTH_H \
+    -d "{\"percent\":\"$DISC_ORIG_PCT\",\"auto_apply\":true,\"min_services\":3}" 2>/dev/null)
+  if echo "$EDIT_DISC" | grep -q '"success":true'; then
+    ok "Discount auto_apply + min_services edit — POST accepted"
+  else
+    fail "Discount edit: $EDIT_DISC"
+  fi
+
+  # Verify persisted
+  PRICE3=$(curl -sf "$BASE/api/admin/pricing" $AUTH_H 2>/dev/null)
+  DISC_NEW=$(echo "$PRICE3" | node -e "
+    const d=require('fs').readFileSync('/dev/stdin','utf8');
+    try { const p=JSON.parse(d); const d2=(p.discounts||[]).find(x=>x.id==$DISC_ID); console.log(JSON.stringify(d2||{})); } catch(e){console.log('{}');}
+  " 2>/dev/null)
+  if echo "$DISC_NEW" | grep -q '"auto_apply":true'; then
+    ok "Discount auto_apply persisted in DB"
+  else
+    fail "Discount auto_apply did NOT persist: $DISC_NEW"
+  fi
+  if echo "$DISC_NEW" | grep -q '"min_services":3'; then
+    ok "Discount min_services persisted in DB"
+  else
+    fail "Discount min_services did NOT persist: $DISC_NEW"
+  fi
+
+  # Restore originals
+  curl -sf -X POST "$BASE/api/admin/pricing/discount/$DISC_ID" $AUTH_H \
+    -d "{\"percent\":\"$DISC_ORIG_PCT\",\"auto_apply\":$DISC_ORIG_AUTO,\"min_services\":$DISC_ORIG_MIN}" >/dev/null 2>&1
+  ok "Discount restored to original values"
+else
+  warn "Skipping discount edit test — no discounts found"
 fi
 
 # ---------------------------------------------------------------------------

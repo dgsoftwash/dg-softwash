@@ -199,8 +199,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const discounts = pricingData.discounts;
     const cashDisc = discounts.find(function(d) { return d.key === 'cash'; });
     const returnDisc = discounts.find(function(d) { return d.key === 'return-customer'; });
-    const multi2Disc = discounts.find(function(d) { return d.key === 'multi-2'; });
-    const multi3Disc = discounts.find(function(d) { return d.key === 'multi-3'; });
 
     let selectedItems = [];
     let subtotal = 0;
@@ -233,17 +231,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let totalDiscountPercent = 0;
 
-    // Multi-service discount (auto-applied)
-    if (multi3Disc && serviceCount >= (multi3Disc.min_services || 3)) {
-      totalDiscountPercent += multi3Disc.percent;
+    // Auto-apply discounts based on auto_apply flag and min_services
+    var autoApplied = discounts.filter(function(d) {
+      return d.auto_apply && d.min_services > 0 && serviceCount >= d.min_services;
+    }).sort(function(a, b) { return b.min_services - a.min_services; });
+    var topAuto = autoApplied[0] || null;
+    if (topAuto) {
+      totalDiscountPercent += topAuto.percent;
       multiServiceDiscountEl.style.display = 'flex';
-      multiServiceTextEl.textContent = multi3Disc.label;
-      multiServiceAmountEl.textContent = '-' + multi3Disc.percent + '%';
-    } else if (multi2Disc && serviceCount >= (multi2Disc.min_services || 2)) {
-      totalDiscountPercent += multi2Disc.percent;
-      multiServiceDiscountEl.style.display = 'flex';
-      multiServiceTextEl.textContent = multi2Disc.label;
-      multiServiceAmountEl.textContent = '-' + multi2Disc.percent + '%';
+      multiServiceTextEl.textContent = topAuto.label;
+      multiServiceAmountEl.textContent = '-' + topAuto.percent + '%';
     } else {
       multiServiceDiscountEl.style.display = 'none';
     }
