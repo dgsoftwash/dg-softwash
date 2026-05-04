@@ -881,7 +881,10 @@ document.addEventListener('DOMContentLoaded', function() {
         '<div style="grid-column:span 2;"><label style="font-size:0.82em; display:block; margin-bottom:3px; color:#555;">Address</label>' +
           '<input type="text" id="wo-edit-address" value="' + escapeHtml(wo.booking_address || wo.customer_address || '') + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></div>' +
         '<div><label style="font-size:0.82em; display:block; margin-bottom:3px; color:#555;">Service</label>' +
-          '<input type="text" id="wo-edit-service" value="' + escapeHtml(wo.service || '') + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></div>' +
+          '<select id="wo-edit-service" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;">' +
+            '<option value="">-- Loading services... --</option>' +
+          '</select>' +
+          '<input type="text" id="wo-edit-service-custom" placeholder="Custom service description" style="display:none; width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; margin-top:6px;"></div>' +
         '<div><label style="font-size:0.82em; display:block; margin-bottom:3px; color:#555;">Price</label>' +
           '<input type="text" id="wo-edit-price" value="' + escapeHtml(wo.price || '') + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></div>' +
       '</div>' +
@@ -899,8 +902,51 @@ document.addEventListener('DOMContentLoaded', function() {
     var editForm = document.getElementById('wo-edit-form');
     var infoTable = document.getElementById('wo-info-table');
     if (editDetailsBtn && editForm) {
-      editDetailsBtn.addEventListener('click', function() {
+      editDetailsBtn.addEventListener('click', async function() {
         editForm.style.display = editForm.style.display === 'none' ? 'block' : 'none';
+        // Populate service dropdown on first open
+        var serviceSel = document.getElementById('wo-edit-service');
+        if (serviceSel && serviceSel.options.length <= 1) {
+          try {
+            var pRes = await fetch('/api/pricing');
+            var pData = await pRes.json();
+            var services = (pData.services || []).filter(function(s) { return !s.parent_key; });
+            var catLabels = { house:'House Washing', deck:'Deck Cleaning', fence:'Fence Cleaning', rv:'RV Washing', boat:'Boat Cleaning', commercial:'Commercial Services', 'heavy-equipment':'Heavy Equipment' };
+            var catOrder = ['house','deck','fence','rv','boat','commercial','heavy-equipment'];
+            var byCat = {};
+            services.forEach(function(s) { if (!byCat[s.category]) byCat[s.category] = []; byCat[s.category].push(s); });
+            serviceSel.innerHTML = '<option value="">-- Select a service --</option><option value="__custom__">Custom / Other</option>';
+            catOrder.forEach(function(cat) {
+              if (!byCat[cat]) return;
+              var grp = document.createElement('optgroup');
+              grp.label = catLabels[cat] || cat;
+              byCat[cat].forEach(function(s) {
+                var opt = document.createElement('option');
+                opt.value = s.label;
+                opt.textContent = s.label + ' — $' + s.price;
+                if (s.label === wo.service) opt.selected = true;
+                grp.appendChild(opt);
+              });
+              serviceSel.appendChild(grp);
+            });
+            // If current service doesn't match any option, select custom
+            var matched = Array.from(serviceSel.options).some(function(o) { return o.selected && o.value !== '' && o.value !== '__custom__'; });
+            if (!matched && wo.service) {
+              serviceSel.value = '__custom__';
+              var customInput = document.getElementById('wo-edit-service-custom');
+              if (customInput) { customInput.style.display = 'block'; customInput.value = wo.service; }
+            }
+          } catch(e) {
+            serviceSel.innerHTML = '<option value="__custom__">Custom / Other</option>';
+            var customInput = document.getElementById('wo-edit-service-custom');
+            if (customInput) { customInput.style.display = 'block'; customInput.value = wo.service || ''; }
+          }
+          // Show/hide custom input on change
+          serviceSel.onchange = function() {
+            var customInput = document.getElementById('wo-edit-service-custom');
+            if (customInput) customInput.style.display = this.value === '__custom__' ? 'block' : 'none';
+          };
+        }
       });
     }
     var editCancelBtn = document.getElementById('wo-edit-cancel-btn');
@@ -914,13 +960,17 @@ document.addEventListener('DOMContentLoaded', function() {
         editSaveBtn.disabled = true;
         statusEl.textContent = 'Saving...';
         statusEl.style.color = '#888';
+        var serviceSel = document.getElementById('wo-edit-service');
+        var serviceVal = serviceSel && serviceSel.value === '__custom__'
+          ? (document.getElementById('wo-edit-service-custom') || {}).value || ''
+          : (serviceSel ? serviceSel.value : '');
         var body = {
           booking_name: document.getElementById('wo-edit-name').value,
           booking_phone: document.getElementById('wo-edit-phone').value,
           booking_email: document.getElementById('wo-edit-email').value,
           booking_date: document.getElementById('wo-edit-date').value,
           booking_address: document.getElementById('wo-edit-address').value,
-          service: document.getElementById('wo-edit-service').value,
+          service: serviceVal,
           price: document.getElementById('wo-edit-price').value
         };
         try {

@@ -1973,7 +1973,7 @@ app.patch('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
     // Update booking fields if booking_id exists
     const bookingFields = { date: booking_date, time: booking_time, duration: booking_duration,
       name: booking_name, email: booking_email, phone: booking_phone, address: booking_address };
-    const hasBookingUpdate = Object.values(bookingFields).some(v => v !== undefined);
+    const hasBookingUpdate = Object.values(bookingFields).some(v => v !== undefined) || service !== undefined || price !== undefined;
     if (hasBookingUpdate && before.booking_id) {
       const bUpdates = [], bValues = [];
       let bIdx = 1;
@@ -1984,6 +1984,9 @@ app.patch('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
       if (booking_email !== undefined) { bUpdates.push(`email = $${bIdx++}`); bValues.push(booking_email || ''); }
       if (booking_phone !== undefined) { bUpdates.push(`phone = $${bIdx++}`); bValues.push(booking_phone || ''); }
       if (booking_address !== undefined) { bUpdates.push(`address = $${bIdx++}`); bValues.push(booking_address || ''); }
+      // Also update booking service/price so COALESCE returns the new value
+      if (service !== undefined) { bUpdates.push(`service = $${bIdx++}`); bValues.push(String(service)); }
+      if (price !== undefined) { bUpdates.push(`price = $${bIdx++}`); bValues.push(String(price)); }
       if (bUpdates.length) {
         bValues.push(before.booking_id);
         await pool.query(`UPDATE bookings SET ${bUpdates.join(', ')} WHERE id = $${bIdx}`, bValues);
