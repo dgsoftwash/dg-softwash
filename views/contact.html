@@ -212,12 +212,13 @@
   <script src="/js/main.js"></script>
   <script src="/js/calendar.js"></script>
   <script>
-    // Pre-fill form from pricing calculator estimate
-    const estimateData = localStorage.getItem('dg_estimate');
-    if (estimateData) {
+    // Pre-fill form from pricing calculator estimate (URL params, with localStorage fallback)
+    const urlParams = new URLSearchParams(window.location.search);
+    const estimateRaw = urlParams.get('estimate') || localStorage.getItem('dg_estimate');
+    if (estimateRaw) {
       try {
-        const estimate = JSON.parse(estimateData);
-        localStorage.removeItem('dg_estimate');
+        const estimate = JSON.parse(estimateRaw);
+        localStorage.removeItem('dg_estimate'); // clear any legacy data
 
         // Show summary box
         const summaryEl = document.getElementById('estimate-summary');

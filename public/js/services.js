@@ -56,11 +56,16 @@
   fetch('/api/services-content')
     .then(function(res) { return res.json(); })
     .then(function(cards) {
-      if (!cards.length) {
-        container.innerHTML = '<p style="color:#666; padding:20px 0;">No services found.</p>';
+      // Filter out commercial services (sort_order >= 200) - they have their own section
+      var residentialCards = cards.filter(function(card) {
+        return card.sort_order < 200;
+      });
+      
+      if (!residentialCards.length) {
+        container.innerHTML = '<p style="color:#666; padding:20px 0;">No residential services found.</p>';
         return;
       }
-      container.innerHTML = cards.map(renderCard).join('');
+      container.innerHTML = residentialCards.map(renderCard).join('');
 
       // Update dynamic prices from pricing API
       return fetch('/api/pricing')

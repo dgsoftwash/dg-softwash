@@ -1,5 +1,5 @@
 {
-  "nextId": 34,
+  "nextId": 44,
   "scholarships": [
     {
       "id": 1,
@@ -369,6 +369,126 @@
       "amount": "Up to $10,000/yr",
       "deadline": "See website",
       "category": "military",
+      "color_class": "",
+      "sort_order": 0,
+      "active": true
+    },
+    {
+      "id": 34,
+      "title": "Folds of Honor Scholarship",
+      "url": "https://foldsofhonor.org/scholarships/",
+      "description": "Provides educational scholarships to the spouses and children of America's fallen and disabled service members. Covers tuition, books, and fees for undergraduate, graduate, and trade school.",
+      "amount": "See website",
+      "deadline": "See website",
+      "category": "military",
+      "color_class": "",
+      "sort_order": 0,
+      "active": true
+    },
+    {
+      "id": 35,
+      "title": "Hampton Roads Scholars Program",
+      "url": "https://hamptonroadscholars.org/",
+      "description": "Provides tuition assistance for high-achieving high school students in the Hampton Roads region of Virginia. Covers tuition, fees, and a book stipend.",
+      "amount": "Up to the cost of tuition and fees",
+      "deadline": "See website",
+      "category": "state",
+      "color_class": "",
+      "sort_order": 0,
+      "active": true
+    },
+    {
+      "id": 36,
+      "title": "HEROES Scholarship",
+      "url": "https://heroesscholarship.org/",
+      "description": "Offers scholarships to children of military members who were killed or wounded in action. Covers tuition, fees, room and board, books, and other educational expenses.",
+      "amount": "See website",
+      "deadline": "See website",
+      "category": "military",
+      "color_class": "",
+      "sort_order": 0,
+      "active": true
+    },
+    {
+      "id": 37,
+      "title": "Military Spouse Career Advancement Accounts (MyCAA)",
+      "url": "https://mycaa.militaryonesource.mil/",
+      "description": "Provides up to $4,000 in tuition assistance for military spouses who are pursuing a license, certification, or associate's degree in a portable career field.",
+      "amount": "Up to $4,000",
+      "deadline": "See website",
+      "category": "military",
+      "color_class": "",
+      "sort_order": 0,
+      "active": true
+    },
+    {
+      "id": 38,
+      "title": "Scholarships for Military Children",
+      "url": "https://www.militaryscholar.org/",
+      "description": "Awards scholarships to children of active-duty, reserve, and retired military members. Covers tuition, fees, and other educational expenses.",
+      "amount": "Up to $2,000",
+      "deadline": "February 12th each year",
+      "category": "military",
+      "color_class": "",
+      "sort_order": 0,
+      "active": true
+    },
+    {
+      "id": 39,
+      "title": "The American Legion Legacy Scholarship",
+      "url": "https://www.legion.org/scholarships/legacy",
+      "description": "Provides college scholarships for children of U.S. military members who died while on active duty on or after September 11, 2001.",
+      "amount": "See website",
+      "deadline": "See website",
+      "category": "military",
+      "color_class": "",
+      "sort_order": 0,
+      "active": true
+    },
+    {
+      "id": 40,
+      "title": "Dominion Energy Scholarship Program",
+      "url": "https://www.dominionenergy.com/company/community/dominion-energy-charitable-foundation/scholarships",
+      "description": "Provides scholarships to high school seniors in Virginia, North Carolina, and South Carolina, including military dependents.",
+      "amount": "Up to $5,000/yr",
+      "deadline": "January 31 each year",
+      "category": "state",
+      "color_class": "",
+      "sort_order": 0,
+      "active": true
+    },
+    {
+      "id": 41,
+      "title": "Hampton Roads Scholars Program",
+      "url": "https://hrscholarsprogram.org/",
+      "description": "Provides scholarships to high-achieving high school students in the Hampton Roads region of Virginia to attend college in Virginia.",
+      "amount": "See website",
+      "deadline": "See website",
+      "category": "local",
+      "color_class": "",
+      "sort_order": 0,
+      "active": true
+    },
+    {
+      "id": 42,
+      "title": "Hope For The Warriors Scholarship",
+      "url": "https://www.hopeforthewarriors.org/transition/education-support/",
+      "description": "Provides scholarships to spouses, children, siblings, or parents of wounded, ill, or injured service members and veterans.",
+      "amount": "See website",
+      "deadline": "See website",
+      "category": "military",
+      "color_class": "",
+      "sort_order": 0,
+      "active": true
+    },
+    {
+      "id": 43,
+      "title": "HEROES Scholarship",
+      "url": "https://www.dvs.virginia.gov/education-employment/virginia-military-survivors-and-dependents-education-program-2-2",
+      "description": "Provides scholarships to children and spouses of U.S. military members killed, disabled, or missing in action, as well as members of the Virginia National Guard and Virginia State Defense Force.",
+      "amount": "See website",
+      "deadline": "See website",
+      "category": "state",
       "color_class": "",
       "sort_order": 0,
       "active": true

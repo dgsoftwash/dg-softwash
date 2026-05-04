@@ -1,3 +1,4 @@
+===== MAINTENANCE.md =====
 # D&G Soft Wash — Maintenance Commands Reference
 
 All commands are run from the project directory on the **Mac Mini**:
@@ -420,11 +421,6 @@ Real backups to 2TB HDD via the Backup Widget on the Desktop.
 - DB dumps: `/Volumes/2TB HDD/Backups/database/` (keeps last 7) — runs every 6 hours (3 AM, 9 AM, 3 PM, 9 PM) via `com.dgsoftwash.database-backup.plist`
 - Log: `/Volumes/2TB HDD/backup_log.txt` (script internal log) + `/tmp/icloud-backup.log` (launchd stdout/stderr)
 - DB backup log: `/tmp/database-backup.log`
-
-> **Dependency: nodemailer (global)**  
-> The database backup email step requires nodemailer installed globally on the Mac:  
-> `npm install -g nodemailer`  
-> If backup emails stop working after a fresh setup, run this command first. The script uses `require('nodemailer')` (global, not from project node_modules).
 
 **API endpoints (require admin token):**
 - `GET /api/admin/backup/status` — current status (running/pct/log/lastBackup)
@@ -1390,3 +1386,49 @@ Emails `service@dgsoftwash.com` (→ text via email-to-text) when issues are det
 ---
 
 *Last updated: 2026-04-15*
+
+---
+
+### Monitor Script Enhancements (2026-04-25)
+
+Four changes applied to the monitoring and backup configuration:
+
+**1. DB backup every 6 hours**
+- `com.dgsoftwash.database-backup.plist` updated from daily 3 AM to 4× daily:
+  3 AM, 9 AM, 3 PM, 9 PM using `StartCalendarInterval` array
+- Most recent dump is now never more than 6 hours old
+- Check: `cat /tmp/database-backup.log | tail -20`
+
+**2. PostgreSQL health check in dg-monitor.sh**
+- Added `pg_isready -U david -d dgsoftwash` check in section 2 (after PM2 check)
+- Fires macOS notification + Zoho email if pg_isready returns non-zero exit code
+- This is a lower-level check than the existing DB query check — catches cases
+  where PostgreSQL is up but rejecting connections before the server can query it
+
+**3. iCloud backup freshness check in dg-monitor.sh**
+- Added `find` check on `/Volumes/2TB HDD/Backups/iCloud Drive` in section 5
+- Alerts if nothing in that directory was modified in the last 25 hours (1500 min)
+- Fires macOS notification + Zoho email if stale or destination is missing
+- Also alerts if the 2TB HDD appears unmounted (directory not found)
+
+**4. Backblaze status check in dg-monitor.sh**
+- Added XML-based check in section 6 reading:
+  - `/Library/Backblaze.bzpkg/bzdata/bzreports/bzdc_synchostinfo.xml` — license status
+  - `/Library/Backblaze.bzpkg/bzdata/overviewstatus.xml` — transmit state
+- Alerts if XML files are missing (service down), license expired/deleted,
+  or `cur_state` shows `error` or `stopped`
+
+**Known issue — iCloud backup alert fires falsely:**
+If the iCloud backup alert fires but you believe the backup ran, check that
+the root LaunchDaemon is loaded:
+```bash
+sudo launchctl list | grep icloud
+```
+It should appear with exit code 0. If missing, the daemon needs to be reloaded:
+```bash
+sudo launchctl load /Library/LaunchDaemons/com.dgsoftwash.icloud-backup.plist
+```
+Also check the backup log for errors: `cat /tmp/icloud-backup.log | tail -30`
+
+---
+

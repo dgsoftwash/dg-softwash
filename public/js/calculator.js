@@ -288,14 +288,15 @@ document.addEventListener('DOMContentLoaded', function() {
       ? document.getElementById('total-savings').textContent : null;
     const total = document.getElementById('total').textContent;
 
-    localStorage.setItem('dg_estimate', JSON.stringify({
+    // Pass estimate via URL params so it works in private browsing and new tabs
+    const params = new URLSearchParams();
+    params.set('estimate', JSON.stringify({
       items: items,
       subtotal: subtotal,
       savings: savings,
       total: total,
       totalDuration: totalDuration
     }));
-
-    window.location.href = '/contact';
+    window.location.href = '/contact?' + params.toString();
   });
 });

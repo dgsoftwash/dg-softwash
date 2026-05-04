@@ -11,6 +11,68 @@
   <meta name="theme-color" content="#1a1a2e">
   <link rel="stylesheet" href="/css/styles.css">
   <link rel="stylesheet" href="/css/calendar.css">
+  <style>
+    /* ── Admin mobile responsiveness ── */
+    .admin-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .admin-tab { white-space: nowrap; }
+
+    /* Calendar + day-detail grid: stack on mobile */
+    .admin-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    @media (max-width: 768px) {
+      .admin-grid { grid-template-columns: 1fr; }
+      .admin-panel { margin-bottom: 16px; }
+    }
+
+    /* Tables: horizontal scroll on small screens */
+    .bookings-table-container, .admin-table-wrap {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .bookings-table {
+      min-width: 560px;
+      width: 100%;
+    }
+
+    /* Forms: full-width inputs */
+    @media (max-width: 600px) {
+      .admin-section .container { padding: 0 12px; }
+      .admin-dashboard { padding: 0; }
+      .admin-tabs { gap: 2px 4px; }
+      .admin-tab { padding: 8px 12px !important; font-size: 0.85em !important; }
+      .admin-logout { position: static !important; margin-bottom: 12px; }
+
+      /* Modal-like side panels */
+      .admin-side-panel {
+        position: fixed !important;
+        top: 0; left: 0; right: 0; bottom: 0;
+        z-index: 1000;
+        overflow-y: auto;
+        background: #fff;
+        padding: 20px;
+        margin: 0 !important;
+        border-radius: 0 !important;
+      }
+
+      /* Summary stat cards */
+      .admin-stat-grid {
+        grid-template-columns: 1fr 1fr !important;
+      }
+
+      /* Work order / customer cards */
+      .wo-card-row, .customer-card-row {
+        flex-direction: column;
+        gap: 4px;
+      }
+    }
+
+    @media (max-width: 400px) {
+      .admin-tab { padding: 6px 8px !important; font-size: 0.78em !important; }
+    }
+  </style>
 </head>
 <body>
   <nav class="navbar">
@@ -62,6 +124,7 @@
           <button class="admin-tab active" data-tab="dashboard" style="padding:10px 22px; border:none; border-bottom:3px solid #1a1a2e; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#1a1a2e; margin-bottom:-2px;">Dashboard</button>
           <button class="admin-tab" data-tab="schedule" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Schedule</button>
           <button class="admin-tab" data-tab="customers" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Customers</button>
+          <button class="admin-tab" data-tab="quotes" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Quotes</button>
           <button class="admin-tab" data-tab="work-orders" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Work Orders</button>
           <button class="admin-tab" data-tab="pricing" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Pricing</button>
           <button class="admin-tab" data-tab="expenses" style="padding:10px 22px; border:none; border-bottom:3px solid transparent; background:none; font-size:1em; font-weight:600; cursor:pointer; color:#666; margin-bottom:-2px;">Expenses</button>
@@ -184,6 +247,17 @@
         <div id="tab-customers" class="tab-panel" style="display:none;">
           <div id="customers-admin-container">
             <p style="color:#666;">Loading customers...</p>
+          </div>
+        </div>
+
+        <!-- Quotes Tab -->
+        <div id="tab-quotes" class="tab-panel" style="display:none;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h2 style="margin:0;">Saved Quotes</h2>
+            <button id="new-quote-btn" class="btn btn-primary">+ New Quote</button>
+          </div>
+          <div id="quotes-admin-container">
+            <p style="color:#666;">Loading quotes...</p>
           </div>
         </div>
 
@@ -321,7 +395,7 @@
                 <div class="mc-results">
                   <h3 id="mc-recipeTitle">Live Mix Ratio</h3>
                   <table id="mc-resultsTable">
-                    <thead><tr><th>Component</th><th>Mix %</th><th>GPM@16</th><th>GPM@8</th></tr></thead>
+                    <thead><tr><th>Component</th><th>Valve Setting</th><th>Mix %</th></tr></thead>
                     <tbody id="mc-resultsBody"></tbody>
                   </table>
                   <div id="mc-finalSH">Final SH on Surface: 0.00%</div>
@@ -339,6 +413,317 @@
                   <tr><td class="mc-svc"><b>Fence/Deck Wash</b><br>(Wood)</td><td>0.5%–0.8%</td><td>0.8%–1.2%</td><td class="mc-nr">Not Rec.</td><td class="mc-nr">Not Rec.</td></tr>
                 </tbody>
               </table>
+            </div>
+
+            <!-- Chemical Reference Guide -->
+            <div class="mc-card">
+              <div class="mc-header">
+                <h2>🧪 D&G Chemical Quick Reference Guide</h2>
+              </div>
+              <div style="padding:25px;">
+                <p style="text-align:center; color:#64748b; margin-bottom:30px; font-style:italic;">
+                  Professional mixing ratios, application methods, and safety notes for all D&G Soft Wash chemicals.<br>
+                  <strong>Always wear appropriate PPE and follow product label instructions. When in doubt, start at lower dilution ratios and adjust as needed.</strong>
+                </p>
+                
+                <style>
+                  .chem-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(450px, 1fr)); gap:20px; }
+                  .chem-card { background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:18px; }
+                  .chem-header { color:#1e293b; font-size:1.1em; font-weight:700; margin:0 0 12px 0; border-bottom:2px solid #3b82f6; padding-bottom:6px; }
+                  .chem-purpose { color:#059669; font-weight:600; margin-bottom:8px; }
+                  .chem-section { margin:10px 0; }
+                  .chem-section-title { font-weight:600; color:#374151; margin-bottom:4px; }
+                  .chem-ratio { background:#dbeafe; padding:6px 10px; border-radius:4px; font-family:monospace; font-size:0.9em; margin:2px 0; }
+                  .chem-safety { background:#fef3c7; border-left:4px solid #f59e0b; padding:8px 12px; margin:8px 0; font-size:0.9em; }
+                  .chem-notes { background:#e0e7ff; border-left:4px solid #6366f1; padding:8px 12px; margin:8px 0; font-size:0.9em; }
+                  @media(max-width:1000px) { .chem-grid { grid-template-columns:1fr; } }
+                </style>
+
+                <div class="chem-grid">
+                  
+                  <!-- After Wash Conditioner -->
+                  <div class="chem-card">
+                    <h4 class="chem-header">1. After Wash Conditioner — Bleach Neutralizer</h4>
+                    <div class="chem-purpose">PURPOSE: Post-wash bleach neutralizer and surface conditioner</div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">USE ON:</div>
+                      Roofs, siding, driveways, brick — any surface washed with sodium hypochlorite
+                    </div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">MIX RATIOS:</div>
+                      <div class="chem-ratio">• General neutralizing rinse: 2–4 oz per gallon of water</div>
+                      <div class="chem-ratio">• Heavy bleach residue/roof: 4–6 oz per gallon of water</div>
+                    </div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">APPLICATION:</div>
+                      Apply via downstream injector, pump sprayer, or soft wash system after rinsing primary wash. Rinse area thoroughly with water.
+                    </div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">DWELL TIME:</div>
+                      30–60 seconds — do not let dry
+                    </div>
+                    <div class="chem-safety">
+                      <strong>SAFETY:</strong> Wear gloves and eye protection. Avoid direct skin contact. Store away from heat.
+                    </div>
+                    <div class="chem-notes">
+                      <strong>NOTES:</strong> Always apply after every roof soft wash to fully neutralize bleach before it reaches landscaping or runoff.
+                    </div>
+                  </div>
+
+                  <!-- Aquashine -->
+                  <div class="chem-card">
+                    <h4 class="chem-header">2. Aquashine Hydrophobic Rinse Coating</h4>
+                    <div class="chem-purpose">PURPOSE: Super-concentrated hydrophobic rinse-coating for streak-free finish</div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">USE ON:</div>
+                      Vehicle exteriors, painted surfaces, trim, glass, hard surfaces after washing
+                    </div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">MIX RATIOS:</div>
+                      <div class="chem-ratio">• Standard (lightly soiled): 200:1 — 1 oz per 200 oz water</div>
+                      <div class="chem-ratio">• Heavy duty/barrel system: 120:1 — 1 oz per 120 oz water</div>
+                      <div class="chem-ratio">• Maximum concentration: 100:1 — 1 oz per 100 oz water</div>
+                    </div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">APPLICATION:</div>
+                      Mix to desired ratio and apply via foam cannon, pump sprayer, or auto-dosing system on cool, clean surface. Rinse off immediately.
+                    </div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">DWELL TIME:</div>
+                      Apply and rinse immediately — do NOT let dry on surface
+                    </div>
+                    <div class="chem-safety">
+                      <strong>SAFETY:</strong> Wear gloves. Avoid prolonged skin or eye contact. Keep away from children.
+                    </div>
+                    <div class="chem-notes">
+                      <strong>NOTES:</strong> Best results on clean, pre-washed surfaces. For best water-beading, dry with drying towel after rinsing.
+                    </div>
+                  </div>
+
+                  <!-- Elemonator -->
+                  <div class="chem-card">
+                    <h4 class="chem-header">3. Elemonator Surfactant</h4>
+                    <div class="chem-purpose">PURPOSE: Bleach-stable surfactant and soft wash soap with lemon scent</div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">USE ON:</div>
+                      House wash, roof cleaning, concrete, siding, brick, vinyl, wood, screens, windows
+                    </div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">MIX RATIOS:</div>
+                      <div class="chem-ratio">• Downstream/pump sprayer add-in: 1 oz per gallon of wash mix</div>
+                      <div class="chem-ratio">• Batch mix (5-gallon): 5 oz Elemonator + 3 gal SH + 2 gal water</div>
+                      <div class="chem-ratio">• Batch mix (12-gallon): 12 oz Elemonator + 6 gal SH + 6 gal water</div>
+                    </div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">APPLICATION:</div>
+                      Add to sodium hypochlorite batch mix or downstream mix. Apply with soft wash system, downstream injector, or pump sprayer.
+                    </div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">DWELL TIME:</div>
+                      3–5 minutes (do not let dry in direct sun)
+                    </div>
+                    <div class="chem-safety">
+                      <strong>SAFETY:</strong> Use PPE — gloves, eye protection, and protective clothing when working with bleach mixes.
+                    </div>
+                    <div class="chem-notes">
+                      <strong>NOTES:</strong> Always add surfactant AFTER SH when batch mixing. Compatible with bleach — does not reduce SH strength.
+                    </div>
+                  </div>
+
+                  <!-- F-10 Percarbonate -->
+                  <div class="chem-card">
+                    <h4 class="chem-header">4. F-10 Percarbonate Cleaner</h4>
+                    <div class="chem-purpose">PURPOSE: Oxygen-based wood cleaner and UV damage remover</div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">USE ON:</div>
+                      Decks, fences, wood siding, pergolas, docks — pre- or post-strip restoration
+                    </div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">MIX RATIOS:</div>
+                      <div class="chem-ratio">• Light cleaning/maintenance: 4 oz per gallon of water</div>
+                      <div class="chem-ratio">• Moderate/weathered wood: 6 oz per gallon of water</div>
+                      <div class="chem-ratio">• Heavy/UV-damaged/gray wood: 8 oz per gallon of water</div>
+                    </div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">APPLICATION:</div>
+                      Dissolve powder in warm water. Apply evenly with pump sprayer, brush, or low-pressure washer to wet wood. Agitate with soft brush.
+                    </div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">DWELL TIME:</div>
+                      10–20 minutes — keep surface wet; re-apply if drying
+                    </div>
+                    <div class="chem-safety">
+                      <strong>SAFETY:</strong> Wear gloves and eye protection. Avoid breathing dust when mixing powder. Flush with water if skin contact occurs.
+                    </div>
+                    <div class="chem-notes">
+                      <strong>NOTES:</strong> Best used after F-18 stripper to brighten and neutralize wood. Pair with F-8 neutralizer on highly acidic surfaces.
+                    </div>
+                  </div>
+
+                  <!-- F-13 Gutter Grenade -->
+                  <div class="chem-card">
+                    <h4 class="chem-header">5. F-13 Gutter Grenade Anti-Oxidizer</h4>
+                    <div class="chem-purpose">PURPOSE: Professional-strength gutter and aluminum cleaner</div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">USE ON:</div>
+                      Aluminum gutters, soffits, fascia boards, painted aluminum trim, downspouts
+                    </div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">MIX RATIOS:</div>
+                      <div class="chem-ratio">• Light oxidation/maintenance: 50:1 — 1 oz per 50 oz water</div>
+                      <div class="chem-ratio">• Standard/moderate streaking: 20:1 — 1 oz per 20 oz water</div>
+                      <div class="chem-ratio">• Heavy/stubborn tiger stripes: 5:1 — 1 oz per 5 oz water</div>
+                    </div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">APPLICATION:</div>
+                      Wet surrounding surfaces and landscaping first. Mix to desired ratio. Apply with brush or pump sprayer. Agitate with soft-bristle brush.
+                    </div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">DWELL TIME:</div>
+                      1–3 minutes — do NOT let dry on surface
+                    </div>
+                    <div class="chem-safety">
+                      <strong>SAFETY:</strong> Use PPE for overhead work — gloves, eye protection, face shield. Highly caustic at full strength. Rinse skin immediately if contact occurs.
+                    </div>
+                    <div class="chem-notes">
+                      <strong>NOTES:</strong> Works best above 60°F. Always test in small hidden area first. Do not use on anodized aluminum. Pre-wet plants and concrete.
+                    </div>
+                  </div>
+
+                  <!-- F-18 Wood Stripper -->
+                  <div class="chem-card">
+                    <h4 class="chem-header">6. F-18 MAX Wood Sealer Stripper & Cleaner</h4>
+                    <div class="chem-purpose">PURPOSE: Heavy-duty wood sealer stripper and concrete cleaner</div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">USE ON:</div>
+                      Decks, fences, wood structures (sealer removal); driveways, concrete, rust-stained masonry
+                    </div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">MIX RATIOS:</div>
+                      <div class="chem-ratio">• Concrete/porous surfaces: 1–3 oz per gallon of water</div>
+                      <div class="chem-ratio">• Wood — non-film, oil-based sealer: 4–6 oz per gallon of water</div>
+                      <div class="chem-ratio">• Wood — film-forming/thick sealer: 6–12 oz per gallon of water</div>
+                    </div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">APPLICATION:</div>
+                      Wet wood or surface before applying. Apply evenly with pump sprayer or brush. Agitate with stiff brush. Rinse thoroughly with pressure washer.
+                    </div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">DWELL TIME:</div>
+                      10–30 minutes depending on sealer type — keep surface wet
+                    </div>
+                    <div class="chem-safety">
+                      <strong>SAFETY:</strong> Highly alkaline — wear gloves, eye protection, and protective clothing. Neutralize surface with F-8 or F-10 after stripping.
+                    </div>
+                    <div class="chem-notes">
+                      <strong>NOTES:</strong> Always follow with F-10 Percarbonate Cleaner to brighten and neutralize after stripping. For multi-coat sealers, second application may be needed.
+                    </div>
+                  </div>
+
+                  <!-- Fast Cherry -->
+                  <div class="chem-card">
+                    <h4 class="chem-header">7. Fast Cherry Off-Road Wash</h4>
+                    <div class="chem-purpose">PURPOSE: Cherry-scented heavy-duty vehicle and equipment wash</div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">USE ON:</div>
+                      ATVs, UTVs, dirt bikes, trailers, farm equipment, heavy off-road vehicles
+                    </div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">MIX RATIOS:</div>
+                      <div class="chem-ratio">• Foam cannon: 4 oz in cannon — fill remainder with water</div>
+                      <div class="chem-ratio">• Downstream injector: 8–10 oz per gallon of water</div>
+                      <div class="chem-ratio">• Pump sprayer/garden hose: 2–4 oz per gallon of water</div>
+                    </div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">APPLICATION:</div>
+                      Mix per method above. Apply generously to entire vehicle, working bottom to top. Agitate heavily soiled areas with brush. Rinse top to bottom.
+                    </div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">DWELL TIME:</div>
+                      1–3 minutes — keep applying to prevent drying
+                    </div>
+                    <div class="chem-safety">
+                      <strong>SAFETY:</strong> Wear gloves. Avoid direct eye contact. Safe for most painted surfaces at recommended dilutions.
+                    </div>
+                    <div class="chem-notes">
+                      <strong>NOTES:</strong> A single 32 oz bottle makes up to 16 gallons of RTU solution. For extremely caked mud, let soak 2–3 minutes before agitating.
+                    </div>
+                  </div>
+
+                  <!-- Mothers Degreaser -->
+                  <div class="chem-card">
+                    <h4 class="chem-header">8. Mothers Professional Water-Based Degreaser</h4>
+                    <div class="chem-purpose">PURPOSE: Water-based concentrated degreaser — safe, non-toxic</div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">USE ON:</div>
+                      Engine bays, undercarriage, equipment, shop floors, vehicle exteriors, aluminum parts
+                    </div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">MIX RATIOS:</div>
+                      <div class="chem-ratio">• Light to moderate degreasing: 1:4 — 1 part concentrate : 4 parts water</div>
+                      <div class="chem-ratio">• General purpose: 1:2 — 1 part concentrate : 2 parts water</div>
+                      <div class="chem-ratio">• Heavy/engine degreasing: 1:1 — full strength (equal parts)</div>
+                    </div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">APPLICATION:</div>
+                      Mix per desired dilution. Apply to cool surface with pump sprayer or brush. Agitate with brush on heavy grime. Rinse with pressure washer.
+                    </div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">DWELL TIME:</div>
+                      2–5 minutes — longer for heavy build-up
+                    </div>
+                    <div class="chem-safety">
+                      <strong>SAFETY:</strong> Non-toxic and biodegradable. Wear gloves for extended use. Will not stain paint or harm aluminum.
+                    </div>
+                    <div class="chem-notes">
+                      <strong>NOTES:</strong> For engine bays, cover sensitive electrical components before application. Rinse thoroughly to prevent residue.
+                    </div>
+                  </div>
+
+                  <!-- Preserver Pro -->
+                  <div class="chem-card">
+                    <h4 class="chem-header">9. Preserver Pro Hydrophobic UV Protector</h4>
+                    <div class="chem-purpose">PURPOSE: Super-concentrated professional UV protector and hydrophobic coating</div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">USE ON:</div>
+                      Gutters, siding, painted surfaces, windows, window frames, vinyl, aluminum trim, exterior surfaces
+                    </div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">MIX RATIOS:</div>
+                      <div class="chem-ratio">• Standard application: See product label — super concentrated</div>
+                      <div class="chem-ratio">• Typical range: 50:1–100:1 dilution ratios</div>
+                      <div class="chem-ratio">• Touchup/light coat: Higher dilution per label instructions</div>
+                    </div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">APPLICATION:</div>
+                      Mix per label instructions. Apply to clean, dry surface with pump sprayer, soft cloth, or foam applicator. Spread evenly and allow to bond.
+                    </div>
+                    <div class="chem-section">
+                      <div class="chem-section-title">DWELL TIME:</div>
+                      Per label — typically 1–3 minutes; do not let over-dwell in direct sun
+                    </div>
+                    <div class="chem-safety">
+                      <strong>SAFETY:</strong> Wear gloves and eye protection. Avoid prolonged skin contact. Store in cool, dry place away from direct sunlight.
+                    </div>
+                    <div class="chem-notes">
+                      <strong>NOTES:</strong> For best UV protection, apply after washing and before extended direct sunlight exposure. Re-apply seasonally for maximum protection.
+                    </div>
+                  </div>
+
+                </div>
+
+                <div style="margin-top:30px; padding:20px; background:#f0f9ff; border-left:4px solid #0ea5e9; border-radius:6px;">
+                  <h4 style="margin-top:0; color:#0369a1;">D&G Soft Wash — Professional Standards</h4>
+                  <p style="margin-bottom:8px; font-weight:600; color:#1e293b;">Always read and follow individual product labels. Ratios are guidelines — adjust for surface condition, temperature, and soiling level.</p>
+                  <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; font-size:0.9em; color:#374151;">
+                    <span><strong>D&G Soft Wash</strong></span>
+                    <span><strong>Email:</strong> service@dgsoftwash.com</span>
+                    <span><strong>Website:</strong> dgsoftwash.com</span>
+                    <span><strong>Location:</strong> Hampton Roads, VA</span>
+                  </div>
+                </div>
+
+              </div>
             </div>
           </div>
         </div>
@@ -381,13 +766,18 @@
   <!-- Quote / Estimate Modal -->
   <div id="quote-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1000; overflow-y:auto;">
     <div style="background:#fff; max-width:600px; margin:40px auto; border-radius:12px; padding:30px; position:relative; box-shadow:0 8px 32px rgba(0,0,0,0.18);">
-      <button id="close-quote-modal" style="position:absolute; top:16px; right:20px; background:none; border:none; font-size:1.6em; cursor:pointer; color:#888; line-height:1;">&times;</button>
-      <h2 style="margin-top:0; margin-bottom:20px;">Send Estimate / Quote</h2>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <h2 style="margin:0;">Create Quote</h2>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button id="qt-print-btn" class="btn btn-secondary" style="padding:6px 14px; font-size:0.85em;">Print Quote</button>
+          <button id="close-quote-modal" style="background:none; border:none; font-size:1.6em; cursor:pointer; color:#888; line-height:1;">&times;</button>
+        </div>
+      </div>
       <form id="quote-form">
         <h3 style="margin:0 0 14px; font-size:1em; color:#1a1a2e; border-bottom:1px solid #e5e7eb; padding-bottom:8px;">Customer</h3>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:20px;">
           <div class="form-group"><label>Name</label><input type="text" id="qt-name" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"></div>
-          <div class="form-group"><label>Email *</label><input type="email" id="qt-email" required style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"></div>
+          <div class="form-group"><label>Email</label><input type="email" id="qt-email" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"></div>
           <div class="form-group"><label>Phone</label><input type="text" id="qt-phone" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"></div>
           <div class="form-group" style="grid-column:1/-1;"><label>Address</label><input type="text" id="qt-address" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"></div>
         </div>
@@ -422,12 +812,25 @@
         <div id="qt-price-display" style="background:#f8f9fa; border-radius:8px; padding:14px; margin-bottom:16px; min-height:50px;">
           <span style="color:#888;">Select a service to calculate price</span>
         </div>
+        <div id="qt-custom-service-container" style="margin-bottom:16px; display:none;">
+          <div style="margin-bottom:10px;">
+            <label style="font-weight:600; display:block; margin-bottom:6px;">Custom Service Description</label>
+            <input type="text" id="qt-custom-service-desc" placeholder="Enter custom service description" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-weight:600; display:block; margin-bottom:6px;">Custom Service Price</label>
+            <input type="number" id="qt-custom-service-price" step="0.01" min="0" placeholder="Enter price for custom service" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;" onchange="recalcQt()">
+          </div>
+        </div>
         <div style="margin-bottom:16px;">
           <label style="font-weight:600; display:block; margin-bottom:6px;">Quote Breakdown</label>
           <pre id="qt-notes-preview" style="background:#f0f4f8; border-radius:6px; padding:12px; font-size:0.85em; line-height:1.6; white-space:pre-wrap; margin:0; min-height:40px; color:#444; font-family:monospace;"></pre>
         </div>
         <p id="qt-error" style="color:#dc2626; margin-top:8px; min-height:1.2em;"></p>
-        <button type="submit" class="btn btn-primary" style="width:100%;">Send Quote by Email</button>
+        <div style="display:flex; gap:8px;">
+          <button type="button" id="qt-save-btn" class="btn btn-secondary" style="flex:1;">Save Quote</button>
+          <button type="button" id="qt-save-email-btn" class="btn btn-primary" style="flex:1;">Save & Email</button>
+        </div>
       </form>
     </div>
   </div>
@@ -473,7 +876,8 @@
         <h2 id="wo-modal-title" style="margin:0;">Work Order</h2>
         <div style="display:flex; gap:8px; align-items:center;">
           <button id="wo-print-btn" class="btn btn-secondary" style="padding:6px 14px; font-size:0.85em;">Print</button>
-          <button id="wo-email-btn" class="btn btn-secondary" style="padding:6px 14px; font-size:0.85em;">📧 Email</button>
+          <button id="wo-invoice-btn" class="btn btn-secondary" style="padding:6px 14px; font-size:0.85em;">&#11015; Invoice</button>
+          <button id="wo-email-btn" class="btn btn-secondary" style="padding:6px 14px; font-size:0.85em;">&#128231; Email</button>
           <button id="close-work-order-modal" style="background:none; border:none; font-size:1.6em; cursor:pointer; color:#888; line-height:1;">&times;</button>
         </div>
       </div>
@@ -565,6 +969,16 @@
         <div id="gwo-price-display" style="background:#f8f9fa; border-radius:8px; padding:14px; margin-bottom:16px; min-height:50px;">
           <span style="color:#888;">Select a service to calculate price</span>
         </div>
+        <div id="gwo-custom-service-container" style="margin-bottom:16px; display:none;">
+          <div style="margin-bottom:10px;">
+            <label style="font-weight:600; display:block; margin-bottom:6px;">Custom Service Description</label>
+            <input type="text" id="gwo-custom-service-desc" placeholder="Enter custom service description" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-weight:600; display:block; margin-bottom:6px;">Custom Service Price</label>
+            <input type="number" id="gwo-custom-service-price" step="0.01" min="0" placeholder="Enter price for custom service" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;" onchange="recalcGwo()">
+          </div>
+        </div>
         <div style="margin-bottom:16px;">
           <label style="font-weight:600; display:block; margin-bottom:6px;">Notes Preview</label>
           <pre id="gwo-notes-preview" style="background:#f0f4f8; border-radius:6px; padding:12px; font-size:0.85em; line-height:1.6; white-space:pre-wrap; margin:0; min-height:40px; color:#444; font-family:monospace;"></pre>
@@ -639,7 +1053,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="/js/main.js"></script>
-  <script src="/js/admin.js?v=30"></script>
+  <script src="/js/admin.js?v=51"></script>
   <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js');</script>
 </body>
 </html>

@@ -387,6 +387,7 @@ document.addEventListener('DOMContentLoaded', function() {
       ? '<button type="button" class="btn-wo" onclick="openWorkOrderModal(' + b.work_order_id + ')" style="padding:3px 10px; font-size:0.8em; background:#1a1a2e; color:#fff; border:none; border-radius:4px; cursor:pointer;">View WO</button>'
       : '<span style="color:#aaa; font-size:0.85em;">—</span>';
     var cancelBtn = '<button type="button" class="btn-cancel" onclick="cancelBookingById(' + b.id + ')">Cancel</button>';
+    var editBtn = '<button type="button" style="padding:3px 8px; font-size:0.8em; background:#f8f9fa; border:1px solid #ddd; border-radius:4px; cursor:pointer; margin-right:3px;" onclick="openBookingEditModal(' + b.id + ')">&#9998; Edit</button>';
     row.innerHTML =
       '<td>' + dateLabel + '</td>' +
       '<td>' + (SLOT_LABELS[b.time] || b.time) + '</td>' +
@@ -398,7 +399,7 @@ document.addEventListener('DOMContentLoaded', function() {
       '<td>' + escapeHtml(b.email || '-') + '</td>' +
       '<td style="max-width:160px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="' + escapeHtml(b.notes || '') + '">' + escapeHtml(b.notes || '-') + '</td>' +
       '<td>' + woBtn + '</td>' +
-      '<td>' + cancelBtn + '</td>';
+      '<td>' + editBtn + cancelBtn + '</td>';
     return row;
   }
 
@@ -490,6 +491,88 @@ document.addEventListener('DOMContentLoaded', function() {
     } catch (err) {
       console.error('Cancel booking failed:', err);
     }
+  };
+
+  window.openBookingEditModal = function(bookingId) {
+    var booking = allBookings.find(function(b) { return b.id === bookingId; });
+    if (!booking) { alert('Booking not found'); return; }
+    var modal = document.getElementById('booking-edit-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'booking-edit-modal';
+      modal.style.cssText = 'display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1000; overflow-y:auto;';
+      document.body.appendChild(modal);
+    }
+    modal.innerHTML =
+      '<div style="background:#fff; max-width:520px; margin:40px auto; border-radius:12px; padding:28px; box-shadow:0 8px 32px rgba(0,0,0,0.18);">' +
+      '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">' +
+        '<h2 style="margin:0; font-size:1.2em;">Edit Booking #' + booking.id + '</h2>' +
+        '<button id="close-booking-edit" style="background:none; border:none; font-size:1.6em; cursor:pointer; color:#888;">&times;</button>' +
+      '</div>' +
+      '<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;">' +
+        '<div><label style="font-size:0.82em; display:block; margin-bottom:3px; color:#555;">Name</label>' +
+          '<input type="text" id="bedit-name" value="' + escapeHtml(booking.name || '') + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></div>' +
+        '<div><label style="font-size:0.82em; display:block; margin-bottom:3px; color:#555;">Phone</label>' +
+          '<input type="text" id="bedit-phone" value="' + escapeHtml(booking.phone || '') + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></div>' +
+        '<div><label style="font-size:0.82em; display:block; margin-bottom:3px; color:#555;">Email</label>' +
+          '<input type="email" id="bedit-email" value="' + escapeHtml(booking.email || '') + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></div>' +
+        '<div><label style="font-size:0.82em; display:block; margin-bottom:3px; color:#555;">Date</label>' +
+          '<input type="date" id="bedit-date" value="' + escapeHtml(booking.date || '') + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></div>' +
+        '<div style="grid-column:span 2;"><label style="font-size:0.82em; display:block; margin-bottom:3px; color:#555;">Address</label>' +
+          '<input type="text" id="bedit-address" value="' + escapeHtml(booking.address || '') + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></div>' +
+        '<div><label style="font-size:0.82em; display:block; margin-bottom:3px; color:#555;">Service</label>' +
+          '<input type="text" id="bedit-service" value="' + escapeHtml(booking.service || '') + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></div>' +
+        '<div><label style="font-size:0.82em; display:block; margin-bottom:3px; color:#555;">Price</label>' +
+          '<input type="text" id="bedit-price" value="' + escapeHtml(booking.price || '') + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></div>' +
+        '<div style="grid-column:span 2;"><label style="font-size:0.82em; display:block; margin-bottom:3px; color:#555;">Notes</label>' +
+          '<textarea id="bedit-notes" rows="3" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; resize:vertical;">' + escapeHtml(booking.notes || '') + '</textarea></div>' +
+      '</div>' +
+      '<div style="display:flex; gap:8px; align-items:center;">' +
+        '<button type="button" id="bedit-save" class="btn btn-primary" style="padding:7px 20px;">Save Changes</button>' +
+        '<button type="button" id="bedit-cancel" style="padding:7px 14px; background:#f8f9fa; border:1px solid #ddd; border-radius:5px; cursor:pointer;">Cancel</button>' +
+        '<span id="bedit-status" style="font-size:0.85em; color:#888;"></span>' +
+      '</div>' +
+      '</div>';
+    modal.style.display = 'block';
+    document.getElementById('close-booking-edit').onclick = function() { modal.style.display = 'none'; };
+    document.getElementById('bedit-cancel').onclick = function() { modal.style.display = 'none'; };
+    modal.onclick = function(e) { if (e.target === modal) modal.style.display = 'none'; };
+    document.getElementById('bedit-save').onclick = async function() {
+      var statusEl = document.getElementById('bedit-status');
+      this.disabled = true;
+      statusEl.textContent = 'Saving...';
+      statusEl.style.color = '#888';
+      try {
+        var res = await fetch('/api/admin/bookings/' + bookingId, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+          body: JSON.stringify({
+            name: document.getElementById('bedit-name').value,
+            phone: document.getElementById('bedit-phone').value,
+            email: document.getElementById('bedit-email').value,
+            date: document.getElementById('bedit-date').value,
+            address: document.getElementById('bedit-address').value,
+            service: document.getElementById('bedit-service').value,
+            price: document.getElementById('bedit-price').value,
+            notes: document.getElementById('bedit-notes').value
+          })
+        });
+        var data = await res.json();
+        if (res.ok && data.success) {
+          statusEl.textContent = 'Saved!';
+          statusEl.style.color = '#2d6a4f';
+          setTimeout(async function() { modal.style.display = 'none'; await loadAdminData(); }, 500);
+        } else {
+          statusEl.textContent = data.error || 'Save failed.';
+          statusEl.style.color = '#dc2626';
+          document.getElementById('bedit-save').disabled = false;
+        }
+      } catch(e) {
+        statusEl.textContent = 'Error saving.';
+        statusEl.style.color = '#dc2626';
+        document.getElementById('bedit-save').disabled = false;
+      }
+    };
   };
 
   function escapeHtml(str) {
@@ -660,6 +743,8 @@ document.addEventListener('DOMContentLoaded', function() {
     var content = document.getElementById('wo-modal-content');
     content.innerHTML = '<p style="color:#666;">Loading...</p>';
     document.getElementById('wo-modal-title').textContent = 'Work Order #' + woId;
+    var invBtn = document.getElementById('wo-invoice-btn');
+    if (invBtn) invBtn.style.display = '';
     try {
       var res = await fetch('/api/admin/work-orders/' + woId, {
         headers: { 'x-admin-token': adminToken }
@@ -679,7 +764,11 @@ document.addEventListener('DOMContentLoaded', function() {
     var dur = wo.duration || 1;
 
     var infoHtml =
-      '<table style="width:100%; border-collapse:collapse; font-size:0.95em; margin-bottom:18px;">' +
+      '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">' +
+        '<div style="font-weight:600; color:#1a1a2e; font-size:0.95em;">Job Details</div>' +
+        '<button type="button" id="wo-edit-details-btn" style="padding:4px 12px; font-size:0.82em; background:#f8f9fa; border:1px solid #ddd; border-radius:5px; cursor:pointer;">&#9998; Edit</button>' +
+      '</div>' +
+      '<table style="width:100%; border-collapse:collapse; font-size:0.95em; margin-bottom:18px;" id="wo-info-table">' +
         '<tr><td style="padding:5px 8px; color:#555; width:110px;">Customer</td><td style="padding:5px 8px; font-weight:600;">' + escapeHtml(wo.booking_name || wo.customer_name || '—') + '</td></tr>' +
         '<tr><td style="padding:5px 8px; color:#555;">Date</td><td style="padding:5px 8px;">' + dateLabel + ' &middot; ' + timeLabel + ' &middot; ' + dur + ' hr' + (dur > 1 ? 's' : '') + '</td></tr>' +
         '<tr><td style="padding:5px 8px; color:#555;">Service</td><td style="padding:5px 8px;">' + escapeHtml(wo.service || '—') + '</td></tr>' +
@@ -754,10 +843,183 @@ document.addEventListener('DOMContentLoaded', function() {
         '</div>';
     }
 
+    var photosHtml = '<div style="margin-top:16px; padding-top:16px; border-top:1px solid #e5e7eb;">' +
+      '<div style="font-weight:600; margin-bottom:10px; color:#1a1a2e;">Before &amp; After Photos</div>' +
+      '<div id="wo-photos-grid" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;"><span style="color:#888; font-size:0.9em;">Loading photos...</span></div>' +
+      '<div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">' +
+        '<select id="wo-photo-label" style="padding:5px 8px; border:1px solid #ddd; border-radius:4px; font-size:0.9em;">' +
+          '<option value="before">Before</option>' +
+          '<option value="after">After</option>' +
+        '</select>' +
+        '<label style="display:inline-flex; align-items:center; gap:6px; cursor:pointer; background:#1a1a2e; color:#fff; padding:6px 14px; border-radius:6px; font-size:0.88em; font-weight:600;">' +
+          '&#128247; Upload Photo' +
+          '<input type="file" id="wo-photo-input" accept="image/*" style="display:none;">' +
+        '</label>' +
+        '<span id="wo-photo-status" style="font-size:0.85em; color:#888;"></span>' +
+      '</div>' +
+      '</div>';
+
     var deleteHtml = '<div style="margin-top:24px; padding-top:16px; border-top:1px solid #fecaca; text-align:right;">' +
       '<button type="button" id="wo-delete-btn" style="padding:7px 18px; background:#fff; color:#dc2626; border:1.5px solid #dc2626; border-radius:6px; font-size:0.88em; font-weight:600; cursor:pointer;">Delete Work Order</button>' +
       '</div>';
-    content.innerHTML = infoHtml + addonsHtml + statusHtml + notesHtml + completionNotesHtml + actionsHtml + deleteHtml;
+
+    var editFormHtml = '<div id="wo-edit-form" style="display:none; margin-bottom:18px; background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; padding:16px;">' +
+      '<div style="font-weight:600; color:#1a1a2e; margin-bottom:12px;">Edit Job Details</div>' +
+      '<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">' +
+        '<div><label style="font-size:0.82em; display:block; margin-bottom:3px; color:#555;">Customer Name</label>' +
+          '<input type="text" id="wo-edit-name" value="' + escapeHtml(wo.booking_name || wo.customer_name || '') + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></div>' +
+        '<div><label style="font-size:0.82em; display:block; margin-bottom:3px; color:#555;">Phone</label>' +
+          '<input type="text" id="wo-edit-phone" value="' + escapeHtml(wo.booking_phone || wo.customer_phone || '') + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></div>' +
+        '<div><label style="font-size:0.82em; display:block; margin-bottom:3px; color:#555;">Email</label>' +
+          '<input type="email" id="wo-edit-email" value="' + escapeHtml(wo.booking_email || wo.customer_email || '') + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></div>' +
+        '<div><label style="font-size:0.82em; display:block; margin-bottom:3px; color:#555;">Date</label>' +
+          '<input type="date" id="wo-edit-date" value="' + escapeHtml(wo.date || '') + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></div>' +
+        '<div style="grid-column:span 2;"><label style="font-size:0.82em; display:block; margin-bottom:3px; color:#555;">Address</label>' +
+          '<input type="text" id="wo-edit-address" value="' + escapeHtml(wo.booking_address || wo.customer_address || '') + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></div>' +
+        '<div><label style="font-size:0.82em; display:block; margin-bottom:3px; color:#555;">Service</label>' +
+          '<input type="text" id="wo-edit-service" value="' + escapeHtml(wo.service || '') + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></div>' +
+        '<div><label style="font-size:0.82em; display:block; margin-bottom:3px; color:#555;">Price</label>' +
+          '<input type="text" id="wo-edit-price" value="' + escapeHtml(wo.price || '') + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></div>' +
+      '</div>' +
+      '<div style="display:flex; gap:8px; align-items:center;">' +
+        '<button type="button" id="wo-edit-save-btn" class="btn btn-primary" style="padding:6px 18px; font-size:0.88em;">Save Changes</button>' +
+        '<button type="button" id="wo-edit-cancel-btn" style="padding:6px 14px; font-size:0.88em; background:#f8f9fa; border:1px solid #ddd; border-radius:5px; cursor:pointer;">Cancel</button>' +
+        '<span id="wo-edit-status" style="font-size:0.85em; color:#888;"></span>' +
+      '</div>' +
+    '</div>';
+
+    content.innerHTML = editFormHtml + infoHtml + addonsHtml + statusHtml + notesHtml + completionNotesHtml + actionsHtml + photosHtml + deleteHtml;
+
+    // Edit details button
+    var editDetailsBtn = document.getElementById('wo-edit-details-btn');
+    var editForm = document.getElementById('wo-edit-form');
+    var infoTable = document.getElementById('wo-info-table');
+    if (editDetailsBtn && editForm) {
+      editDetailsBtn.addEventListener('click', function() {
+        editForm.style.display = editForm.style.display === 'none' ? 'block' : 'none';
+      });
+    }
+    var editCancelBtn = document.getElementById('wo-edit-cancel-btn');
+    if (editCancelBtn) {
+      editCancelBtn.addEventListener('click', function() { editForm.style.display = 'none'; });
+    }
+    var editSaveBtn = document.getElementById('wo-edit-save-btn');
+    if (editSaveBtn) {
+      editSaveBtn.addEventListener('click', async function() {
+        var statusEl = document.getElementById('wo-edit-status');
+        editSaveBtn.disabled = true;
+        statusEl.textContent = 'Saving...';
+        statusEl.style.color = '#888';
+        var body = {
+          booking_name: document.getElementById('wo-edit-name').value,
+          booking_phone: document.getElementById('wo-edit-phone').value,
+          booking_email: document.getElementById('wo-edit-email').value,
+          booking_date: document.getElementById('wo-edit-date').value,
+          booking_address: document.getElementById('wo-edit-address').value,
+          service: document.getElementById('wo-edit-service').value,
+          price: document.getElementById('wo-edit-price').value
+        };
+        try {
+          var res = await fetch('/api/admin/work-orders/' + wo.id, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+            body: JSON.stringify(body)
+          });
+          var data = await res.json();
+          if (res.ok && data.success) {
+            statusEl.textContent = 'Saved!';
+            statusEl.style.color = '#2d6a4f';
+            // Refresh modal with updated data
+            setTimeout(async function() {
+              var r2 = await fetch('/api/admin/work-orders/' + wo.id, { headers: { 'x-admin-token': adminToken } });
+              var updated = await r2.json();
+              renderWorkOrderModal(updated);
+            }, 500);
+          } else {
+            statusEl.textContent = data.error || 'Save failed.';
+            statusEl.style.color = '#dc2626';
+          }
+        } catch(e) {
+          statusEl.textContent = 'Error saving.';
+          statusEl.style.color = '#dc2626';
+        }
+        editSaveBtn.disabled = false;
+      });
+    }
+
+    // Load and render photos
+    async function loadWoPhotos() {
+      var grid = document.getElementById('wo-photos-grid');
+      if (!grid) return;
+      try {
+        var r = await fetch('/api/admin/work-orders/' + wo.id + '/photos', { headers: { 'x-admin-token': adminToken } });
+        var data = await r.json();
+        var photos = data.photos || [];
+        if (!photos.length) {
+          grid.innerHTML = '<span style="color:#888; font-size:0.9em;">No photos yet.</span>';
+          return;
+        }
+        grid.innerHTML = photos.map(function(p) {
+          var badge = p.label === 'after'
+            ? '<span style="position:absolute;top:4px;left:4px;background:#2d6a4f;color:#fff;font-size:0.7em;padding:2px 6px;border-radius:10px;font-weight:600;">AFTER</span>'
+            : '<span style="position:absolute;top:4px;left:4px;background:#1a1a2e;color:#fff;font-size:0.7em;padding:2px 6px;border-radius:10px;font-weight:600;">BEFORE</span>';
+          return '<div style="position:relative;display:inline-block;">' +
+            '<a href="' + p.url + '" target="_blank">' +
+            '<img src="' + p.url + '" style="width:100px;height:80px;object-fit:cover;border-radius:6px;border:1px solid #ddd;" loading="lazy">' +
+            '</a>' + badge +
+            '<button type="button" onclick="deleteWoPhoto(' + wo.id + ',' + p.id + ')" style="position:absolute;top:2px;right:2px;background:rgba(220,38,38,0.85);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:0.75em;cursor:pointer;line-height:18px;padding:0;">&times;</button>' +
+            '</div>';
+        }).join('');
+      } catch(e) {
+        grid.innerHTML = '<span style="color:#dc2626; font-size:0.9em;">Failed to load photos.</span>';
+      }
+    }
+    loadWoPhotos();
+
+    window.deleteWoPhoto = async function(woId, photoId) {
+      if (!confirm('Delete this photo?')) return;
+      try {
+        await fetch('/api/admin/work-orders/' + woId + '/photos/' + photoId, {
+          method: 'DELETE', headers: { 'x-admin-token': adminToken }
+        });
+        loadWoPhotos();
+      } catch(e) {}
+    };
+
+    var photoInput = document.getElementById('wo-photo-input');
+    if (photoInput) {
+      photoInput.addEventListener('change', async function() {
+        if (!this.files || !this.files[0]) return;
+        var statusEl = document.getElementById('wo-photo-status');
+        var label = document.getElementById('wo-photo-label').value;
+        statusEl.textContent = 'Uploading...';
+        statusEl.style.color = '#888';
+        var fd = new FormData();
+        fd.append('photo', this.files[0]);
+        fd.append('label', label);
+        try {
+          var r = await fetch('/api/admin/work-orders/' + wo.id + '/photos', {
+            method: 'POST',
+            headers: { 'x-admin-token': adminToken },
+            body: fd
+          });
+          var data = await r.json();
+          if (data.success) {
+            statusEl.textContent = 'Uploaded!';
+            statusEl.style.color = '#2d6a4f';
+            loadWoPhotos();
+          } else {
+            statusEl.textContent = data.error || 'Upload failed.';
+            statusEl.style.color = '#dc2626';
+          }
+        } catch(e) {
+          statusEl.textContent = 'Error uploading.';
+          statusEl.style.color = '#dc2626';
+        }
+        this.value = '';
+        setTimeout(function() { if (statusEl) statusEl.textContent = ''; }, 3000);
+      });
+    }
 
     document.getElementById('wo-admin-notes').addEventListener('blur', async function() {
       var notesStatus = document.getElementById('wo-notes-status');
@@ -912,6 +1174,13 @@ document.addEventListener('DOMContentLoaded', function() {
       woPrintBtn.onclick = function() { printWorkOrder(wo); };
     }
 
+    var woInvoiceBtn = document.getElementById('wo-invoice-btn');
+    if (woInvoiceBtn) {
+      woInvoiceBtn.onclick = function() {
+        window.open('/api/admin/work-orders/' + wo.id + '/invoice?token=' + encodeURIComponent(adminToken), '_blank');
+      };
+    }
+
     var woEmailBtn = document.getElementById('wo-email-btn');
     if (woEmailBtn) {
       woEmailBtn.style.display = '';
@@ -1051,6 +1320,115 @@ document.addEventListener('DOMContentLoaded', function() {
     printWindow.document.close();
   }
 
+  function printQuote() {
+    var customerName = document.getElementById('qt-name').value.trim() || 'Customer';
+    var customerEmail = document.getElementById('qt-email').value.trim() || '';
+    var customerPhone = document.getElementById('qt-phone').value.trim() || '';
+    var customerAddress = document.getElementById('qt-address').value.trim() || '';
+    
+    var baseKey = document.getElementById('qt-base-service').value;
+    if (!baseKey) {
+      alert('Please select a service before printing.');
+      return;
+    }
+    
+    var subtotal = 0;
+    var lines = [];
+    var serviceLabel = '';
+    
+    if (baseKey === 'custom') {
+      var customDesc = document.getElementById('qt-custom-service-desc').value.trim();
+      var customPrice = parseFloat(document.getElementById('qt-custom-service-price').value) || 0;
+      if (!customDesc) {
+        alert('Please enter a custom service description before printing.');
+        return;
+      }
+      subtotal = customPrice;
+      serviceLabel = customDesc;
+      lines = [customDesc + ': $' + customPrice];
+    } else {
+      if (!qtAllServices) {
+        alert('Service data not loaded.');
+        return;
+      }
+      var baseService = qtAllServices.find(function(s) { return s.key === baseKey; });
+      if (!baseService) return;
+      
+      subtotal = baseService.price;
+      serviceLabel = baseService.label;
+      lines = [baseService.label + ': $' + baseService.price];
+    }
+    
+    // Skip add-ons for custom services
+    if (baseKey !== 'custom') {
+      document.querySelectorAll('.qt-addon-checkbox:checked').forEach(function(cb) {
+        var addon = qtAllServices.find(function(s) { return s.key === cb.value; });
+        if (addon) {
+          subtotal += addon.price;
+          lines.push('  + ' + addon.label + ': $' + addon.price);
+          serviceLabel += ' + ' + addon.label;
+        }
+      });
+    }
+    
+    var finalTotal;
+    var notesLines = lines.slice();
+    
+    if (baseKey === 'custom') {
+      finalTotal = subtotal; // Custom price, no discounts
+    } else {
+      var manualPct = 0;
+      var discDetails = [];
+      if (document.getElementById('qt-disc-cash').checked) { 
+        var p = parseInt(document.getElementById('qt-disc-cash-pct').value) || 0; 
+        manualPct += p; 
+        discDetails.push('Cash ' + p + '%'); 
+      }
+      if (document.getElementById('qt-disc-return').checked) { 
+        var p = parseInt(document.getElementById('qt-disc-return-pct').value) || 0; 
+        manualPct += p; 
+        discDetails.push('Return ' + p + '%'); 
+      }
+      if (document.getElementById('qt-disc-email').checked) { 
+        var p = parseInt(document.getElementById('qt-disc-email-pct').value) || 0; 
+        manualPct += p; 
+        discDetails.push('Email ' + p + '%'); 
+      }
+      if (document.getElementById('qt-disc-multi').checked) { 
+        var p = parseInt(document.getElementById('qt-disc-multi-pct').value) || 0; 
+        manualPct += p; 
+        discDetails.push('3+ Services ' + p + '%'); 
+      }
+      
+      var savings = Math.round(subtotal * manualPct / 100);
+      finalTotal = subtotal - savings;
+      if (savings > 0) notesLines.push('Discounts (' + discDetails.join(' + ') + '): -$' + savings);
+    }
+    
+    var dateLabel = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    
+    var printWindow = window.open('', '_blank');
+    printWindow.document.write('<!DOCTYPE html><html><head><title>Quote for ' + escapeHtml(customerName) + ' - D&amp;G Soft Wash</title>' +
+      '<style>body{font-family:Arial,sans-serif;margin:30px;color:#1a1a2e;} h1{margin:0;font-size:1.6em;} .header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1a1a2e;padding-bottom:12px;margin-bottom:24px;} table{width:100%;border-collapse:collapse;} td{padding:6px 8px;} .label{color:#555;width:130px;} .section{background:#f8f9fa;border-radius:8px;padding:14px;margin:16px 0;} .quote-total{background:#d1fae5;border-radius:8px;padding:16px;margin:20px 0;text-align:center;} @media print{button{display:none;}}</style>' +
+      '</head><body>' +
+      '<div class="header"><div><h1>D&amp;G Soft Wash</h1><div style="color:#555;">Integrity You Can See &mdash; Veteran Owned &amp; Operated</div></div>' +
+      '<div style="text-align:right;"><strong>Estimate / Quote</strong><br>' + dateLabel + '</div></div>' +
+      '<table><tr><td class="label">Customer</td><td><strong>' + escapeHtml(customerName) + '</strong></td><td class="label">Phone</td><td>' + escapeHtml(customerPhone) + '</td></tr>' +
+      (customerEmail ? '<tr><td class="label">Email</td><td colspan="3">' + escapeHtml(customerEmail) + '</td></tr>' : '') +
+      (customerAddress ? '<tr><td class="label">Address</td><td colspan="3">' + escapeHtml(customerAddress) + '</td></tr>' : '') +
+      '<tr><td class="label">Service</td><td colspan="3">' + escapeHtml(serviceLabel) + '</td></tr>' +
+      '</table>' +
+      '<div class="section"><strong>Service Breakdown:</strong><br><span style="white-space:pre-line;">' + notesLines.join('\n') + '</span></div>' +
+      '<div class="quote-total"><div style="font-size:1.4em; font-weight:700; color:#065f46;">Total Estimate: $' + finalTotal.toFixed(2) + '</div></div>' +
+      '<div style="background:#f0f4f8; border-radius:8px; padding:14px; margin:20px 0; font-size:0.9em; color:#555;">' +
+      '<strong>Terms:</strong> This quote is valid for 30 days. Final price may vary based on actual conditions. Payment due upon completion.' +
+      '</div>' +
+      '<div style="text-align:center; margin-top:40px; color:#aaa; font-size:0.85em;">D&amp;G Soft Wash &mdash; (804) 832-1953 &mdash; service@dgsoftwash.com</div>' +
+      '<div style="text-align:center; margin-top:16px;"><button onclick="window.print()" style="padding:10px 30px; font-size:1em; cursor:pointer;">Print</button> <button onclick="window.close();window.history.back()" style="padding:10px 30px; font-size:1em; cursor:pointer; margin-left:10px;">← Back</button></div>' +
+      '</body></html>');
+    printWindow.document.close();
+  }
+
   function printPO(po) {
     var items = typeof po.items === 'string' ? JSON.parse(po.items) : (po.items || []);
     var dt = po.date ? new Date(po.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '—';
@@ -1105,7 +1483,12 @@ document.addEventListener('DOMContentLoaded', function() {
     var monthName = new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' });
     var SLOT_LABELS_D = { '09:00':'9:00 AM','10:00':'10:00 AM','11:00':'11:00 AM','12:00':'12:00 PM','13:00':'1:00 PM','14:00':'2:00 PM','15:00':'3:00 PM' };
 
-    var html = '<h2 style="margin-bottom:20px;">Dashboard</h2>';
+    var html = '<div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:20px;">' +
+      '<h2 style="margin:0;">Dashboard</h2>' +
+      '<button onclick="showTab(\'schedule\'); setTimeout(function(){ var btn = document.getElementById(\'add-booking-btn\'); if(btn) btn.click(); }, 200);" ' +
+        'style="background:#1a1a2e; color:#fff; border:none; border-radius:8px; padding:10px 20px; font-size:0.95em; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px;">'+
+        '&#43; Create Booking</button>' +
+      '</div>';
 
     // Summary cards
     html += '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:16px; margin-bottom:28px;">';
@@ -1233,6 +1616,687 @@ document.addEventListener('DOMContentLoaded', function() {
       container.innerHTML = '<p style="color:#dc2626;">Failed to load customers.</p>';
     }
   }
+
+  // --- Quotes Tab ---
+  async function loadQuotesTab() {
+    var container = document.getElementById('quotes-admin-container');
+    container.innerHTML = '<p style="color:#666;">Loading...</p>';
+    try {
+      var res = await fetch('/api/admin/quotes', { headers: { 'x-admin-token': adminToken } });
+      if (res.status === 401) { handleAuthExpired(); return; }
+      var data = await res.json();
+      renderQuotesList(data || []);
+    } catch (e) {
+      container.innerHTML = '<p style="color:#dc2626;">Error loading quotes: ' + e.message + '</p>';
+    }
+  }
+
+  function renderQuotesList(quotes) {
+    var container = document.getElementById('quotes-admin-container');
+    if (!quotes.length) {
+      container.innerHTML = '<p style="color:#666; text-align:center; margin:40px 0;">No saved quotes yet.</p>';
+      return;
+    }
+
+    var html = '<table style="width:100%; border-collapse:collapse; font-size:0.9em;">' +
+      '<thead><tr style="background:#f8f9fa; border-bottom:2px solid #e5e7eb;">' +
+      '<th style="padding:12px 8px; text-align:left; font-weight:600;">Customer</th>' +
+      '<th style="padding:12px 8px; text-align:left; font-weight:600;">Service</th>' +
+      '<th style="padding:12px 8px; text-align:right; font-weight:600;">Price</th>' +
+      '<th style="padding:12px 8px; text-align:left; font-weight:600;">Created</th>' +
+      '<th style="padding:12px 8px; text-align:center; font-weight:600;">Actions</th>' +
+      '</tr></thead><tbody>';
+
+    quotes.forEach(function(quote) {
+      var createdDate = new Date(quote.created_at).toLocaleDateString();
+      var validDate = quote.valid_until ? new Date(quote.valid_until).toLocaleDateString() : '';
+      var isExpired = quote.valid_until && new Date(quote.valid_until) < new Date();
+      
+      html += '<tr style="border-bottom:1px solid #e5e7eb;">' +
+        '<td style="padding:8px;"><strong>' + escapeHtml(quote.customer_name) + '</strong>' +
+        (quote.customer_email ? '<br><span style="color:#666; font-size:0.85em;">' + escapeHtml(quote.customer_email) + '</span>' : '') + '</td>' +
+        '<td style="padding:8px;">' + escapeHtml(quote.service) + '</td>' +
+        '<td style="padding:8px; text-align:right; font-weight:600; color:#2d6a4f;">' + escapeHtml(quote.price) + '</td>' +
+        '<td style="padding:8px;"><span style="color:#666;">' + createdDate + '</span>' +
+        (validDate ? '<br><span style="color:' + (isExpired ? '#dc2626' : '#666') + '; font-size:0.85em;">Valid until ' + validDate + '</span>' : '') + '</td>' +
+        '<td style="padding:8px; text-align:center;">' +
+        '<button onclick="viewQuote(' + quote.id + ')" class="btn btn-primary" style="padding:4px 8px; font-size:0.8em; margin-right:4px;">View</button>' +
+        '<button onclick="printQuoteById(' + quote.id + ')" class="btn btn-secondary" style="padding:4px 8px; font-size:0.8em; margin-right:4px;">Print</button>' +
+        '<button onclick="deleteQuote(' + quote.id + ')" class="btn btn-danger" style="padding:4px 8px; font-size:0.8em;">Delete</button>' +
+        '</td></tr>';
+    });
+
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  }
+
+  window.deleteQuote = async function(quoteId) {
+    if (!confirm('Are you sure you want to delete this quote?')) return;
+    
+    // Disable all delete buttons temporarily to prevent double-clicking
+    var deleteButtons = document.querySelectorAll('button[onclick*="deleteQuote"]');
+    deleteButtons.forEach(btn => btn.disabled = true);
+    
+    try {
+      var res = await fetch('/api/admin/quotes/' + quoteId, {
+        method: 'DELETE',
+        headers: { 'x-admin-token': adminToken }
+      });
+      if (res.ok) {
+        // Close any open modals first
+        var viewModal = document.getElementById('quote-view-modal');
+        if (viewModal) viewModal.style.display = 'none';
+        
+        await loadQuotesTab();
+        alert('Quote deleted successfully');
+      } else {
+        var error = await res.json();
+        alert('Failed to delete quote: ' + (error.error || 'Unknown error'));
+      }
+    } catch (e) {
+      alert('Error deleting quote: ' + e.message);
+    } finally {
+      // Re-enable delete buttons
+      var deleteButtons = document.querySelectorAll('button[onclick*="deleteQuote"]');
+      deleteButtons.forEach(btn => btn.disabled = false);
+    }
+  };
+
+  // View quote details
+  window.viewQuote = async function(quoteId) {
+    try {
+      var res = await fetch('/api/admin/quotes', { headers: { 'x-admin-token': adminToken } });
+      if (res.status === 401) { handleAuthExpired(); return; }
+      var quotes = await res.json();
+      var quote = quotes.find(q => q.id === quoteId);
+      if (!quote) { 
+        alert('Quote not found'); 
+        return; 
+      }
+      
+      // Show quote view modal
+      showQuoteViewModal(quote);
+      
+    } catch (e) {
+      alert('Error loading quote: ' + e.message);
+    }
+  };
+
+  function showQuoteViewModal(quote) {
+    // Create a simple view modal
+    var modal = document.getElementById('quote-view-modal');
+    if (!modal) {
+      // Create modal if it doesn't exist
+      modal = document.createElement('div');
+      modal.id = 'quote-view-modal';
+      modal.style.cssText = 'display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1000; overflow-y:auto;';
+      document.body.appendChild(modal);
+    }
+    
+    var validDate = quote.valid_until ? new Date(quote.valid_until).toLocaleDateString() : 'No expiration';
+    var createdDate = new Date(quote.created_at).toLocaleDateString();
+    var isExpired = quote.valid_until && new Date(quote.valid_until) < new Date();
+    
+    modal.innerHTML = 
+      '<div style="background:#fff; max-width:600px; margin:40px auto; border-radius:12px; padding:30px; position:relative; box-shadow:0 8px 32px rgba(0,0,0,0.18);">' +
+      '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">' +
+      '<h2 style="margin:0;">Quote #' + quote.id + '</h2>' +
+      '<button id="close-quote-view-modal" style="background:none; border:none; font-size:1.6em; cursor:pointer; color:#888; line-height:1;">&times;</button>' +
+      '</div>' +
+      
+      '<div style="margin-bottom:20px;">' +
+      '<h3 style="margin:0 0 10px; color:#1a1a2e;">Customer Information</h3>' +
+      '<p><strong>Name:</strong> ' + escapeHtml(quote.customer_name || 'N/A') + '</p>' +
+      (quote.customer_email ? '<p><strong>Email:</strong> ' + escapeHtml(quote.customer_email) + '</p>' : '') +
+      (quote.customer_phone ? '<p><strong>Phone:</strong> ' + escapeHtml(quote.customer_phone) + '</p>' : '') +
+      (quote.customer_address ? '<p><strong>Address:</strong> ' + escapeHtml(quote.customer_address) + '</p>' : '') +
+      '</div>' +
+      
+      '<div style="margin-bottom:20px;">' +
+      '<h3 style="margin:0 0 10px; color:#1a1a2e;">Quote Details</h3>' +
+      '<p><strong>Service:</strong> ' + escapeHtml(quote.service || 'N/A') + '</p>' +
+      '<p><strong>Price:</strong> <span style="font-size:1.2em; font-weight:bold; color:#2d6a4f;">' + escapeHtml(quote.price || 'N/A') + '</span></p>' +
+      '<p><strong>Created:</strong> ' + createdDate + '</p>' +
+      '<p><strong>Valid Until:</strong> <span style="color:' + (isExpired ? '#dc2626' : '#2d6a4f') + ';">' + validDate + (isExpired ? ' (Expired)' : '') + '</span></p>' +
+      '</div>' +
+      
+      (quote.notes ? 
+        '<div style="margin-bottom:20px;">' +
+        '<h3 style="margin:0 0 10px; color:#1a1a2e;">Quote Breakdown</h3>' +
+        '<div style="background:#f8f9fa; padding:15px; border-radius:6px; white-space:pre-wrap; font-family:monospace; font-size:0.9em;">' + escapeHtml(quote.notes) + '</div>' +
+        '</div>' 
+      : '') +
+      
+      '<div id="quote-edit-form-' + quote.id + '" style="display:none; margin-bottom:20px; background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; padding:16px;">' +
+        '<h3 style="margin:0 0 12px; color:#1a1a2e; font-size:1em;">Edit Quote</h3>' +
+        '<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">' +
+          '<div><label style="font-size:0.82em; display:block; margin-bottom:3px; color:#555;">Customer Name</label>' +
+            '<input type="text" id="qedit-name" value="' + escapeHtml(quote.customer_name || '') + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></div>' +
+          '<div><label style="font-size:0.82em; display:block; margin-bottom:3px; color:#555;">Phone</label>' +
+            '<input type="text" id="qedit-phone" value="' + escapeHtml(quote.customer_phone || '') + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></div>' +
+          '<div><label style="font-size:0.82em; display:block; margin-bottom:3px; color:#555;">Email</label>' +
+            '<input type="email" id="qedit-email" value="' + escapeHtml(quote.customer_email || '') + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></div>' +
+          '<div><label style="font-size:0.82em; display:block; margin-bottom:3px; color:#555;">Service</label>' +
+            '<input type="text" id="qedit-service" value="' + escapeHtml(quote.service || '') + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></div>' +
+          '<div style="grid-column:span 2;"><label style="font-size:0.82em; display:block; margin-bottom:3px; color:#555;">Address</label>' +
+            '<input type="text" id="qedit-address" value="' + escapeHtml(quote.customer_address || '') + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></div>' +
+          '<div><label style="font-size:0.82em; display:block; margin-bottom:3px; color:#555;">Price</label>' +
+            '<input type="text" id="qedit-price" value="' + escapeHtml(quote.price || '') + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></div>' +
+          '<div><label style="font-size:0.82em; display:block; margin-bottom:3px; color:#555;">Valid Until</label>' +
+            '<input type="date" id="qedit-valid" value="' + escapeHtml(quote.valid_until ? quote.valid_until.split('T')[0] : '') + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></div>' +
+          '<div style="grid-column:span 2;"><label style="font-size:0.82em; display:block; margin-bottom:3px; color:#555;">Notes / Breakdown</label>' +
+            '<textarea id="qedit-notes" rows="4" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; resize:vertical;">' + escapeHtml(quote.notes || '') + '</textarea></div>' +
+        '</div>' +
+        '<div style="display:flex; gap:8px; align-items:center;">' +
+          '<button type="button" id="qedit-save-btn" class="btn btn-primary" style="padding:6px 18px; font-size:0.88em;">Save</button>' +
+          '<button type="button" id="qedit-cancel-btn" style="padding:6px 14px; font-size:0.88em; background:#f8f9fa; border:1px solid #ddd; border-radius:5px; cursor:pointer;">Cancel</button>' +
+          '<span id="qedit-status" style="font-size:0.85em; color:#888;"></span>' +
+        '</div>' +
+      '</div>' +
+
+      '<div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center; border-top:1px solid #e5e7eb; padding-top:20px; margin-top:20px;">' +
+      '<button id="edit-quote-' + quote.id + '" class="btn btn-secondary" style="padding:8px 16px;">&#9998; Edit Quote</button>' +
+      '<button id="print-quote-' + quote.id + '" class="btn btn-secondary" style="padding:8px 16px;">🖨️ Print Quote</button>' +
+      (quote.customer_email ? '<button id="email-quote-' + quote.id + '" class="btn btn-primary" style="padding:8px 16px;">📧 Email Quote</button>' : '') +
+      '<button id="duplicate-quote-' + quote.id + '" class="btn btn-warning" style="padding:8px 16px;">📝 Create New from This</button>' +
+      '</div>' +
+
+      '</div>';
+
+    modal.style.display = 'block';
+
+    // Add event listeners to modal buttons
+    var closeBtn = document.getElementById('close-quote-view-modal');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', function() {
+        closeQuoteViewModal();
+      });
+    }
+
+    var editQuoteBtn = document.getElementById('edit-quote-' + quote.id);
+    var editQuoteForm = document.getElementById('quote-edit-form-' + quote.id);
+    if (editQuoteBtn && editQuoteForm) {
+      editQuoteBtn.addEventListener('click', function() {
+        editQuoteForm.style.display = editQuoteForm.style.display === 'none' ? 'block' : 'none';
+      });
+    }
+    var qEditCancel = document.getElementById('qedit-cancel-btn');
+    if (qEditCancel) {
+      qEditCancel.addEventListener('click', function() { editQuoteForm.style.display = 'none'; });
+    }
+    var qEditSave = document.getElementById('qedit-save-btn');
+    if (qEditSave) {
+      qEditSave.addEventListener('click', async function() {
+        var statusEl = document.getElementById('qedit-status');
+        qEditSave.disabled = true;
+        statusEl.textContent = 'Saving...';
+        statusEl.style.color = '#888';
+        try {
+          var res = await fetch('/api/admin/quotes/' + quote.id, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+            body: JSON.stringify({
+              customer_name: document.getElementById('qedit-name').value,
+              customer_phone: document.getElementById('qedit-phone').value,
+              customer_email: document.getElementById('qedit-email').value,
+              customer_address: document.getElementById('qedit-address').value,
+              service: document.getElementById('qedit-service').value,
+              price: document.getElementById('qedit-price').value,
+              valid_until: document.getElementById('qedit-valid').value || null,
+              notes: document.getElementById('qedit-notes').value
+            })
+          });
+          var data = await res.json();
+          if (res.ok && data.success) {
+            statusEl.textContent = 'Saved!';
+            statusEl.style.color = '#2d6a4f';
+            setTimeout(function() { loadQuotesTab(); closeQuoteViewModal(); }, 600);
+          } else {
+            statusEl.textContent = data.error || 'Save failed.';
+            statusEl.style.color = '#dc2626';
+          }
+        } catch(e) {
+          statusEl.textContent = 'Error saving.';
+          statusEl.style.color = '#dc2626';
+        }
+        qEditSave.disabled = false;
+      });
+    }
+
+    var printBtn = document.getElementById('print-quote-' + quote.id);
+    if (printBtn) {
+      printBtn.addEventListener('click', function() {
+        printQuoteForIpad(quote);
+      });
+    }
+
+    var emailBtn = document.getElementById('email-quote-' + quote.id);
+    if (emailBtn) {
+      emailBtn.addEventListener('click', function() {
+        emailSavedQuote(quote.id);
+      });
+    }
+
+    var duplicateBtn = document.getElementById('duplicate-quote-' + quote.id);
+    if (duplicateBtn) {
+      duplicateBtn.addEventListener('click', function() {
+        duplicateQuote(quote.id);
+      });
+    }
+  }
+
+  window.closeQuoteViewModal = function() {
+    var modal = document.getElementById('quote-view-modal');
+    if (modal) modal.style.display = 'none';
+  };
+
+  window.duplicateQuote = async function(quoteId) {
+    try {
+      var res = await fetch('/api/admin/quotes', { headers: { 'x-admin-token': adminToken } });
+      if (res.status === 401) { handleAuthExpired(); return; }
+      var quotes = await res.json();
+      var quote = quotes.find(q => q.id === quoteId);
+      if (!quote) { alert('Quote not found'); return; }
+      
+      // Close view modal
+      closeQuoteViewModal();
+      
+      // Open new quote modal with services loaded
+      await window.openQuoteModal();
+      
+      // Fill form with quote data for editing
+      document.getElementById('qt-name').value = quote.customer_name || '';
+      document.getElementById('qt-email').value = quote.customer_email || '';
+      document.getElementById('qt-phone').value = quote.customer_phone || '';
+      document.getElementById('qt-address').value = quote.customer_address || '';
+      
+      // Update modal title
+      var modalTitle = document.querySelector('#quote-modal h2');
+      if (modalTitle) modalTitle.textContent = 'New Quote (copied from #' + quote.id + ')';
+      
+    } catch (e) {
+      alert('Error duplicating quote: ' + e.message);
+    }
+  };
+
+  // Print saved quote
+  window.printQuoteById = async function(quoteId) {
+    try {
+      var res = await fetch('/api/admin/quotes', { headers: { 'x-admin-token': adminToken } });
+      if (res.status === 401) { handleAuthExpired(); return; }
+      var quotes = await res.json();
+      var quote = quotes.find(q => q.id === quoteId);
+      if (!quote) { 
+        alert('Quote not found'); 
+        return; 
+      }
+      printQuoteForIpad(quote);
+    } catch (e) {
+      alert('Error loading quote for print: ' + e.message);
+    }
+  };
+
+  window.printSavedQuote = async function(quoteId) {
+    try {
+      console.log('Print function called for quote ID:', quoteId);
+      
+      var res = await fetch('/api/admin/quotes', { headers: { 'x-admin-token': adminToken } });
+      if (res.status === 401) { handleAuthExpired(); return; }
+      var quotes = await res.json();
+      var quote = quotes.find(q => q.id === quoteId);
+      if (!quote) { 
+        alert('Quote not found'); 
+        return; 
+      }
+      
+      console.log('Quote found:', quote);
+      
+      // iPad-compatible print approach
+      printQuoteForIpad(quote);
+      
+    } catch (e) {
+      console.error('Print error:', e);
+      alert('Error printing quote: ' + e.message);
+    }
+  };
+
+  // Alternative print method for when pop-ups are blocked
+  function showQuoteInNewTab(quote) {
+    var printContent = 
+      '<!DOCTYPE html>' +
+      '<html><head>' +
+      '<title>Quote #' + quote.id + ' - D&G Soft Wash</title>' +
+      '<style>' +
+      'body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.5; }' +
+      '.header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }' +
+      '.info { margin: 20px 0; }' +
+      '.notes { background: #f5f5f5; padding: 15px; margin: 20px 0; border-left: 4px solid #007c7a; }' +
+      '.total { font-size: 1.3em; font-weight: bold; color: #007c7a; text-align: center; margin-top: 30px; }' +
+      '.print-btn { background: #007c7a; color: white; padding: 15px 30px; border: none; border-radius: 8px; font-size: 1.1em; cursor: pointer; margin: 20px auto; display: block; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }' +
+      '.print-btn:hover { background: #006663; transform: translateY(-1px); }' +
+      '.print-btn:active { background: #005550; transform: translateY(0); }' +
+      '@media print { .no-print { display: none !important; } body { margin: 20px; } }' +
+      '</style>' +
+      '<script>' +
+      'function printPage() {' +
+        'try {' +
+          'console.log("Print button clicked");' +
+          'if (window.print) {' +
+            'window.print();' +
+          '} else {' +
+            'alert("Print function not available. Please use Ctrl+P or Cmd+P to print.");' +
+          '}' +
+        '} catch (e) {' +
+          'console.error("Print error:", e);' +
+          'alert("Print error. Please use Ctrl+P or Cmd+P to print.");' +
+        '}' +
+      '}' +
+      'document.addEventListener("DOMContentLoaded", function() {' +
+        'console.log("Quote page loaded successfully");' +
+        'var printBtn = document.getElementById("print-button");' +
+        'if (printBtn) {' +
+          'console.log("Print button found, adding click handler");' +
+          'printBtn.addEventListener("click", function(e) {' +
+            'console.log("Print button clicked via event listener");' +
+            'e.preventDefault();' +
+            'printPage();' +
+          '});' +
+        '} else {' +
+          'console.error("Print button not found!");' +
+        '}' +
+        '// Also add keyboard shortcut' +
+        'document.addEventListener("keydown", function(e) {' +
+          'if ((e.ctrlKey || e.metaKey) && e.key === "p") {' +
+            'e.preventDefault();' +
+            'printPage();' +
+          '}' +
+        '});' +
+      '});' +
+      '</script>' +
+      '</head><body>' +
+      '<div class="no-print">' +
+      '<h3 style="text-align:center; color:#007c7a; margin-bottom:10px;">📄 Quote Ready to Print</h3>' +
+      '<button class="print-btn" id="print-button">🖨️ Print This Quote</button>' +
+      '<div style="text-align:center; margin:20px 0;">' +
+      '<p style="color:#666; margin:5px 0; font-size:0.9em;"><strong>iPad/Mobile:</strong> Tap the print button above</p>' +
+      '<p style="color:#666; margin:5px 0; font-size:0.9em;"><strong>Desktop:</strong> Click the button above or press Ctrl+P / Cmd+P</p>' +
+      '<p style="color:#999; margin:15px 0; font-size:0.8em;">If the button does not work, try using your browser print menu</p>' +
+      '</div>' +
+      '</div>' +
+      '<div class="header">' +
+      '<h1>D&amp;G Soft Wash</h1>' +
+      '<h2>Quote #' + quote.id + '</h2>' +
+      '<p>Date: ' + new Date(quote.created_at).toLocaleDateString() + '</p>' +
+      '</div>' +
+      '<div class="info">' +
+      '<h3>Customer Information</h3>' +
+      '<p><strong>Name:</strong> ' + (quote.customer_name || 'N/A') + '</p>';
+      
+    if (quote.customer_email) {
+      printContent += '<p><strong>Email:</strong> ' + quote.customer_email + '</p>';
+    }
+    if (quote.customer_phone) {
+      printContent += '<p><strong>Phone:</strong> ' + quote.customer_phone + '</p>';
+    }
+    if (quote.customer_address) {
+      printContent += '<p><strong>Address:</strong> ' + quote.customer_address + '</p>';
+    }
+    
+    printContent +=
+      '</div>' +
+      '<div class="info">' +
+      '<h3>Service Details</h3>' +
+      '<p><strong>Service:</strong> ' + (quote.service || 'N/A') + '</p>' +
+      '</div>';
+      
+    if (quote.notes) {
+      printContent +=
+        '<div class="notes">' +
+        '<h3>Quote Breakdown</h3>' +
+        '<pre style="white-space: pre-wrap; font-family: inherit;">' + quote.notes + '</pre>' +
+        '</div>';
+    }
+    
+    printContent +=
+      '<div class="total">' +
+      'Total: ' + (quote.price || 'N/A') +
+      '</div>' +
+      '</body></html>';
+    
+    // Create blob and open in new tab
+    try {
+      var blob = new Blob([printContent], {type: 'text/html'});
+      var url = URL.createObjectURL(blob);
+      var newTab = window.open(url, '_blank');
+      
+      if (!newTab) {
+        // Fallback - try simple alert with print instructions
+        alert('Unable to open print window. Please:\n\n1. Allow pop-ups for this site\n2. Or use Ctrl+P / Cmd+P to print this page\n3. Or try the browser print menu');
+        return;
+      }
+      
+      // Clean up the blob URL after a delay
+      setTimeout(function() {
+        URL.revokeObjectURL(url);
+      }, 10000);
+    } catch (e) {
+      console.error('Blob creation failed:', e);
+      // Fallback to simple approach
+      printQuoteSimple(quote);
+    }
+  }
+
+  // Simple print approach that should work on all devices
+  function printQuoteSimple(quote) {
+    console.log('Using simple print method');
+    
+    var printWindow;
+    try {
+      printWindow = window.open('', '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
+    } catch (e) {
+      alert('Print blocked by browser. Please:\n1. Allow pop-ups for this site\n2. Or use Ctrl+P to print this page');
+      return;
+    }
+    
+    if (!printWindow) {
+      alert('Print blocked. Please allow pop-ups or use Ctrl+P / Cmd+P to print this page.');
+      return;
+    }
+    
+    var content = '<!DOCTYPE html><html><head><title>Quote #' + quote.id + '</title><style>' +
+      'body{font-family:Arial,sans-serif;margin:40px;line-height:1.5}' +
+      '.header{text-align:center;margin-bottom:30px;border-bottom:2px solid #333;padding-bottom:20px}' +
+      '.info{margin:20px 0}' +
+      '.notes{background:#f5f5f5;padding:15px;margin:20px 0;border-left:4px solid #007c7a}' +
+      '.total{font-size:1.3em;font-weight:bold;color:#007c7a;text-align:center;margin-top:30px}' +
+      '@media print{body{margin:20px}}' +
+      '</style></head><body>' +
+      '<div class="header"><h1>D&G Soft Wash</h1><h2>Quote #' + quote.id + '</h2>' +
+      '<p>Date: ' + new Date(quote.created_at).toLocaleDateString() + '</p></div>' +
+      '<div class="info"><h3>Customer Information</h3>' +
+      '<p><strong>Name:</strong> ' + (quote.customer_name || 'N/A') + '</p>';
+      
+    if (quote.customer_email) content += '<p><strong>Email:</strong> ' + quote.customer_email + '</p>';
+    if (quote.customer_phone) content += '<p><strong>Phone:</strong> ' + quote.customer_phone + '</p>';
+    if (quote.customer_address) content += '<p><strong>Address:</strong> ' + quote.customer_address + '</p>';
+    
+    content += '</div><div class="info"><h3>Service Details</h3>' +
+      '<p><strong>Service:</strong> ' + (quote.service || 'N/A') + '</p></div>';
+      
+    if (quote.notes) {
+      content += '<div class="notes"><h3>Quote Breakdown</h3>' +
+        '<pre style="white-space:pre-wrap;font-family:inherit">' + quote.notes + '</pre></div>';
+    }
+    
+    content += '<div class="total">Total: ' + (quote.price || 'N/A') + '</div>' +
+      '<script>window.onload=function(){setTimeout(function(){window.print();},500);}</script>' +
+      '</body></html>';
+    
+    printWindow.document.write(content);
+    printWindow.document.close();
+  }
+
+  // iPad-optimized print method
+  function printQuoteForIpad(quote) {
+    console.log('iPad print method called for quote:', quote.id);
+    
+    // Create print content as a data URL to avoid pop-up issues
+    var printHTML = '<!DOCTYPE html><html><head><title>Quote</title><style>' +
+      'body{font-family:Arial,sans-serif;margin:20px;padding:20px}' +
+      '.header{text-align:center;margin-bottom:20px;padding-bottom:20px;border-bottom:2px solid #333}' +
+      'h1{color:#007c7a;margin:0}' +
+      'h2{margin:10px 0;color:#333}' +
+      '.section{margin:15px 0}' +
+      '.notes{background:#f5f5f5;padding:15px;border-left:4px solid #007c7a;white-space:pre-wrap}' +
+      '.total{font-size:1.5em;font-weight:bold;color:#007c7a;text-align:center;margin:20px 0}' +
+      '.print-msg{text-align:center;background:#e8f5e8;padding:15px;border-radius:8px;margin:20px 0}' +
+      '</style></head><body>';
+    
+    printHTML += '<div class="print-msg">📱 <strong>iPad Users:</strong> Use the Share button in Safari and select "Print"<br>' +
+      '🖥️ <strong>Desktop Users:</strong> Press Ctrl+P or Cmd+P to print</div>';
+    
+    printHTML += '<div class="header"><h1>D&G Soft Wash</h1><h2>Quote #' + quote.id + '</h2>' +
+      '<p>Date: ' + new Date(quote.created_at).toLocaleDateString() + '</p></div>';
+      
+    printHTML += '<div class="section"><h3>Customer Information</h3>' +
+      '<p><strong>Name:</strong> ' + (quote.customer_name || 'N/A') + '</p>';
+      
+    if (quote.customer_email) printHTML += '<p><strong>Email:</strong> ' + quote.customer_email + '</p>';
+    if (quote.customer_phone) printHTML += '<p><strong>Phone:</strong> ' + quote.customer_phone + '</p>';  
+    if (quote.customer_address) printHTML += '<p><strong>Address:</strong> ' + quote.customer_address + '</p>';
+    
+    printHTML += '</div><div class="section"><h3>Service</h3>' +
+      '<p><strong>Service:</strong> ' + (quote.service || 'N/A') + '</p></div>';
+      
+    if (quote.notes) {
+      printHTML += '<div class="section"><h3>Quote Details</h3>' +
+        '<div class="notes">' + quote.notes + '</div></div>';
+    }
+    
+    printHTML += '<div class="total">Total: ' + (quote.price || 'N/A') + '</div>';
+    printHTML += '</body></html>';
+    
+    // Try the most reliable method for iPad
+    try {
+      // Method 1: Try simple window.open
+      var printWindow = window.open('about:blank', '_blank');
+      if (printWindow) {
+        printWindow.document.write(printHTML);
+        printWindow.document.close();
+        // Don't auto-print, let user control it
+        console.log('Print window opened successfully');
+        return;
+      }
+    } catch (e) {
+      console.log('Method 1 failed:', e.message);
+    }
+    
+    try {
+      // Method 2: Data URL approach  
+      var dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(printHTML);
+      var printWindow = window.open(dataUrl, '_blank');
+      if (printWindow) {
+        console.log('Data URL method worked');
+        return;
+      }
+    } catch (e) {
+      console.log('Method 2 failed:', e.message);
+    }
+    
+    // Method 3: Show instructions for manual print
+    alert('Print Options:\n\n' +
+      'iPad: Use Safari Share button → Print\n' +
+      'Desktop: Press Ctrl+P or Cmd+P\n' +
+      'Or: Use your browser\'s Print menu\n\n' +
+      'Quote details are displayed in the current view.');
+  }
+
+  // Email saved quote
+  window.emailSavedQuote = async function(quoteId) {
+    console.log('emailSavedQuote called with ID:', quoteId);
+    
+    try {
+      // Get quote data
+      var res = await fetch('/api/admin/quotes', { headers: { 'x-admin-token': adminToken } });
+      if (res.status === 401) { handleAuthExpired(); return; }
+      var quotes = await res.json();
+      var quote = quotes.find(q => q.id === quoteId);
+      if (!quote) { 
+        alert('Quote not found'); 
+        return; 
+      }
+      
+      console.log('Quote found for email:', quote);
+      
+      if (!quote.customer_email) {
+        alert('No email address saved for this quote.');
+        return;
+      }
+      
+      if (!confirm('Send quote #' + quoteId + ' to ' + quote.customer_email + '?')) return;
+      
+      // Show loading message
+      var loadingMsg = document.createElement('div');
+      loadingMsg.id = 'email-loading-msg';
+      loadingMsg.style.cssText = 'position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#007c7a; color:white; padding:20px; border-radius:8px; z-index:10000; font-family:Arial; box-shadow:0 4px 12px rgba(0,0,0,0.3);';
+      loadingMsg.innerHTML = '📧 Sending email to ' + quote.customer_email + '...';
+      document.body.appendChild(loadingMsg);
+      
+      try {
+        // Use the existing quote email endpoint  
+        var emailBody = {
+          name: quote.customer_name || '',
+          email: quote.customer_email || '',
+          phone: quote.customer_phone || '',
+          address: quote.customer_address || '',
+          service: quote.service || '',
+          price: quote.price || '',
+          notes: quote.notes || '',
+          sendEmail: true
+        };
+        
+        console.log('Sending email with body:', emailBody);
+        
+        // Validate email before sending
+        if (!emailBody.email || !emailBody.name) {
+          throw new Error('Missing required email or name fields');
+        }
+        
+        var emailRes = await fetch('/api/admin/quotes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+          body: JSON.stringify(emailBody)
+        });
+        
+        console.log('Email response status:', emailRes.status);
+        var emailData = await emailRes.json();
+        console.log('Email response data:', emailData);
+        
+        // Remove loading message
+        document.body.removeChild(loadingMsg);
+        
+        if (emailData.success && emailData.email_sent) {
+          alert('✅ Quote emailed successfully to ' + quote.customer_email + '!');
+        } else if (emailData.success) {
+          alert('⚠️ Quote saved but email may not have been sent. Check server logs.');
+        } else {
+          alert('❌ Failed to send email: ' + (emailData.error || 'Unknown error'));
+        }
+      } catch (emailError) {
+        // Remove loading message on error
+        if (document.getElementById('email-loading-msg')) {
+          document.body.removeChild(document.getElementById('email-loading-msg'));
+        }
+        throw emailError;
+      }
+      
+    } catch (e) {
+      console.error('Email error:', e);
+      alert('❌ Error emailing quote: ' + e.message);
+    }
+  };
+
+
 
   var _allCustomersData = [];
 
@@ -1380,22 +2444,45 @@ document.addEventListener('DOMContentLoaded', function() {
     var content = document.getElementById('customer-detail-content');
     var REFERRAL_OPTIONS = ['', 'Google Search', 'Google Maps', 'Facebook/Instagram', 'Customer Referral', 'Door Hanger', 'Yard Sign', 'Vehicle Wrap', 'Repeat Customer', 'Other'];
 
-    var html = '<h2 style="margin-top:0; margin-bottom:6px;">' + escapeHtml(c.name || '—') + '</h2>' +
-      '<p style="color:#555; margin:0 0 16px;">' +
+    var html = '<div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;">' +
+      '<h2 style="margin:0;">' + escapeHtml(c.name || '—') + '</h2>' +
+      '<button type="button" id="cust-edit-toggle-' + c.id + '" style="padding:4px 12px; font-size:0.82em; background:#f8f9fa; border:1px solid #ddd; border-radius:5px; cursor:pointer;">&#9998; Edit Info</button>' +
+    '</div>' +
+    '<p style="color:#555; margin:0 0 16px;">' +
         (c.email ? '<a href="mailto:' + escapeHtml(c.email) + '" style="color:#1a1a2e;">' + escapeHtml(c.email) + '</a>' : '—') + ' &nbsp;&bull;&nbsp; ' +
         escapeHtml(c.phone || '—') +
-      '</p>' +
-      (c.address ? '<p style="margin:0 0 16px; color:#444;">' + escapeHtml(c.address) + '</p>' : '') +
+    '</p>' +
+    (c.address ? '<p style="margin:0 0 16px; color:#444;">' + escapeHtml(c.address) + '</p>' : '') +
 
-      '<div style="margin-bottom:20px;">' +
+    '<div id="cust-edit-form-' + c.id + '" style="display:none; margin-bottom:18px; background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; padding:14px;">' +
+      '<div style="font-weight:600; color:#1a1a2e; margin-bottom:10px; font-size:0.95em;">Edit Customer Info</div>' +
+      '<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">' +
+        '<div><label style="font-size:0.82em; display:block; margin-bottom:3px; color:#555;">Name</label>' +
+          '<input type="text" id="cedit-name-' + c.id + '" value="' + escapeHtml(c.name || '') + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></div>' +
+        '<div><label style="font-size:0.82em; display:block; margin-bottom:3px; color:#555;">Phone</label>' +
+          '<input type="text" id="cedit-phone-' + c.id + '" value="' + escapeHtml(c.phone || '') + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></div>' +
+        '<div><label style="font-size:0.82em; display:block; margin-bottom:3px; color:#555;">Email</label>' +
+          '<input type="email" id="cedit-email-' + c.id + '" value="' + escapeHtml(c.email || '') + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></div>' +
+        '<div style="grid-column:span 2;"><label style="font-size:0.82em; display:block; margin-bottom:3px; color:#555;">Address</label>' +
+          '<input type="text" id="cedit-address-' + c.id + '" value="' + escapeHtml(c.address || '') + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></div>' +
+      '</div>' +
+      '<div style="display:flex; gap:8px; align-items:center;">' +
+        '<button type="button" id="cedit-save-' + c.id + '" class="btn btn-primary" style="padding:5px 16px; font-size:0.88em;">Save</button>' +
+        '<button type="button" id="cedit-cancel-' + c.id + '" style="padding:5px 14px; font-size:0.88em; background:#f8f9fa; border:1px solid #ddd; border-radius:5px; cursor:pointer;">Cancel</button>' +
+        '<span id="cedit-status-' + c.id + '" style="font-size:0.85em; color:#888;"></span>' +
+      '</div>' +
+    '</div>' +
+
+    '<div style="margin-bottom:20px;">' +
         '<label style="font-weight:600; display:block; margin-bottom:6px;">Admin Notes</label>' +
         '<textarea id="cust-notes-' + c.id + '" rows="3" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box; resize:vertical;">' + escapeHtml(c.notes || '') + '</textarea>' +
-        '<div style="display:flex; gap:8px; margin-top:8px;">' +
+        '<div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">' +
           '<button type="button" class="btn btn-primary" style="padding:5px 16px; font-size:0.88em;" onclick="saveCustomerNotes(' + c.id + ')">Save Notes</button>' +
           '<button type="button" class="btn btn-secondary" style="padding:5px 16px; font-size:0.88em;" onclick="emailOneCustomer(\'' + escapeHtml(c.name) + '\', \'' + escapeHtml(c.email) + '\')">Email Customer</button>' +
+          '<button type="button" class="btn" style="padding:5px 16px; font-size:0.88em; background:#dc2626; color:white; border:1px solid #dc2626;" onclick="deleteCustomer(' + c.id + ', \'' + escapeHtml(c.name) + '\')">Delete Customer</button>' +
         '</div>' +
         '<p id="cust-notes-status-' + c.id + '" style="font-size:0.85em; color:#888; margin-top:4px;"></p>' +
-      '</div>';
+    '</div>';
 
     // Referral Source
     var refOpts = REFERRAL_OPTIONS.map(function(opt) {
@@ -1478,6 +2565,52 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     content.innerHTML = html;
+
+    // Wire up customer edit form
+    var editToggle = document.getElementById('cust-edit-toggle-' + c.id);
+    var editForm = document.getElementById('cust-edit-form-' + c.id);
+    if (editToggle && editForm) {
+      editToggle.addEventListener('click', function() {
+        editForm.style.display = editForm.style.display === 'none' ? 'block' : 'none';
+      });
+    }
+    var ceditCancel = document.getElementById('cedit-cancel-' + c.id);
+    if (ceditCancel) { ceditCancel.onclick = function() { editForm.style.display = 'none'; }; }
+    var ceditSave = document.getElementById('cedit-save-' + c.id);
+    if (ceditSave) {
+      ceditSave.onclick = async function() {
+        var statusEl = document.getElementById('cedit-status-' + c.id);
+        ceditSave.disabled = true;
+        statusEl.textContent = 'Saving...';
+        statusEl.style.color = '#888';
+        try {
+          var res = await fetch('/api/admin/customers/' + c.id, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+            body: JSON.stringify({
+              name: document.getElementById('cedit-name-' + c.id).value,
+              phone: document.getElementById('cedit-phone-' + c.id).value,
+              email: document.getElementById('cedit-email-' + c.id).value,
+              address: document.getElementById('cedit-address-' + c.id).value
+            })
+          });
+          var d = await res.json();
+          if (res.ok && d.success) {
+            statusEl.textContent = 'Saved!';
+            statusEl.style.color = '#2d6a4f';
+            setTimeout(function() { window.openCustomerDetail(c.id); }, 500);
+          } else {
+            statusEl.textContent = d.error || 'Save failed.';
+            statusEl.style.color = '#dc2626';
+            ceditSave.disabled = false;
+          }
+        } catch(e) {
+          statusEl.textContent = 'Error saving.';
+          statusEl.style.color = '#dc2626';
+          ceditSave.disabled = false;
+        }
+      };
+    }
   }
 
   window.saveCustomerReferral = async function(customerId) {
@@ -1566,6 +2699,32 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   };
 
+  window.deleteCustomer = async function(customerId, customerName) {
+    if (!confirm('Are you sure you want to delete "' + customerName + '"?\n\nThis will permanently delete:\n• Customer record\n• All bookings\n• All work orders\n• All recurring services\n\nThis action cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      var res = await fetch('/api/admin/customers/' + customerId, {
+        method: 'DELETE',
+        headers: { 'x-admin-token': adminToken }
+      });
+      
+      if (res.ok) {
+        var data = await res.json();
+        alert('Customer deleted successfully: ' + data.message);
+        // Close modal and refresh customers list
+        document.getElementById('customer-detail-modal').style.display = 'none';
+        await loadCustomersTab();
+      } else {
+        var error = await res.json();
+        alert('Failed to delete customer: ' + (error.error || 'Unknown error'));
+      }
+    } catch (e) {
+      alert('Error deleting customer: ' + e.message);
+    }
+  };
+
   var customerDetailModal = document.getElementById('customer-detail-modal');
   var closeCustomerDetailBtn = document.getElementById('close-customer-detail-modal');
   if (closeCustomerDetailBtn) {
@@ -1643,6 +2802,12 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   // --- Tab switching ---
+  // Global helper to switch tabs programmatically (used by dashboard quick-actions)
+  window.showTab = function(tab) {
+    var btn = document.querySelector('.admin-tab[data-tab="' + tab + '"]');
+    if (btn) btn.click();
+  };
+
   document.querySelectorAll('.admin-tab').forEach(function(btn) {
     btn.addEventListener('click', function() {
       var tab = this.dataset.tab;
@@ -1660,6 +2825,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
       if (tab === 'pricing') loadPricingAdmin();
       if (tab === 'customers') loadCustomersTab();
+      if (tab === 'quotes') loadQuotesTab();
       if (tab === 'work-orders') loadWorkOrdersTab();
       if (tab === 'dashboard') loadDashboardTab();
       if (tab === 'expenses') loadExpensesTab();
@@ -3410,6 +4576,7 @@ document.addEventListener('DOMContentLoaded', function() {
     titleEl.textContent = poId ? 'Purchase Order' : 'New Purchase Order';
     content.innerHTML = '<p style="color:#666;">Loading...</p>';
     document.getElementById('wo-print-btn').style.display = 'none';
+    document.getElementById('wo-invoice-btn').style.display = 'none';
     document.getElementById('wo-email-btn').style.display = poId ? '' : 'none';
 
     var po = null;
@@ -3699,7 +4866,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var html = '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:8px;">' +
       '<h2 style="margin:0;">Work Orders</h2>' +
       '<div style="display:flex; gap:8px;">' +
-      '<button type="button" class="btn btn-secondary" style="padding:7px 16px; font-size:0.9em;" onclick="openQuoteModal()">Send Quote</button>' +
+      '<button type="button" class="btn btn-secondary" style="padding:7px 16px; font-size:0.9em;" onclick="window.openQuoteModal()">Send Quote</button>' +
       '<button type="button" class="btn btn-primary" style="padding:7px 16px; font-size:0.9em;" onclick="openGenerateWoModal()">+ Generate Work Order</button>' +
       '</div></div>';
 
@@ -3790,6 +4957,7 @@ document.addEventListener('DOMContentLoaded', function() {
   var quoteModal = document.getElementById('quote-modal');
   var closeQuoteModalBtn = document.getElementById('close-quote-modal');
   var quoteForm = document.getElementById('quote-form');
+  var qtPrintBtn = document.getElementById('qt-print-btn');
 
   if (closeQuoteModalBtn) {
     closeQuoteModalBtn.addEventListener('click', function() { quoteModal.style.display = 'none'; });
@@ -3797,6 +4965,41 @@ document.addEventListener('DOMContentLoaded', function() {
   quoteModal && quoteModal.addEventListener('click', function(e) {
     if (e.target === quoteModal) quoteModal.style.display = 'none';
   });
+
+  if (qtPrintBtn) {
+    qtPrintBtn.addEventListener('click', function() {
+      printQuote();
+    });
+  }
+
+  // Open quote modal function - calls the full window version
+  function openQuoteModal() {
+    window.openQuoteModal();
+  }
+
+  // New Quote button
+  var newQuoteBtn = document.getElementById('new-quote-btn');
+  if (newQuoteBtn) {
+    newQuoteBtn.addEventListener('click', function() {
+      window.openQuoteModal();
+    });
+  }
+
+  // Save Quote button
+  var qtSaveBtn = document.getElementById('qt-save-btn');
+  if (qtSaveBtn) {
+    qtSaveBtn.addEventListener('click', function() {
+      saveQuote(false); // Don't send email
+    });
+  }
+
+  // Save & Email Quote button
+  var qtSaveEmailBtn = document.getElementById('qt-save-email-btn');
+  if (qtSaveEmailBtn) {
+    qtSaveEmailBtn.addEventListener('click', function() {
+      saveQuote(true); // Send email
+    });
+  }
 
   window.openQuoteModal = async function() {
     quoteModal.style.display = 'block';
@@ -3806,6 +5009,9 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('qt-addons-list').innerHTML = '';
     document.getElementById('qt-price-display').innerHTML = '<span style="color:#888;">Select a service to calculate price</span>';
     document.getElementById('qt-notes-preview').textContent = '';
+    // Hide custom service container
+    var container = document.getElementById('qt-custom-service-container');
+    if (container) container.style.display = 'none';
 
     if (!qtAllServices) {
       try {
@@ -3820,11 +5026,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     var sel = document.getElementById('qt-base-service');
     sel.innerHTML = '<option value="">-- Select a service --</option>';
-    var QT_CAT_LABELS = { 'house':'House Washing','deck':'Deck Cleaning','fence':'Fence Cleaning','rv':'RV Washing','boat':'Boat Cleaning' };
+    
+    // Add custom service option
+    var customOpt = document.createElement('option');
+    customOpt.value = 'custom';
+    customOpt.textContent = 'Custom Service';
+    sel.appendChild(customOpt);
+    
+    var QT_CAT_LABELS = { 'house':'House Washing','deck':'Deck Cleaning','fence':'Fence Cleaning','rv':'RV Washing','boat':'Boat Cleaning','commercial':'Commercial','heavy-equipment':'Heavy Equipment' };
     var baseServices = qtAllServices.filter(function(s) { return !s.parent_key; });
     var byCat = {};
     baseServices.forEach(function(s) { if (!byCat[s.category]) byCat[s.category] = []; byCat[s.category].push(s); });
-    ['house','deck','fence','rv','boat'].forEach(function(cat) {
+    ['house','deck','fence','rv','boat','commercial','heavy-equipment'].forEach(function(cat) {
       if (!byCat[cat]) return;
       var grp = document.createElement('optgroup');
       grp.label = QT_CAT_LABELS[cat] || cat;
@@ -3836,7 +5049,16 @@ document.addEventListener('DOMContentLoaded', function() {
       });
       sel.appendChild(grp);
     });
-    sel.onchange = function() { renderQtAddons(this.value); recalcQt(); };
+    sel.onchange = function() { 
+      var container = document.getElementById('qt-custom-service-container');
+      if (this.value === 'custom') {
+        container.style.display = 'block';
+      } else {
+        container.style.display = 'none';
+      }
+      renderQtAddons(this.value); 
+      recalcQt(); 
+    };
   };
 
   function renderQtAddons(baseKey) {
@@ -3860,53 +5082,116 @@ document.addEventListener('DOMContentLoaded', function() {
 
   window.recalcQt = function() {
     var baseKey = document.getElementById('qt-base-service').value;
-    if (!baseKey || !qtAllServices) {
+    if (!baseKey) {
       document.getElementById('qt-price-display').innerHTML = '<span style="color:#888;">Select a service to calculate price</span>';
       document.getElementById('qt-notes-preview').textContent = '';
       return;
     }
-    var baseService = qtAllServices.find(function(s) { return s.key === baseKey; });
-    if (!baseService) return;
-    var subtotal = baseService.price;
-    var lines = [baseService.label + ': $' + baseService.price];
-    document.querySelectorAll('.qt-addon-checkbox:checked').forEach(function(cb) {
-      var addon = qtAllServices.find(function(s) { return s.key === cb.value; });
-      if (addon) { subtotal += addon.price; lines.push('  + ' + addon.label + ': $' + addon.price); }
-    });
+    
+    var subtotal = 0;
+    var lines = [];
+    var serviceLabel = '';
+    
+    if (baseKey === 'custom') {
+      var customDesc = document.getElementById('qt-custom-service-desc').value.trim();
+      var customPrice = parseFloat(document.getElementById('qt-custom-service-price').value) || 0;
+      if (!customDesc) {
+        document.getElementById('qt-price-display').innerHTML = '<span style="color:#888;">Enter custom service description</span>';
+        document.getElementById('qt-notes-preview').textContent = '';
+        return;
+      }
+      subtotal = customPrice;
+      serviceLabel = customDesc;
+      lines = [customDesc + ': $' + customPrice];
+    } else {
+      var baseService = qtAllServices.find(function(s) { return s.key === baseKey; });
+      if (!baseService) return;
+      subtotal = baseService.price;
+      serviceLabel = baseService.label;
+      lines = [baseService.label + ': $' + baseService.price];
+    }
+    // Skip add-ons for custom services
+    if (baseKey !== 'custom') {
+      document.querySelectorAll('.qt-addon-checkbox:checked').forEach(function(cb) {
+        var addon = qtAllServices.find(function(s) { return s.key === cb.value; });
+        if (addon) { 
+          subtotal += addon.price; 
+          lines.push('  + ' + addon.label + ': $' + addon.price);
+          serviceLabel += ' + ' + addon.label;
+        }
+      });
+    }
+    
     var manualPct = 0;
     var discDetails = [];
     if (document.getElementById('qt-disc-cash').checked) { var p = parseInt(document.getElementById('qt-disc-cash-pct').value) || 0; manualPct += p; discDetails.push('Cash ' + p + '%'); }
     if (document.getElementById('qt-disc-return').checked) { var p = parseInt(document.getElementById('qt-disc-return-pct').value) || 0; manualPct += p; discDetails.push('Return ' + p + '%'); }
     if (document.getElementById('qt-disc-email').checked) { var p = parseInt(document.getElementById('qt-disc-email-pct').value) || 0; manualPct += p; discDetails.push('Email ' + p + '%'); }
     if (document.getElementById('qt-disc-multi').checked) { var p = parseInt(document.getElementById('qt-disc-multi-pct').value) || 0; manualPct += p; discDetails.push('3+ Services ' + p + '%'); }
-    var savings = Math.round(subtotal * manualPct / 100);
-    var total = subtotal - savings;
-    var notesLines = lines.slice();
-    if (savings > 0) notesLines.push('Discounts (' + discDetails.join(' + ') + '): -$' + savings);
-    notesLines.push('Total: $' + total);
+    
+    // For custom services, use the custom price directly, no discounts
+    var finalTotal, notesLines = lines.slice();
+    var priceHtml;
+    
+    if (baseKey === 'custom') {
+      finalTotal = subtotal; // Custom price already set above
+      priceHtml = '<div style="font-size:1.3em; font-weight:700; color:#2d6a4f;">Custom Service: $' + finalTotal.toFixed(2) + '</div>';
+    } else {
+      var savings = Math.round(subtotal * manualPct / 100);
+      finalTotal = subtotal - savings;
+      if (savings > 0) notesLines.push('Discounts (' + discDetails.join(' + ') + '): -$' + savings);
+      priceHtml = '<div style="font-size:1.3em; font-weight:700; color:#2d6a4f;">Estimate: $' + finalTotal + '</div>';
+      if (savings > 0) priceHtml += '<div style="color:#888; font-size:0.9em; margin-top:4px;">Subtotal: $' + subtotal + ' &mdash; Savings: -$' + savings + ' (' + manualPct + '% off)</div>';
+    }
+    
+    notesLines.push('Total: $' + finalTotal.toFixed(2));
     document.getElementById('qt-notes-preview').textContent = notesLines.join('\n');
-    var priceHtml = '<div style="font-size:1.3em; font-weight:700; color:#2d6a4f;">Estimate: $' + total + '</div>';
-    if (savings > 0) priceHtml += '<div style="color:#888; font-size:0.9em; margin-top:4px;">Subtotal: $' + subtotal + ' &mdash; Savings: -$' + savings + ' (' + manualPct + '% off)</div>';
     document.getElementById('qt-price-display').innerHTML = priceHtml;
   };
 
-  if (quoteForm) {
-    quoteForm.addEventListener('submit', async function(e) {
-      e.preventDefault();
-      var errEl = document.getElementById('qt-error');
-      errEl.textContent = '';
-      var email = document.getElementById('qt-email').value.trim();
-      if (!email) { errEl.textContent = 'Customer email is required to send a quote.'; return; }
-      var baseKey = document.getElementById('qt-base-service').value;
-      if (!baseKey) { errEl.textContent = 'Please select a service.'; return; }
+  // Save quote function
+  async function saveQuote(sendEmail) {
+    var errEl = document.getElementById('qt-error');
+    errEl.textContent = '';
+    
+    var name = document.getElementById('qt-name').value.trim();
+    if (!name) { errEl.textContent = 'Customer name is required.'; return; }
+    
+    var email = document.getElementById('qt-email').value.trim();
+    if (sendEmail && !email) { errEl.textContent = 'Customer email is required to send quote.'; return; }
+    
+    var baseKey = document.getElementById('qt-base-service').value;
+    if (!baseKey) { errEl.textContent = 'Please select a service.'; return; }
+
+    var subtotal = 0;
+    var lines = [];
+    var serviceLabel = '';
+    
+    if (baseKey === 'custom') {
+      var customDesc = document.getElementById('qt-custom-service-desc').value.trim();
+      var customPrice = parseFloat(document.getElementById('qt-custom-service-price').value) || 0;
+      if (!customDesc) { errEl.textContent = 'Please enter a custom service description.'; return; }
+      if (customPrice <= 0) { errEl.textContent = 'Please enter a valid custom service price.'; return; }
+      subtotal = customPrice;
+      serviceLabel = customDesc;
+      lines = [customDesc + ': $' + customPrice];
+    } else {
       var baseService = qtAllServices && qtAllServices.find(function(s) { return s.key === baseKey; });
-      var subtotal = baseService ? baseService.price : 0;
-      var serviceLabel = baseService ? baseService.label : '';
-      var lines = baseService ? [baseService.label + ': $' + baseService.price] : [];
+      subtotal = baseService ? baseService.price : 0;
+      serviceLabel = baseService ? baseService.label : '';
+      lines = baseService ? [baseService.label + ': $' + baseService.price] : [];
       document.querySelectorAll('.qt-addon-checkbox:checked').forEach(function(cb) {
         var addon = qtAllServices && qtAllServices.find(function(s) { return s.key === cb.value; });
         if (addon) { subtotal += addon.price; lines.push('  + ' + addon.label + ': $' + addon.price); serviceLabel += ' + ' + addon.label; }
       });
+    }
+    
+    var finalTotal;
+    var notesLines = lines.slice();
+    
+    if (baseKey === 'custom') {
+      finalTotal = subtotal; // Custom price, no discounts
+    } else {
       var manualPct = 0;
       var discDetails = [];
       if (document.getElementById('qt-disc-cash').checked) { var p = parseInt(document.getElementById('qt-disc-cash-pct').value) || 0; manualPct += p; discDetails.push('Cash ' + p + '%'); }
@@ -3914,36 +5199,52 @@ document.addEventListener('DOMContentLoaded', function() {
       if (document.getElementById('qt-disc-email').checked) { var p = parseInt(document.getElementById('qt-disc-email-pct').value) || 0; manualPct += p; discDetails.push('Email ' + p + '%'); }
       if (document.getElementById('qt-disc-multi').checked) { var p = parseInt(document.getElementById('qt-disc-multi-pct').value) || 0; manualPct += p; discDetails.push('3+ Services ' + p + '%'); }
       var savings = Math.round(subtotal * manualPct / 100);
-      var total = subtotal - savings;
-      var notesLines = lines.slice();
+      finalTotal = subtotal - savings;
       if (savings > 0) notesLines.push('Discounts (' + discDetails.join(' + ') + '): -$' + savings);
-      notesLines.push('Total: $' + total);
-      var body = {
-        name: document.getElementById('qt-name').value.trim(),
-        email: email,
-        phone: document.getElementById('qt-phone').value.trim(),
-        address: document.getElementById('qt-address').value.trim(),
-        service: serviceLabel,
-        price: '$' + total,
-        notes: notesLines.join('\n')
-      };
-      try {
-        var res = await fetch('/api/admin/quotes', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
-          body: JSON.stringify(body)
-        });
-        if (res.status === 401) { handleAuthExpired(); return; }
-        var data = await res.json();
-        if (data.success) {
-          quoteModal.style.display = 'none';
-          showPricingMsg('Quote sent to ' + email + '!', true);
-        } else {
-          errEl.textContent = data.error || 'Failed to send quote.';
+    }
+    
+    notesLines.push('Total: $' + finalTotal.toFixed(2));
+    
+    var body = {
+      name: name,
+      email: email,
+      phone: document.getElementById('qt-phone').value.trim(),
+      address: document.getElementById('qt-address').value.trim(),
+      service: serviceLabel,
+      price: '$' + finalTotal.toFixed(2),
+      notes: notesLines.join('\n'),
+      sendEmail: sendEmail
+    };
+    
+    try {
+      var res = await fetch('/api/admin/quotes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+        body: JSON.stringify(body)
+      });
+      if (res.status === 401) { handleAuthExpired(); return; }
+      var data = await res.json();
+      if (data.success) {
+        quoteModal.style.display = 'none';
+        var msg = sendEmail ? 'Quote saved and sent to ' + email + '!' : 'Quote saved successfully!';
+        showPricingMsg(msg, true);
+        // Refresh quotes tab if it's currently active
+        var activeTab = document.querySelector('.admin-tab.active');
+        if (activeTab && activeTab.dataset.tab === 'quotes') {
+          await loadQuotesTab();
         }
-      } catch (err) {
-        errEl.textContent = 'Error. Please try again.';
+      } else {
+        errEl.textContent = data.error || 'Failed to save quote.';
       }
+    } catch (err) {
+      errEl.textContent = 'Error saving quote. Please try again.';
+    }
+  }
+
+  if (quoteForm) {
+    quoteForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      // Prevent form submission - use buttons instead
     });
   }
 
@@ -4021,7 +5322,9 @@ document.addEventListener('DOMContentLoaded', function() {
     'deck': 'Deck Cleaning',
     'fence': 'Fence Cleaning',
     'rv': 'RV Washing',
-    'boat': 'Boat Cleaning'
+    'boat': 'Boat Cleaning',
+    'commercial': 'Commercial Services',
+    'heavy-equipment': 'Heavy Equipment'
   };
 
   window.openGenerateWoModal = async function() {
@@ -4046,13 +5349,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
     var sel = document.getElementById('gwo-base-service');
     sel.innerHTML = '<option value="">-- Select a service --</option>';
+    
+    // Add custom service option
+    var customOpt = document.createElement('option');
+    customOpt.value = 'custom';
+    customOpt.textContent = 'Custom Service';
+    sel.appendChild(customOpt);
+    
     var baseServices = gwoAllServices.filter(function(s) { return !s.parent_key; });
     var byCat = {};
     baseServices.forEach(function(s) {
       if (!byCat[s.category]) byCat[s.category] = [];
       byCat[s.category].push(s);
     });
-    var catOrder = ['house', 'deck', 'fence', 'rv', 'boat'];
+    var catOrder = ['house', 'deck', 'fence', 'rv', 'boat', 'commercial', 'heavy-equipment'];
     catOrder.forEach(function(cat) {
       if (!byCat[cat]) return;
       var grp = document.createElement('optgroup');
@@ -4065,6 +5375,17 @@ document.addEventListener('DOMContentLoaded', function() {
       });
       sel.appendChild(grp);
     });
+    
+    sel.onchange = function() { 
+      var container = document.getElementById('gwo-custom-service-container');
+      if (this.value === 'custom') {
+        container.style.display = 'block';
+      } else {
+        container.style.display = 'none';
+      }
+      renderGwoAddons(this.value); 
+      recalcGwo(); 
+    };
 
     sel.onchange = function() {
       renderGwoAddons(this.value);
@@ -4104,44 +5425,74 @@ document.addEventListener('DOMContentLoaded', function() {
 
   window.recalcGwo = function() {
     var baseKey = document.getElementById('gwo-base-service').value;
-    if (!baseKey || !gwoAllServices) {
+    if (!baseKey) {
       document.getElementById('gwo-price-display').innerHTML = '<span style="color:#888;">Select a service to calculate price</span>';
       document.getElementById('gwo-notes-preview').textContent = '';
       return;
     }
-    var baseService = gwoAllServices.find(function(s) { return s.key === baseKey; });
-    if (!baseService) return;
-
-    var subtotal = baseService.price;
-    var lines = [baseService.label + ': $' + baseService.price];
-
-    document.querySelectorAll('.gwo-addon-checkbox:checked').forEach(function(cb) {
-      var addon = gwoAllServices.find(function(s) { return s.key === cb.value; });
-      if (addon) {
-        subtotal += addon.price;
-        lines.push('  + ' + addon.label + ': $' + addon.price);
+    
+    var subtotal = 0;
+    var lines = [];
+    
+    if (baseKey === 'custom') {
+      var customDesc = document.getElementById('gwo-custom-service-desc').value.trim();
+      var customPrice = parseFloat(document.getElementById('gwo-custom-service-price').value) || 0;
+      if (!customDesc) {
+        document.getElementById('gwo-price-display').innerHTML = '<span style="color:#888;">Enter custom service description</span>';
+        document.getElementById('gwo-notes-preview').textContent = '';
+        return;
       }
-    });
+      subtotal = customPrice;
+      lines = [customDesc + ': $' + customPrice];
+    } else {
+      if (!gwoAllServices) {
+        document.getElementById('gwo-price-display').innerHTML = '<span style="color:#888;">Loading services...</span>';
+        return;
+      }
+      var baseService = gwoAllServices.find(function(s) { return s.key === baseKey; });
+      if (!baseService) return;
 
-    var manualPct = 0;
-    var discDetails = [];
-    if (document.getElementById('gwo-disc-cash').checked) { var p = parseInt(document.getElementById('gwo-disc-cash-pct').value) || 0; manualPct += p; discDetails.push('Cash ' + p + '%'); }
-    if (document.getElementById('gwo-disc-return').checked) { var p = parseInt(document.getElementById('gwo-disc-return-pct').value) || 0; manualPct += p; discDetails.push('Return ' + p + '%'); }
-    if (document.getElementById('gwo-disc-email').checked) { var p = parseInt(document.getElementById('gwo-disc-email-pct').value) || 0; manualPct += p; discDetails.push('Email ' + p + '%'); }
-    if (document.getElementById('gwo-disc-multi').checked) { var p = parseInt(document.getElementById('gwo-disc-multi-pct').value) || 0; manualPct += p; discDetails.push('3+ Services ' + p + '%'); }
-    var savings = Math.round(subtotal * manualPct / 100);
-    var total = subtotal - savings;
-
-    var notesLines = lines.slice();
-    if (savings > 0) notesLines.push('Discounts (' + discDetails.join(' + ') + '): -$' + savings);
-    notesLines.push('Total: $' + total);
-
-    document.getElementById('gwo-notes-preview').textContent = notesLines.join('\n');
-
-    var priceHtml = '<div style="font-size:1.3em; font-weight:700; color:#2d6a4f;">Total: $' + total + '</div>';
-    if (savings > 0) {
-      priceHtml += '<div style="color:#888; font-size:0.9em; margin-top:4px;">Subtotal: $' + subtotal + ' &mdash; Savings: -$' + savings + ' (' + manualPct + '% off)</div>';
+      subtotal = baseService.price;
+      lines = [baseService.label + ': $' + baseService.price];
     }
+
+    // Skip add-ons for custom services
+    if (baseKey !== 'custom') {
+      document.querySelectorAll('.gwo-addon-checkbox:checked').forEach(function(cb) {
+        var addon = gwoAllServices.find(function(s) { return s.key === cb.value; });
+        if (addon) {
+          subtotal += addon.price;
+          lines.push('  + ' + addon.label + ': $' + addon.price);
+        }
+      });
+    }
+
+    var total;
+    var notesLines = lines.slice();
+    var priceHtml;
+    
+    if (baseKey === 'custom') {
+      total = subtotal; // Custom price, no discounts
+      priceHtml = '<div style="font-size:1.3em; font-weight:700; color:#2d6a4f;">Custom Service: $' + total.toFixed(2) + '</div>';
+    } else {
+      var manualPct = 0;
+      var discDetails = [];
+      if (document.getElementById('gwo-disc-cash').checked) { var p = parseInt(document.getElementById('gwo-disc-cash-pct').value) || 0; manualPct += p; discDetails.push('Cash ' + p + '%'); }
+      if (document.getElementById('gwo-disc-return').checked) { var p = parseInt(document.getElementById('gwo-disc-return-pct').value) || 0; manualPct += p; discDetails.push('Return ' + p + '%'); }
+      if (document.getElementById('gwo-disc-email').checked) { var p = parseInt(document.getElementById('gwo-disc-email-pct').value) || 0; manualPct += p; discDetails.push('Email ' + p + '%'); }
+      if (document.getElementById('gwo-disc-multi').checked) { var p = parseInt(document.getElementById('gwo-disc-multi-pct').value) || 0; manualPct += p; discDetails.push('3+ Services ' + p + '%'); }
+      var savings = Math.round(subtotal * manualPct / 100);
+      total = subtotal - savings;
+
+      if (savings > 0) notesLines.push('Discounts (' + discDetails.join(' + ') + '): -$' + savings);
+      priceHtml = '<div style="font-size:1.3em; font-weight:700; color:#2d6a4f;">Total: $' + total + '</div>';
+      if (savings > 0) {
+        priceHtml += '<div style="color:#888; font-size:0.9em; margin-top:4px;">Subtotal: $' + subtotal + ' &mdash; Savings: -$' + savings + ' (' + manualPct + '% off)</div>';
+      }
+    }
+    
+    notesLines.push('Total: $' + total);
+    document.getElementById('gwo-notes-preview').textContent = notesLines.join('\n');
     document.getElementById('gwo-price-display').innerHTML = priceHtml;
   };
 
@@ -4154,32 +5505,52 @@ document.addEventListener('DOMContentLoaded', function() {
       var baseKey = document.getElementById('gwo-base-service').value;
       if (!baseKey) { errEl.textContent = 'Please select a service.'; return; }
 
-      var baseService = gwoAllServices && gwoAllServices.find(function(s) { return s.key === baseKey; });
-      var subtotal = baseService ? baseService.price : 0;
-      var serviceLabel = baseService ? baseService.label : '';
-      var lines = baseService ? [baseService.label + ': $' + baseService.price] : [];
+      var subtotal = 0;
+      var lines = [];
+      var serviceLabel = '';
+      
+      if (baseKey === 'custom') {
+        var customDesc = document.getElementById('gwo-custom-service-desc').value.trim();
+        var customPrice = parseFloat(document.getElementById('gwo-custom-service-price').value) || 0;
+        if (!customDesc) { errEl.textContent = 'Please enter a custom service description.'; return; }
+        if (customPrice <= 0) { errEl.textContent = 'Please enter a valid custom service price.'; return; }
+        subtotal = customPrice;
+        serviceLabel = customDesc;
+        lines = [customDesc + ': $' + customPrice];
+      } else {
+        var baseService = gwoAllServices && gwoAllServices.find(function(s) { return s.key === baseKey; });
+        var subtotal = baseService ? baseService.price : 0;
+        var serviceLabel = baseService ? baseService.label : '';
+        var lines = baseService ? [baseService.label + ': $' + baseService.price] : [];
 
-      document.querySelectorAll('.gwo-addon-checkbox:checked').forEach(function(cb) {
-        var addon = gwoAllServices && gwoAllServices.find(function(s) { return s.key === cb.value; });
-        if (addon) {
-          subtotal += addon.price;
-          lines.push('  + ' + addon.label + ': $' + addon.price);
-          serviceLabel += ' + ' + addon.label;
-        }
-      });
+        document.querySelectorAll('.gwo-addon-checkbox:checked').forEach(function(cb) {
+          var addon = gwoAllServices && gwoAllServices.find(function(s) { return s.key === cb.value; });
+          if (addon) {
+            subtotal += addon.price;
+            lines.push('  + ' + addon.label + ': $' + addon.price);
+            serviceLabel += ' + ' + addon.label;
+          }
+        });
+      }
 
-      var manualPct = 0;
-      var discDetails = [];
-      if (document.getElementById('gwo-disc-cash').checked) { var p = parseInt(document.getElementById('gwo-disc-cash-pct').value) || 0; manualPct += p; discDetails.push('Cash ' + p + '%'); }
-      if (document.getElementById('gwo-disc-return').checked) { var p = parseInt(document.getElementById('gwo-disc-return-pct').value) || 0; manualPct += p; discDetails.push('Return ' + p + '%'); }
-      if (document.getElementById('gwo-disc-email').checked) { var p = parseInt(document.getElementById('gwo-disc-email-pct').value) || 0; manualPct += p; discDetails.push('Email ' + p + '%'); }
-      if (document.getElementById('gwo-disc-multi').checked) { var p = parseInt(document.getElementById('gwo-disc-multi-pct').value) || 0; manualPct += p; discDetails.push('3+ Services ' + p + '%'); }
-      var savings = Math.round(subtotal * manualPct / 100);
-      var total = subtotal - savings;
-
+      var finalTotal;
       var notesLines = lines.slice();
-      if (savings > 0) notesLines.push('Discounts (' + discDetails.join(' + ') + '): -$' + savings);
-      notesLines.push('Total: $' + total);
+      
+      if (baseKey === 'custom') {
+        finalTotal = subtotal; // Custom price, no discounts
+      } else {
+        var manualPct = 0;
+        var discDetails = [];
+        if (document.getElementById('gwo-disc-cash').checked) { var p = parseInt(document.getElementById('gwo-disc-cash-pct').value) || 0; manualPct += p; discDetails.push('Cash ' + p + '%'); }
+        if (document.getElementById('gwo-disc-return').checked) { var p = parseInt(document.getElementById('gwo-disc-return-pct').value) || 0; manualPct += p; discDetails.push('Return ' + p + '%'); }
+        if (document.getElementById('gwo-disc-email').checked) { var p = parseInt(document.getElementById('gwo-disc-email-pct').value) || 0; manualPct += p; discDetails.push('Email ' + p + '%'); }
+        if (document.getElementById('gwo-disc-multi').checked) { var p = parseInt(document.getElementById('gwo-disc-multi-pct').value) || 0; manualPct += p; discDetails.push('3+ Services ' + p + '%'); }
+        var savings = Math.round(subtotal * manualPct / 100);
+        finalTotal = subtotal - savings;
+        if (savings > 0) notesLines.push('Discounts (' + discDetails.join(' + ') + '): -$' + savings);
+      }
+      
+      notesLines.push('Total: $' + finalTotal.toFixed(2));
 
       var body = {
         name: document.getElementById('gwo-name').value.trim(),
@@ -4187,7 +5558,7 @@ document.addEventListener('DOMContentLoaded', function() {
         phone: document.getElementById('gwo-phone').value.trim(),
         address: document.getElementById('gwo-address').value.trim(),
         service: serviceLabel,
-        price: '$' + total,
+        price: '$' + finalTotal,
         notes: notesLines.join('\n')
       };
       if (!body.name) { errEl.textContent = 'Customer name is required.'; return; }
@@ -5573,23 +6944,23 @@ document.addEventListener('DOMContentLoaded', function() {
     wrap.dataset.mcInit = '1';
 
     const mcComponents = {
-      'Water':        { mul: 4.0, id: 'mc-water',       label: 'Fresh Water (1")' },
-      'SH':           { mul: 1.0, id: 'mc-sh',          label: 'SH (1/2")' },
-      'Elemonator':   { mul: 1.0, id: 'mc-elemonator',  label: 'Elemonator (1/2")' },
-      'F-13':         { mul: 1.0, id: 'mc-f13',         label: 'F-13 Gutter Grenade (1/2")' },
-      'Neutralizer':  { mul: 1.0, id: 'mc-neutralizer', label: 'Neutralizer (1/2")' },
-      'UV Protectant':{ mul: 1.0, id: 'mc-uv',          label: 'UV Protectant (1/2")' }
+      'Water':        { id: 'mc-water',       label: 'Fresh Water' },
+      'SH':           { id: 'mc-sh',          label: 'SH (12.5%)' },
+      'Elemonator':   { id: 'mc-elemonator',  label: 'Elemonator' },
+      'F-13':         { id: 'mc-f13',         label: 'F-13 Gutter Grenade' },
+      'Neutralizer':  { id: 'mc-neutralizer', label: 'Neutralizer' },
+      'UV Protectant':{ id: 'mc-uv',          label: 'UV Protectant' }
     };
 
     const mcRecipes = {
-      houseWash:    { name:'House Wash',       type:'sh',       base:{Water:10,Elemonator:1}, sh:{light:1,moderate:2,heavy:4,disgusting:6} },
-      roofWash:     { name:'Roof Wash',        type:'sh',       base:{Water:5, Elemonator:2}, sh:{light:4,moderate:6,heavy:9,disgusting:null} },
-      drivewayClean:{ name:'Driveway Clean',   type:'sh',       base:{Water:6, Elemonator:1}, sh:{light:2,moderate:4,heavy:7,disgusting:10} },
-      fenceDeckWash:{ name:'Fence/Deck Wash',  type:'sh',       base:{Water:10,Elemonator:1}, sh:{light:0.5,moderate:1,heavy:null,disgusting:null} },
-      gutterClean:  { name:'Gutter Clean',     type:'specialty',settings:{Water:8,SH:0,Elemonator:1,'F-13':5,Neutralizer:0,'UV Protectant':0} },
-      oxidation:    { name:'Oxidation Prep',   type:'specialty',settings:{Water:10,SH:0,Elemonator:2,'F-13':0,Neutralizer:0,'UV Protectant':0} },
-      neutralizer:  { name:'Neutralizer Rinse',type:'specialty',settings:{Water:10,SH:0,Elemonator:0,'F-13':0,Neutralizer:5,'UV Protectant':0} },
-      uvProtectant: { name:'UV Protectant Coat',type:'specialty',settings:{Water:10,SH:0,Elemonator:0,'F-13':0,Neutralizer:0,'UV Protectant':5} }
+      houseWash:    { name:'House Wash',       type:'sh',       base:{Water:10,Elemonator:2}, sh:{light:0.87,moderate:1.47,heavy:2.5,disgusting:3.89} },
+      roofWash:     { name:'Roof Wash',        type:'sh',       base:{Water:10, Elemonator:2}, sh:{light:3.16,moderate:4.71,heavy:7.12,disgusting:null} },
+      drivewayClean:{ name:'Driveway Clean',   type:'sh',       base:{Water:10, Elemonator:1.5}, sh:{light:1.63,moderate:2.5,heavy:4.29,disgusting:7.24} },
+      fenceDeckWash:{ name:'Fence/Deck Wash',  type:'sh',       base:{Water:10,Elemonator:1}, sh:{light:0.55,moderate:0.87,heavy:null,disgusting:null} },
+      gutterClean:  { name:'Gutter Clean',     type:'specialty',settings:{Water:10,SH:0,Elemonator:2,'F-13':4,Neutralizer:0,'UV Protectant':0} },
+      oxidation:    { name:'Oxidation Prep',   type:'specialty',settings:{Water:10,SH:0,Elemonator:3,'F-13':0,Neutralizer:0,'UV Protectant':0} },
+      neutralizer:  { name:'Neutralizer Rinse',type:'specialty',settings:{Water:10,SH:0,Elemonator:0,'F-13':0,Neutralizer:3,'UV Protectant':0} },
+      uvProtectant: { name:'UV Protectant Coat',type:'specialty',settings:{Water:10,SH:0,Elemonator:0,'F-13':0,Neutralizer:0,'UV Protectant':3} }
     };
 
     let mcCurrentRecipe = 'houseWash';
@@ -5613,23 +6984,33 @@ document.addEventListener('DOMContentLoaded', function() {
     const levelsDiv = document.getElementById('mc-levels');
 
     function mcCalc() {
-      let total = 0; const flows = {};
+      // SoftWash Technologies valve ratio formula
+      const shValve = parseFloat(document.getElementById('mc-sh').value);
+      const waterValve = parseFloat(document.getElementById('mc-water').value);
+      
+      // Update slider displays
       sliders.forEach(s => {
         const key = s.dataset.mcComp;
         const v = parseFloat(s.value);
         document.getElementById(mcComponents[key].id + '-val').textContent = v;
-        flows[key] = (v / 10) * mcComponents[key].mul;
-        total += flows[key];
       });
+      
+      // Simple valve ratio table
       tbody.innerHTML = '';
-      let shPct = 0;
       Object.keys(mcComponents).forEach(key => {
-        const pct = total > 0 ? (flows[key] / total) * 100 : 0;
-        if (key === 'SH') shPct = pct;
-        tbody.innerHTML += '<tr><td>' + mcComponents[key].label + '</td><td>' + pct.toFixed(2) + '%</td><td>' +
-          ((pct/100)*16).toFixed(2) + '</td><td>' + ((pct/100)*8).toFixed(2) + '</td></tr>';
+        const valveSetting = parseFloat(document.getElementById(mcComponents[key].id).value);
+        const totalValves = shValve + waterValve;
+        const pct = totalValves > 0 && key !== 'Water' && key !== 'SH' ? 0 : 
+                    (key === 'SH' && totalValves > 0) ? (shValve / totalValves) * 100 :
+                    (key === 'Water' && totalValves > 0) ? (waterValve / totalValves) * 100 : 0;
+        
+        tbody.innerHTML += '<tr><td>' + mcComponents[key].label + '</td><td>' + 
+          valveSetting.toFixed(1) + '</td><td>' + pct.toFixed(1) + '%</td></tr>';
       });
-      const finalSH = (shPct / 100) * (parseFloat(bulkSH.value) || 0);
+      
+      // Final SH% = (SH valve / (SH valve + Water valve)) × bulk SH%
+      const totalValves = shValve + waterValve;
+      const finalSH = totalValves > 0 ? (shValve / totalValves) * (parseFloat(bulkSH.value) || 0) : 0;
       finalSHEl.textContent = 'Final SH on Surface: ' + finalSH.toFixed(2) + '%';
     }
 

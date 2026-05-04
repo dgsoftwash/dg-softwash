@@ -1769,33 +1769,6 @@ app.delete('/api/admin/bookings/:id', requireAdmin, async (req, res) => {
   res.json({ success: true });
 });
 
-// PATCH /api/admin/bookings/:id — edit a booking
-app.patch('/api/admin/bookings/:id', requireAdmin, async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    const { date, time, duration, name, email, phone, address, service, price, notes } = req.body;
-    const updates = [];
-    const values = [];
-    let idx = 1;
-    if (date !== undefined) { updates.push(`date = $${idx++}`); values.push(date || ''); }
-    if (time !== undefined) { updates.push(`time = $${idx++}`); values.push(time || ''); }
-    if (duration !== undefined) { updates.push(`duration = $${idx++}`); values.push(parseInt(duration) || 1); }
-    if (name !== undefined) { updates.push(`name = $${idx++}`); values.push(name || ''); }
-    if (email !== undefined) { updates.push(`email = $${idx++}`); values.push(email || ''); }
-    if (phone !== undefined) { updates.push(`phone = $${idx++}`); values.push(phone || ''); }
-    if (address !== undefined) { updates.push(`address = $${idx++}`); values.push(address || ''); }
-    if (service !== undefined) { updates.push(`service = $${idx++}`); values.push(service || ''); }
-    if (price !== undefined) { updates.push(`price = $${idx++}`); values.push(price || ''); }
-    if (notes !== undefined) { updates.push(`notes = $${idx++}`); values.push(notes || ''); }
-    if (updates.length === 0) return res.json({ success: true });
-    values.push(id);
-    await pool.query(`UPDATE bookings SET ${updates.join(', ')} WHERE id = $${idx}`, values);
-    res.json({ success: true });
-  } catch (e) {
-    res.status(500).json({ error: 'Failed to update booking' });
-  }
-});
-
 // POST /api/admin/bookings — admin manual booking (no availability check)
 app.post('/api/admin/bookings', requireAdmin, async (req, res) => {
   const { name, email, phone, address, service, date, time, duration, price, notes } = req.body;
@@ -1869,18 +1842,14 @@ app.get('/api/admin/customers/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// PATCH /api/admin/customers/:id — update customer fields
+// PATCH /api/admin/customers/:id — update customer notes, referral_source, and/or email_list
 app.patch('/api/admin/customers/:id', requireAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const { notes, referral_source, email_list, name, email, phone, address } = req.body;
+    const { notes, referral_source, email_list } = req.body;
     const updates = [];
     const values = [];
     let idx = 1;
-    if (name !== undefined) { updates.push(`name = $${idx++}`); values.push(name || ''); }
-    if (email !== undefined) { updates.push(`email = $${idx++}`); values.push(email || ''); }
-    if (phone !== undefined) { updates.push(`phone = $${idx++}`); values.push(phone || ''); }
-    if (address !== undefined) { updates.push(`address = $${idx++}`); values.push(address || ''); }
     if (notes !== undefined) { updates.push(`notes = $${idx++}`); values.push(notes || ''); }
     if (referral_source !== undefined) { updates.push(`referral_source = $${idx++}`); values.push(referral_source || ''); }
     if (email_list !== undefined) { updates.push(`email_list = $${idx++}`); values.push(!!email_list); }
@@ -1962,33 +1931,12 @@ app.get('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
 app.patch('/api/admin/work-orders/:id', requireAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const { status_job_complete, status_invoiced, status_invoice_paid, status_paid, admin_notes, payment_method, completion_notes, mileage, actual_start, actual_end, price, service, paid_at,
-            booking_date, booking_time, booking_duration, booking_name, booking_email, booking_phone, booking_address } = req.body;
+    const { status_job_complete, status_invoiced, status_invoice_paid, status_paid, admin_notes, payment_method, completion_notes, mileage, actual_start, actual_end, price, service, paid_at } = req.body;
 
     // Fetch current state before update
     const { rows: current } = await pool.query('SELECT * FROM work_orders WHERE id = $1', [id]);
     if (!current.length) return res.status(404).json({ error: 'Not found' });
     const before = current[0];
-
-    // Update booking fields if booking_id exists
-    const bookingFields = { date: booking_date, time: booking_time, duration: booking_duration,
-      name: booking_name, email: booking_email, phone: booking_phone, address: booking_address };
-    const hasBookingUpdate = Object.values(bookingFields).some(v => v !== undefined);
-    if (hasBookingUpdate && before.booking_id) {
-      const bUpdates = [], bValues = [];
-      let bIdx = 1;
-      if (booking_date !== undefined) { bUpdates.push(`date = $${bIdx++}`); bValues.push(booking_date || ''); }
-      if (booking_time !== undefined) { bUpdates.push(`time = $${bIdx++}`); bValues.push(booking_time || ''); }
-      if (booking_duration !== undefined) { bUpdates.push(`duration = $${bIdx++}`); bValues.push(parseInt(booking_duration) || 1); }
-      if (booking_name !== undefined) { bUpdates.push(`name = $${bIdx++}`); bValues.push(booking_name || ''); }
-      if (booking_email !== undefined) { bUpdates.push(`email = $${bIdx++}`); bValues.push(booking_email || ''); }
-      if (booking_phone !== undefined) { bUpdates.push(`phone = $${bIdx++}`); bValues.push(booking_phone || ''); }
-      if (booking_address !== undefined) { bUpdates.push(`address = $${bIdx++}`); bValues.push(booking_address || ''); }
-      if (bUpdates.length) {
-        bValues.push(before.booking_id);
-        await pool.query(`UPDATE bookings SET ${bUpdates.join(', ')} WHERE id = $${bIdx}`, bValues);
-      }
-    }
 
     const updates = [];
     const values = [];
@@ -2632,31 +2580,6 @@ app.delete('/api/admin/quotes/:id', requireAdmin, async (req, res) => {
   } catch (e) {
     console.error('Delete quote error:', e.message);
     res.status(500).json({ error: 'Failed to delete quote' });
-  }
-});
-
-// PATCH /api/admin/quotes/:id — edit a quote
-app.patch('/api/admin/quotes/:id', requireAdmin, async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    const { customer_name, customer_email, customer_phone, customer_address, service, price, notes, valid_until } = req.body;
-    const updates = [];
-    const values = [];
-    let idx = 1;
-    if (customer_name !== undefined) { updates.push(`customer_name = $${idx++}`); values.push(customer_name || ''); }
-    if (customer_email !== undefined) { updates.push(`customer_email = $${idx++}`); values.push(customer_email || ''); }
-    if (customer_phone !== undefined) { updates.push(`customer_phone = $${idx++}`); values.push(customer_phone || ''); }
-    if (customer_address !== undefined) { updates.push(`customer_address = $${idx++}`); values.push(customer_address || ''); }
-    if (service !== undefined) { updates.push(`service = $${idx++}`); values.push(service || ''); }
-    if (price !== undefined) { updates.push(`price = $${idx++}`); values.push(price || ''); }
-    if (notes !== undefined) { updates.push(`notes = $${idx++}`); values.push(notes || ''); }
-    if (valid_until !== undefined) { updates.push(`valid_until = $${idx++}`); values.push(valid_until || null); }
-    if (updates.length === 0) return res.json({ success: true });
-    values.push(id);
-    await pool.query(`UPDATE quotes SET ${updates.join(', ')} WHERE id = $${idx}`, values);
-    res.json({ success: true });
-  } catch (e) {
-    res.status(500).json({ error: 'Failed to update quote' });
   }
 });
 
@@ -3642,10 +3565,7 @@ app.all('/gabe/api/admin/discover', requireGabeAdmin, async (req, res) => {
   if (!key) return res.status(503).json({ error: 'ANTHROPIC_API_KEY not set' });
 
   const { scholarships } = gabeReadDb();
-  const existingTitles = scholarships
-    .filter(s => s.title && s.title.trim().length > 0)
-    .map(s => '- ' + s.title.trim())
-    .join('\n') || '(No existing scholarships found)';
+  const existingTitles = scholarships.map(s => '- ' + s.title).join('\n');
 
   const prompt = `Suggest scholarship opportunities specifically for:
 - Military dependents and children of veterans
@@ -4106,36 +4026,6 @@ app.get('/api/admin/ups-debug', requireAdmin, (req, res) => {
   });
 });
 
-// Check PostgreSQL via pg_isready (low-level connectivity, faster than query)
-function checkPgReady() {
-  const { execFileSync } = require('child_process');
-  try {
-    execFileSync('/opt/homebrew/opt/postgresql@15/bin/pg_isready', ['-U', 'david', '-d', 'dgsoftwash'], { encoding: 'utf8' });
-    return { status: 'green', detail: 'accepting connections' };
-  } catch(e) {
-    return { status: 'red', detail: 'not responding' };
-  }
-}
-
-// Check iCloud backup freshness via filesystem (find files modified in last 25h)
-function checkICloudFreshness() {
-  const { execSync } = require('child_process');
-  const dir = '/Volumes/2TB HDD/Backups/iCloud Drive';
-  try {
-    const fs = require('fs');
-    if (!fs.existsSync(dir)) return { status: 'red', detail: 'dest not found' };
-    const result = execSync(
-      `/usr/bin/find "${dir}" -maxdepth 1 -mmin -1500 2>/dev/null | head -1`,
-      { encoding: 'utf8', shell: '/bin/bash' }
-    ).trim();
-    return result
-      ? { status: 'green', detail: 'updated within 25h' }
-      : { status: 'red', detail: 'no updates in 25h' };
-  } catch(e) {
-    return { status: 'grey', detail: 'check error' };
-  }
-}
-
 app.get('/api/admin/health', requireAdmin, async (req, res) => {
   try {
     const [website, app_pm2, database, tunnel, disks, processes, ups, openclaw, timemachine] = await Promise.all([
@@ -4149,8 +4039,6 @@ app.get('/api/admin/health', requireAdmin, async (req, res) => {
       checkOpenClaw(),
       checkTimeMachine()
     ]);
-    const pgReady = checkPgReady();
-    const icloudFreshness = checkICloudFreshness();
     const system = checkSystem();
     const bootLog = getBootLog();
 
@@ -4189,7 +4077,7 @@ app.get('/api/admin/health', requireAdmin, async (req, res) => {
       }
     } catch(e) {}
 
-    res.json({ timestamp: now, website, app: app_pm2, database, tunnel, system, ups, openclaw, timemachine, icloudBackup, icloudFreshness, pgReady, disks, processes, bootLog, errors });
+    res.json({ timestamp: now, website, app: app_pm2, database, tunnel, system, ups, openclaw, timemachine, icloudBackup, disks, processes, bootLog, errors });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

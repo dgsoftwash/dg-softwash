@@ -1,3 +1,4 @@
+===== MAINTENANCE.md =====
 # D&G Soft Wash — Maintenance Commands Reference
 
 All commands are run from the project directory on the **Mac Mini**:
@@ -420,11 +421,6 @@ Real backups to 2TB HDD via the Backup Widget on the Desktop.
 - DB dumps: `/Volumes/2TB HDD/Backups/database/` (keeps last 7) — runs every 6 hours (3 AM, 9 AM, 3 PM, 9 PM) via `com.dgsoftwash.database-backup.plist`
 - Log: `/Volumes/2TB HDD/backup_log.txt` (script internal log) + `/tmp/icloud-backup.log` (launchd stdout/stderr)
 - DB backup log: `/tmp/database-backup.log`
-
-> **Dependency: nodemailer (global)**  
-> The database backup email step requires nodemailer installed globally on the Mac:  
-> `npm install -g nodemailer`  
-> If backup emails stop working after a fresh setup, run this command first. The script uses `require('nodemailer')` (global, not from project node_modules).
 
 **API endpoints (require admin token):**
 - `GET /api/admin/backup/status` — current status (running/pct/log/lastBackup)

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Booking Confirmed - D&G Soft Wash</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/images/logo.png">
+  <meta name="theme-color" content="#1a1a2e">
+  <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    .confirmation-section {
+      min-height: 70vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+    }
+    .confirmation-card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+      max-width: 560px;
+      width: 100%;
+      padding: 48px 40px;
+      text-align: center;
+    }
+    .confirmation-icon {
+      font-size: 3.5em;
+      margin-bottom: 16px;
+    }
+    .confirmation-card h1 {
+      color: #1a1a2e;
+      font-size: 1.8em;
+      margin: 0 0 8px;
+    }
+    .confirmation-subtitle {
+      color: #555;
+      margin: 0 0 32px;
+      font-size: 1.05em;
+    }
+    .booking-details {
+      background: #f0f8f0;
+      border: 1px solid #c3e6cb;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 28px;
+      text-align: left;
+    }
+    .booking-details h2 {
+      color: #2d6a4f;
+      font-size: 1em;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin: 0 0 16px;
+    }
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 8px 0;
+      border-bottom: 1px solid #d4edda;
+      gap: 12px;
+    }
+    .detail-row:last-child {
+      border-bottom: none;
+    }
+    .detail-label {
+      color: #555;
+      font-size: 0.9em;
+      flex-shrink: 0;
+    }
+    .detail-value {
+      font-weight: 600;
+      color: #1a1a2e;
+      text-align: right;
+      font-size: 0.95em;
+    }
+    .ref-number {
+      font-family: monospace;
+      font-size: 1.15em;
+      color: #1a1a2e;
+      letter-spacing: 0.1em;
+    }
+    .confirm-notice {
+      background: #dbeafe;
+      border: 1px solid #93c5fd;
+      border-radius: 8px;
+      padding: 14px 18px;
+      color: #1e3a5f;
+      font-size: 0.95em;
+      margin-bottom: 28px;
+      text-align: left;
+    }
+    .confirm-notice strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+    .confirmation-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .confirmation-actions .btn {
+      min-width: 140px;
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-container">
+      <a href="/" class="logo"><img src="/images/logo.png" alt="D&G Soft Wash"></a>
+      <button class="hamburger" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+      <ul class="nav-links">
+        <li><a href="/">Home</a></li>
+        <li><a href="/services">Services</a></li>
+        <li><a href="/pricing">Pricing</a></li>
+        <li><a href="/gallery">Gallery</a></li>
+        <li><a href="/reviews">Reviews</a></li>
+        <li><a href="/contact">Contact</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <section class="confirmation-section">
+    <div class="confirmation-card">
+      <div class="confirmation-icon">✅</div>
+      <h1>Booking Confirmed!</h1>
+      <p class="confirmation-subtitle">Thank you for choosing D&G Soft Wash.</p>
+
+      <div class="booking-details" id="booking-details">
+        <h2>Appointment Summary</h2>
+        <div class="detail-row" id="row-ref" style="display:none;">
+          <span class="detail-label">Reference #</span>
+          <span class="detail-value ref-number" id="conf-ref"></span>
+        </div>
+        <div class="detail-row" id="row-name" style="display:none;">
+          <span class="detail-label">Name</span>
+          <span class="detail-value" id="conf-name"></span>
+        </div>
+        <div class="detail-row" id="row-service" style="display:none;">
+          <span class="detail-label">Service</span>
+          <span class="detail-value" id="conf-service"></span>
+        </div>
+        <div class="detail-row" id="row-date" style="display:none;">
+          <span class="detail-label">Date</span>
+          <span class="detail-value" id="conf-date"></span>
+        </div>
+        <div class="detail-row" id="row-time" style="display:none;">
+          <span class="detail-label">Time</span>
+          <span class="detail-value" id="conf-time"></span>
+        </div>
+        <div class="detail-row" id="row-price" style="display:none;">
+          <span class="detail-label">Estimate</span>
+          <span class="detail-value" id="conf-price"></span>
+        </div>
+      </div>
+
+      <div class="confirm-notice">
+        <strong>📬 We'll confirm your appointment within 24 hours.</strong>
+        A confirmation email has been sent to your inbox. We'll reach out to confirm all the details and answer any questions.
+      </div>
+
+      <div class="confirmation-actions">
+        <a href="/" class="btn btn-primary">Back to Home</a>
+        <a href="/contact" class="btn btn-outline">Book Another</a>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-section">
+          <h3>D&G Soft Wash</h3>
+          <p><em>Integrity You Can See</em></p>
+          <p>Veteran owned & operated.</p>
+        </div>
+        <div class="footer-section">
+          <h3>Contact Info</h3>
+          <p>Phone: <a href="tel:8048321953">(804) 832-1953</a></p>
+          <p>Email: <a href="mailto:service@dgsoftwash.com">service@dgsoftwash.com</a></p>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2025 D&G Soft Wash. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/js/main.js"></script>
+  <script>
+    // Read booking details from URL query params
+    (function() {
+      const params = new URLSearchParams(window.location.search);
+      function show(rowId, valueId, value) {
+        if (value) {
+          document.getElementById(valueId).textContent = value;
+          document.getElementById(rowId).style.display = 'flex';
+        }
+      }
+      show('row-ref', 'conf-ref', params.get('ref'));
+      show('row-name', 'conf-name', params.get('name'));
+      show('row-service', 'conf-service', params.get('service'));
+      show('row-date', 'conf-date', params.get('date'));
+      show('row-time', 'conf-time', params.get('time'));
+      show('row-price', 'conf-price', params.get('price'));
+    })();
+  </script>
+</body>
+</html>

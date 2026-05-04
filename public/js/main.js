@@ -147,14 +147,21 @@ document.addEventListener('DOMContentLoaded', function() {
         const result = await response.json();
 
         if (result.success) {
+          // Redirect to confirmation page if booking details are present
+          if (result.bookingRef) {
+            const params = new URLSearchParams();
+            if (result.bookingRef) params.set('ref', result.bookingRef);
+            if (result.customerName) params.set('name', result.customerName);
+            if (result.bookingService) params.set('service', result.bookingService);
+            if (result.bookingDate) params.set('date', result.bookingDate);
+            if (result.bookingTime) params.set('time', result.bookingTime);
+            if (result.bookingPrice) params.set('price', result.bookingPrice);
+            window.location.href = '/booking-confirmation?' + params.toString();
+            return;
+          }
+          // Plain contact message (no appointment) — show inline
           formResponse.className = 'form-response success';
           formResponse.textContent = result.message;
-          if (result.day2Notice) {
-            const notice = document.createElement('p');
-            notice.style.cssText = 'margin-top:8px; font-weight:bold;';
-            notice.textContent = result.day2Notice;
-            formResponse.appendChild(notice);
-          }
           contactForm.reset();
         } else {
           formResponse.className = 'form-response error';

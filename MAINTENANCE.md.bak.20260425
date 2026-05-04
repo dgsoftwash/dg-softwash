@@ -119,9 +119,6 @@ Also add `/reviews` to `STATIC_ASSETS` array when adding new public pages.
 | PM2 shows "errored" after reboot (EPERM on 1TB SSD) | PM2 daemon launched by LaunchAgent has restricted SSD access | **Now auto-fixed by boot-recovery.sh (step 6b)** — detects EPERM and relaunches PM2 via Terminal.app. Manual fix if needed: `pm2 kill && cd "/Volumes/1TB SSD/dg-softwash" && pm2 start server.js --name dg-softwash && pm2 save` |
 | PostgreSQL won't start after reboot (stale PID) | Hard reboot left postmaster.pid behind | `rm /opt/homebrew/var/postgresql@15/postmaster.pid` then `pg_ctl -D /opt/homebrew/var/postgresql@15 start` |
 | Cloudflare Tunnel not running after reboot | launchd timing issue | Run `sudo cloudflared service uninstall && sudo cloudflared service install` then reboot |
-| iCloud backup alert from monitor | Backup stale >25h or 2TB HDD unmounted | Check `sudo launchctl list | grep icloud` — daemon must be loaded; check `cat /tmp/icloud-backup.log` |
-| Backblaze alert from monitor | License expired/deleted or service stopped | Check `/Library/Backblaze.bzpkg/bzdata/overviewstatus.xml`; restart: `sudo launchctl kickstart -k system/com.backblaze.bzserv` |
-| PostgreSQL alert from monitor | pg_isready failing | Run `pg_isready -U david -d dgsoftwash`; if fails: `brew services restart postgresql@15` |
 
 ---
 
@@ -299,7 +296,7 @@ Enter admin password once → stored in `localStorage` → auto-refreshes every 
 - After editing widget HTML: `cp "/Volumes/1TB SSD/server-widget/ServerWidget.html" ~/Desktop/ServerWidget.html` (desktop copy kept in sync)
 
 **What it shows:**
-- Services: Website (HTTPS + latency), Node App (PM2 status/restarts/uptime), PostgreSQL (pg_isready + query latency), Cloudflare Tunnel, UPS, Backblaze (XML status), iCloud backup (filesystem freshness), DB backup schedule (every 6h)
+- Services: Website (HTTPS + latency), Node App (PM2 status/restarts/uptime), PostgreSQL (query latency), Cloudflare Tunnel
 - Storage: Internal 256GB, 1TB SSD, 2TB HDD (usage bars), 4TB SSD placeholder
 - System: CPU load %, memory %, 1-min load average
 - Top Processes: top 10 by CPU with name, CPU%, MEM%, PID (Activity Monitor style)
@@ -417,14 +414,8 @@ Real backups to 2TB HDD via the Backup Widget on the Desktop.
 **Backup script:** `/Users/david/backup.sh [items]` (home dir copy — LaunchDaemon uses this; 1TB SSD original at `/Volumes/1TB SSD/backup.sh` — keep in sync if editing)
 - Items: `photos,documents,desktop,dg-softwash,database,icloud` (default: icloud)
 - Destination: `/Volumes/2TB HDD/Backups/`
-- DB dumps: `/Volumes/2TB HDD/Backups/database/` (keeps last 7) — runs every 6 hours (3 AM, 9 AM, 3 PM, 9 PM) via `com.dgsoftwash.database-backup.plist`
+- DB dumps: `/Volumes/2TB HDD/Backups/database/` (keeps last 7)
 - Log: `/Volumes/2TB HDD/backup_log.txt` (script internal log) + `/tmp/icloud-backup.log` (launchd stdout/stderr)
-- DB backup log: `/tmp/database-backup.log`
-
-> **Dependency: nodemailer (global)**  
-> The database backup email step requires nodemailer installed globally on the Mac:  
-> `npm install -g nodemailer`  
-> If backup emails stop working after a fresh setup, run this command first. The script uses `require('nodemailer')` (global, not from project node_modules).
 
 **API endpoints (require admin token):**
 - `GET /api/admin/backup/status` — current status (running/pct/log/lastBackup)
@@ -612,49 +603,6 @@ Automatic emails are sent to the customer when toggling status buttons in the Wo
 - **Check scheduled run:** `sudo launchctl list | grep icloud-backup` (should show exit 0)
 - **Check log:** `cat /tmp/icloud-backup.log | tail -20`
 - **Manual trigger:** `sudo launchctl start com.dgsoftwash.icloud-backup`
-
----
-
-### Monitor Script Enhancements (2026-04-25)
-
-Four changes applied to the monitoring and backup configuration:
-
-**1. DB backup every 6 hours**
-- `com.dgsoftwash.database-backup.plist` updated from daily 3 AM to 4× daily:
-  3 AM, 9 AM, 3 PM, 9 PM using `StartCalendarInterval` array
-- Most recent dump is now never more than 6 hours old
-- Check: `cat /tmp/database-backup.log | tail -20`
-
-**2. PostgreSQL health check in dg-monitor.sh**
-- Added `pg_isready -U david -d dgsoftwash` check in section 2 (after PM2 check)
-- Fires macOS notification + Zoho email if pg_isready returns non-zero exit code
-- This is a lower-level check than the existing DB query check — catches cases
-  where PostgreSQL is up but rejecting connections before the server can query it
-
-**3. iCloud backup freshness check in dg-monitor.sh**
-- Added `find` check on `/Volumes/2TB HDD/Backups/iCloud Drive` in section 5
-- Alerts if nothing in that directory was modified in the last 25 hours (1500 min)
-- Fires macOS notification + Zoho email if stale or destination is missing
-- Also alerts if the 2TB HDD appears unmounted (directory not found)
-
-**4. Backblaze status check in dg-monitor.sh**
-- Added XML-based check in section 6 reading:
-  - `/Library/Backblaze.bzpkg/bzdata/bzreports/bzdc_synchostinfo.xml` — license status
-  - `/Library/Backblaze.bzpkg/bzdata/overviewstatus.xml` — transmit state
-- Alerts if XML files are missing (service down), license expired/deleted,
-  or `cur_state` shows `error` or `stopped`
-
-**Known issue — iCloud backup alert fires falsely:**
-If the iCloud backup alert fires but you believe the backup ran, check that
-the root LaunchDaemon is loaded:
-```bash
-sudo launchctl list | grep icloud
-```
-It should appear with exit code 0. If missing, the daemon needs to be reloaded:
-```bash
-sudo launchctl load /Library/LaunchDaemons/com.dgsoftwash.icloud-backup.plist
-```
-Also check the backup log for errors: `cat /tmp/icloud-backup.log | tail -30`
 
 ---
 

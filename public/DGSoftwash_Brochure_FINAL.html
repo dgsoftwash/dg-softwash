@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>D&G Soft Wash - Professional Exterior Cleaning | Hampton Roads, VA</title>
+    <style>
+        @page {
+            margin: 0.25in;
+            size: 11in 8.5in landscape;
+        }
+        
+        @media print {
+            * {
+                -webkit-print-color-adjust: exact !important;
+                color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            
+            body {
+                -webkit-print-color-adjust: exact;
+                color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            font-size: 9pt;
+            line-height: 1.2;
+            color: #2c3e50;
+            background: white;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        .trifold-container {
+            width: 10.5in;
+            height: 8in;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 0.1in;
+            page-break-inside: avoid;
+        }
+        
+        .panel {
+            padding: 0.15in;
+            border: 2px solid #3C3B6E;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        
+        /* FRONT PANELS - VIBRANT EYE-CATCHING COLORS */
+        .panel-front-1 {
+            background: linear-gradient(135deg, #FF0000 0%, #000000 100%) !important;
+            color: white !important;
+            text-align: center;
+            justify-content: center;
+            border: 4px solid #FFD700 !important;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        .panel-front-2 {
+            background: linear-gradient(180deg, #FFFF00 0%, #FFFFFF 50%, #00BFFF 100%) !important;
+            border: 4px solid #FF4500 !important;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        .panel-front-3 {
+            background: linear-gradient(135deg, #0000FF 0%, #FF0000 100%) !important;
+            color: white !important;
+            border: 4px solid #00FF00 !important;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        /* INSIDE PANELS */
+        .panel-inside-1, .panel-inside-2, .panel-inside-3 {
+            background: white !important;
+        }
+        
+        .logo {
+            font-size: 28pt;
+            font-weight: bold;
+            margin-bottom: 0.1in;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            color: white !important;
+        }
+        
+        .tagline {
+            font-size: 11pt;
+            margin-bottom: 0.15in;
+            opacity: 0.95;
+            color: white !important;
+        }
+        
+        .veteran-badge {
+            background: white !important;
+            color: #3C3B6E !important;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-weight: bold;
+            font-size: 8pt;
+            border: 2px solid #B22234 !important;
+            margin-bottom: 0.1in;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        .contact-main {
+            font-size: 14pt;
+            font-weight: bold;
+            margin: 0.1in 0;
+            color: white !important;
+        }
+        
+        .website-main {
+            font-size: 12pt;
+            font-weight: bold;
+            margin-bottom: 0.05in;
+            color: white !important;
+        }
+        
+        h2 {
+            font-size: 12pt;
+            font-weight: bold;
+            color: #FF0000 !important;
+            margin: 0.08in 0 0.05in 0;
+            border-bottom: 3px solid #FFD700 !important;
+            padding-bottom: 2px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            background: linear-gradient(90deg, #FFFF00, #FFA500);
+            padding: 4px;
+            border-radius: 5px;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        h3 {
+            font-size: 10pt;
+            font-weight: bold;
+            color: #FF4500 !important;
+            margin: 0.06in 0 0.03in 0;
+            text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
+        }
+        
+        .service-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+            font-size: 9pt;
+            background: linear-gradient(90deg, #E6FFE6, #FFFFCC);
+            margin: 2px 0;
+            padding-left: 5px;
+            padding-right: 5px;
+            border-radius: 3px;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        .service-name {
+            flex: 1;
+            color: #000 !important;
+            font-weight: 600;
+        }
+        
+        .service-price {
+            font-weight: bold;
+            color: #FF0000 !important;
+            font-size: 10pt;
+            text-shadow: 1px 1px 1px rgba(255,255,255,0.8);
+        }
+        
+        .addon-item {
+            font-size: 8pt;
+            margin-left: 8px;
+            color: #000 !important;
+            display: flex;
+            justify-content: space-between;
+            background: linear-gradient(90deg, #FFB6C1, #FFE4B5);
+            padding: 2px 5px;
+            margin: 1px 0;
+            border-radius: 3px;
+            font-weight: 600;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 7pt;
+            margin: 0.05in 0;
+            border: 1px solid #666 !important;
+        }
+        
+        .comparison-table th {
+            background: #3C3B6E !important;
+            color: white !important;
+            padding: 3px;
+            text-align: left;
+            font-size: 6pt;
+            border: 1px solid #666 !important;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        .comparison-table td {
+            padding: 2px 3px;
+            border: 1px solid #666 !important;
+        }
+        
+        .check {
+            color: #2d6a4f !important;
+            font-weight: bold;
+        }
+        
+        .cross {
+            color: #dc2626 !important;
+            font-weight: bold;
+        }
+        
+        .benefits-list {
+            font-size: 8pt;
+            line-height: 1.3;
+        }
+        
+        .benefits-list li {
+            margin: 0.02in 0;
+        }
+        
+        .icon {
+            font-size: 10pt;
+            margin-right: 3px;
+        }
+        
+        .quote-box {
+            background: rgba(255,255,255,0.9) !important;
+            border-left: 3px solid #3C3B6E !important;
+            padding: 0.06in;
+            margin: 0.05in 0;
+            font-size: 7pt;
+            font-style: italic;
+            color: #2c3e50 !important;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        .guarantee-box {
+            background: #d1fae5 !important;
+            border: 2px solid #22c55e !important;
+            border-radius: 5px;
+            padding: 0.06in;
+            text-align: center;
+            font-weight: bold;
+            font-size: 8pt;
+            color: #166534 !important;
+            margin: 0.05in 0;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        .contact-info {
+            font-size: 9pt;
+            font-weight: bold;
+            text-align: center;
+            margin: 0.05in 0;
+        }
+        
+        .small-text {
+            font-size: 6pt;
+            color: #666 !important;
+            margin-top: 0.05in;
+        }
+        
+        .highlight {
+            background: #fbbf24 !important;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-weight: bold;
+            color: #92400e !important;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        .feature-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.05in;
+            font-size: 7pt;
+            margin: 0.05in 0;
+        }
+        
+        .feature-item {
+            background: #f8fafc !important;
+            padding: 0.04in;
+            border-radius: 3px;
+            border-left: 3px solid #B22234 !important;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        .process-step {
+            background: #f0f9ff !important;
+            margin: 0.03in 0;
+            padding: 0.04in;
+            border-radius: 3px;
+            font-size: 7pt;
+            border: 1px solid #3C3B6E !important;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        .process-number {
+            background: #3C3B6E !important;
+            color: white !important;
+            border-radius: 50%;
+            width: 12px;
+            height: 12px;
+            display: inline-block;
+            text-align: center;
+            font-size: 6pt;
+            line-height: 12px;
+            margin-right: 4px;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        .header-strip {
+            background: linear-gradient(90deg, #FF4500 0%, #FFD700 50%, #FF4500 100%) !important;
+            color: #000 !important;
+            padding: 0.08in;
+            margin: -0.15in -0.15in 0.08in -0.15in;
+            font-size: 11pt;
+            font-weight: bold;
+            text-align: center;
+            border: 3px solid #FF0000 !important;
+            text-shadow: 1px 1px 1px rgba(255,255,255,0.8);
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        .footer-strip {
+            background: linear-gradient(90deg, #00FF00 0%, #00BFFF 50%, #00FF00 100%) !important;
+            color: #000 !important;
+            padding: 0.08in;
+            margin: 0.05in -0.15in -0.15in -0.15in;
+            text-align: center;
+            font-size: 9pt;
+            font-weight: bold;
+            border: 3px solid #FF0000 !important;
+            text-shadow: 1px 1px 1px rgba(255,255,255,0.8);
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+            print-color-adjust: exact;
+        }
+    </style>
+</head>
+<body>
+
+<!-- FRONT SIDE (Outside view when folded) -->
+<div class="trifold-container" id="front-side">
+    
+    <!-- Front Panel 1 (Right when folded) - Cover -->
+    <div class="panel panel-front-1">
+        <div style="text-align: center; margin: 0.1in 0;">
+            <img src="DG_Professional_Logo.jpg" alt="D&G Soft Wash Professional Logo" style="width: 320px; height: auto;">
+        </div>
+        
+        <div style="background: linear-gradient(45deg, #FFD700 0%, #FFA500 100%); color: #000; padding: 8px 15px; border-radius: 20px; font-weight: bold; font-size: 8pt; margin: 0.1in 0; border: 3px solid #FF4500; text-shadow: 1px 1px 1px rgba(255,255,255,0.8); -webkit-print-color-adjust: exact; color-adjust: exact; print-color-adjust: exact;">
+            🎖 VETERAN OWNED & OPERATED 🎖
+        </div>
+        
+        <div style="margin: 0.1in 0; font-size: 11pt; font-weight: bold; color: #00FF00; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); -webkit-print-color-adjust: exact; color-adjust: exact; print-color-adjust: exact;">
+            🛡 SURFACE SAFE<br>
+            🌿 ECO-FRIENDLY<br>  
+            ✨ 4-6x LONGER LASTING<br>
+            💯 100% GUARANTEED
+        </div>
+        
+        <div style="font-size: 8pt; margin-top: 0.08in; color: white;">
+            Professional Soft Washing for Homes · Roofs · Driveways<br>
+            Decks · Fences · Boats · RVs · Heavy Equipment
+        </div>
+        
+        <div style="font-size: 7pt; margin-top: 0.05in; color: white;">
+            Serving Hampton Roads, Virginia<br>
+            Licensed & Insured
+        </div>
+    </div>
+    
+    <!-- Front Panel 2 (Center when folded) - Services & Pricing -->
+    <div class="panel panel-front-2">
+        <div class="header-strip">
+            🇺🇸 SERVICES & PRICING 🇺🇸
+        </div>
+        
+        <h2>🏠 HOUSE WASHING</h2>
+        <div class="service-item">
+            <span class="service-name">Rancher / Single Story</span>
+            <span class="service-price">$350</span>
+        </div>
+        <div class="service-item">
+            <span class="service-name">Single Family (Two Story)</span>
+            <span class="service-price">$575</span>
+        </div>
+        <div class="service-item">
+            <span class="service-name">Plus+ Large / Multi-Story</span>
+            <span class="service-price">$805</span>
+        </div>
+        
+        <h3 style="color: #B22234; font-size: 8pt; margin-top: 0.05in;">➕ HYDROPHOBIC ADD-ONS</h3>
+        <div class="addon-item">
+            <span>Roof Wash</span>
+            <span>+$125–$400</span>
+        </div>
+        <div class="addon-item">
+            <span>Driveway Hot Wash</span>
+            <span>+$100–$150</span>
+        </div>
+        <div class="addon-item">
+            <span>Heavy Stain (Peroxide/Degreaser)</span>
+            <span>+$125–$195</span>
+        </div>
+        <div class="addon-item">
+            <span>Hydrophobic UV Protectant</span>
+            <span>+$85–$150</span>
+        </div>
+        <div class="addon-item">
+            <span>Hydrophobic Window Cleaning</span>
+            <span>+$40–$100</span>
+        </div>
+        
+        <h2>🪵 DECK & FENCE</h2>
+        <div class="service-item">
+            <span class="service-name">Deck (Little → Big)</span>
+            <span class="service-price">$135–$275</span>
+        </div>
+        <div class="service-item">
+            <span class="service-name">Fence ¼ Acre</span>
+            <span class="service-price">$175</span>
+        </div>
+        <div class="service-item">
+            <span class="service-name">Fence ½ Acre</span>
+            <span class="service-price">$265</span>
+        </div>
+        <div class="service-item">
+            <span class="service-name">Fence ½ Acre+</span>
+            <span class="service-price">Call</span>
+        </div>
+        
+        <h2>🚐 RV WASHING</h2>
+        <div class="service-item">
+            <span class="service-name">Short Bus</span>
+            <span class="service-price">$75</span>
+        </div>
+        <div class="service-item">
+            <span class="service-name">Medium Bumper Pull</span>
+            <span class="service-price">$125</span>
+        </div>
+        <div class="service-item">
+            <span class="service-name">Big Boy 5th Wheel</span>
+            <span class="service-price">$200</span>
+        </div>
+        
+        <h2>⛵ BOAT · 🚜 EQUIPMENT · 🏢 COMMERCIAL</h2>
+        <div class="service-item">
+            <span class="service-name">Boat ≤20ft</span>
+            <span class="service-price">$100</span>
+        </div>
+        <div class="service-item">
+            <span class="service-name">Boat 21–26ft</span>
+            <span class="service-price">$150</span>
+        </div>
+        <div class="service-item">
+            <span class="service-name">Boat 26ft+ / Equipment / Commercial</span>
+            <span class="service-price">Call</span>
+        </div>
+        
+        <div class="footer-strip">
+            🌐 BOOK ONLINE: WWW.DGSOFTWASH.COM<br>
+            📞 (804) 832-1953
+        </div>
+    </div>
+    
+    <!-- Front Panel 3 (Left when folded) - Why Choose Us -->
+    <div class="panel panel-front-3">
+        <div style="text-align: center; font-size: 12pt; font-weight: bold; margin-bottom: 0.08in; color: white;">
+            WHY D&G SOFT WASH?
+        </div>
+        
+        <div style="background: rgba(255,255,255,0.15); border-left: 3px solid #ffffff; margin-bottom: 0.05in; padding: 0.05in; -webkit-print-color-adjust: exact; color-adjust: exact; print-color-adjust: exact;">
+            <div style="font-weight: bold; margin-bottom: 0.02in; color: white;">🎖 Military Precision & Integrity</div>
+            <div style="font-size: 7pt; color: white;">We bring discipline and honor to every job. Your property is treated like our own.</div>
+        </div>
+        
+        <div style="background: rgba(255,255,255,0.15); border-left: 3px solid #ffffff; margin-bottom: 0.05in; padding: 0.05in; -webkit-print-color-adjust: exact; color-adjust: exact; print-color-adjust: exact;">
+            <div style="font-weight: bold; margin-bottom: 0.02in; color: white;">🛡 Safe for All Surfaces</div>
+            <div style="font-size: 7pt; color: white;">Low-pressure soft wash won't damage vinyl, stucco, wood, brick, or composite.</div>
+        </div>
+        
+        <div style="background: rgba(255,255,255,0.15); border-left: 3px solid #ffffff; margin-bottom: 0.05in; padding: 0.05in; -webkit-print-color-adjust: exact; color-adjust: exact; print-color-adjust: exact;">
+            <div style="font-weight: bold; margin-bottom: 0.02in; color: white;">✨ 4–6x Longer Lasting Results</div>
+            <div style="font-size: 7pt; color: white;">Kills mold, mildew & algae at the root — not just the surface.</div>
+        </div>
+        
+        <div style="background: rgba(255,255,255,0.15); border-left: 3px solid #ffffff; margin-bottom: 0.08in; padding: 0.05in; -webkit-print-color-adjust: exact; color-adjust: exact; print-color-adjust: exact;">
+            <div style="font-weight: bold; margin-bottom: 0.02in; color: white;">🌿 Eco-Friendly & Family Safe</div>
+            <div style="font-size: 7pt; color: white;">Biodegradable solutions. SH Neutralizer included for plant protection.</div>
+        </div>
+        
+        <table class="comparison-table" style="width: 100%; font-size: 6pt;">
+            <thead>
+                <tr>
+                    <th style="text-align: left;">SOFT WASH vs PRESSURE</th>
+                    <th style="text-align: center;">Soft</th>
+                    <th style="text-align: center;">Press.</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Surface Safe</td>
+                    <td class="check" style="text-align: center;">✓ Yes</td>
+                    <td class="cross" style="text-align: center;">✗ Risk</td>
+                </tr>
+                <tr>
+                    <td>Kills at Root</td>
+                    <td class="check" style="text-align: center;">✓ Yes</td>
+                    <td class="cross" style="text-align: center;">✗ No</td>
+                </tr>
+                <tr>
+                    <td>Lasts 4-6x</td>
+                    <td class="check" style="text-align: center;">✓ Yes</td>
+                    <td class="cross" style="text-align: center;">✗ No</td>
+                </tr>
+                <tr>
+                    <td>Paint/Siding Safe</td>
+                    <td class="check" style="text-align: center;">✓ Yes</td>
+                    <td class="cross" style="text-align: center;">✗ Risk</td>
+                </tr>
+                <tr>
+                    <td>Eco-Friendly</td>
+                    <td class="check" style="text-align: center;">✓ Yes</td>
+                    <td class="cross" style="text-align: center;">✗ Varies</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <div class="quote-box" style="font-size: 6pt; margin-top: 0.06in;">
+            ★ ★ ★ ★ ★ "Amazing work! My house looks brand new. Professional, on time, and affordable." — Verified Customer, Hampton Roads
+        </div>
+        
+        <div style="background: rgba(34, 197, 94, 0.2); color: white; padding: 0.05in; border-radius: 5px; text-align: center; font-weight: bold; margin-top: 0.05in; font-size: 8pt; border: 2px solid #22c55e; -webkit-print-color-adjust: exact; color-adjust: exact; print-color-adjust: exact;">
+            💯 100% SATISFACTION GUARANTEED
+        </div>
+        
+        <div style="text-align: center; margin-top: 0.06in; font-size: 8pt; font-weight: bold; color: white;">
+            (804) 832-1953<br>
+            WWW.DGSOFTWASH.COM
+        </div>
+    </div>
+</div>
+
+<div style="page-break-before: always;"></div>
+
+<!-- INSIDE SIDE (Inside view when opened) -->
+<div class="trifold-container" id="inside-side">
+    
+    <!-- Inside Panel 1 (Left when opened) - Process & Technology -->
+    <div class="panel panel-inside-1">
+        <h2 style="text-align: center; color: #B22234;">🔬 OUR SOFT WASH PROCESS</h2>
+        
+        <div class="process-step">
+            <span class="process-number">1</span>
+            <strong>Site Assessment:</strong> We evaluate your property's specific cleaning needs and identify delicate surfaces.
+        </div>
+        
+        <div class="process-step">
+            <span class="process-number">2</span>
+            <strong>Plant Protection:</strong> All landscaping is pre-wet and protected with tarps and neutralizers.
+        </div>
+        
+        <div class="process-step">
+            <span class="process-number">3</span>
+            <strong>Custom Solution Mix:</strong> Biodegradable cleaning solution mixed for your specific surface type.
+        </div>
+        
+        <div class="process-step">
+            <span class="process-number">4</span>
+            <strong>Low-Pressure Application:</strong> Solution applied at garden-hose pressure to kill organic growth at the root.
+        </div>
+        
+        <div class="process-step">
+            <span class="process-number">5</span>
+            <strong>Dwell Time:</strong> Solution breaks down mold, mildew, algae, and dirt for thorough cleaning.
+        </div>
+        
+        <div class="process-step">
+            <span class="process-number">6</span>
+            <strong>Gentle Rinse:</strong> Low-pressure rinse removes all contaminants without surface damage.
+        </div>
+        
+        <div class="process-step">
+            <span class="process-number">7</span>
+            <strong>Neutralization:</strong> SH Neutralizer applied to protect plants and restore natural pH balance.
+        </div>
+        
+        <div class="process-step">
+            <span class="process-number">8</span>
+            <strong>Hydrophobic Protection:</strong> Optional UV protectant and hydrophobic coatings for longer-lasting results.
+        </div>
+        
+        <h3 style="color: #3C3B6E; margin-top: 0.08in;">🧪 PROFESSIONAL CHEMICALS</h3>
+        <div style="font-size: 7pt; line-height: 1.3;">
+            <strong>• Sodium Hypochlorite:</strong> Professional-grade disinfectant<br>
+            <strong>• Biodegradable Surfactants:</strong> Eco-friendly cleaning agents<br>
+            <strong>• SH Neutralizer:</strong> Plant-safe pH restoration<br>
+            <strong>• Hydrophobic Coatings:</strong> Water-repelling protective finish<br>
+            <strong>• UV Protectants:</strong> Long-term surface preservation
+        </div>
+        
+        <div class="guarantee-box" style="margin-top: 0.08in;">
+            🏆 MILITARY-GRADE QUALITY CONTROL<br>
+            Every job inspected to veteran standards
+        </div>
+        
+        <div class="small-text" style="text-align: center; margin-top: 0.05in;">
+            Licensed • Insured • Bonded<br>
+            Virginia State Contractor License
+        </div>
+    </div>
+    
+    <!-- Inside Panel 2 (Center when opened) - Services Detail & FAQ -->
+    <div class="panel panel-inside-2">
+        <h2 style="text-align: center;">❓ FREQUENTLY ASKED QUESTIONS</h2>
+        
+        <div style="margin-bottom: 0.06in;">
+            <h3>Is soft washing safe for my plants?</h3>
+            <div style="font-size: 7pt; line-height: 1.3;">
+                Absolutely! We pre-wet all vegetation and use SH Neutralizer to protect your landscaping. Our biodegradable solutions are designed to be plant-safe when properly applied.
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 0.06in;">
+            <h3>How long will the results last?</h3>
+            <div style="font-size: 7pt; line-height: 1.3;">
+                Soft wash results typically last 4-6 times longer than pressure washing because we kill organic growth at the root level, not just blast it off the surface.
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 0.06in;">
+            <h3>What's included in hydrophobic treatments?</h3>
+            <div style="font-size: 7pt; line-height: 1.3;">
+                Our hydrophobic UV protectant creates a water-repelling barrier that helps surfaces stay cleaner longer. Window treatments provide streak-free, water-beading protection for months.
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 0.06in;">
+            <h3>Do you offer commercial services?</h3>
+            <div style="font-size: 7pt; line-height: 1.3;">
+                Yes! We service office buildings, restaurants, retail centers, apartment complexes, and HOA communities. Custom quotes provided for all commercial projects.
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 0.06in;">
+            <h3>Are you licensed and insured?</h3>
+            <div style="font-size: 7pt; line-height: 1.3;">
+                Fully licensed, insured, and bonded in Virginia. We carry comprehensive liability insurance for your protection and peace of mind.
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 0.06in;">
+            <h3>What areas do you serve?</h3>
+            <div style="font-size: 7pt; line-height: 1.3;">
+                We proudly serve all of Hampton Roads, Virginia, including Virginia Beach, Norfolk, Chesapeake, Portsmouth, Suffolk, and Newport News.
+            </div>
+        </div>
+        
+        <h2 style="color: #B22234;">💰 DISCOUNTS AVAILABLE</h2>
+        <div class="feature-grid">
+            <div class="feature-item">
+                <strong>Cash Payment:</strong><br>
+                <span class="highlight">10% OFF</span>
+            </div>
+            <div class="feature-item">
+                <strong>Return Customer:</strong><br>
+                <span class="highlight">5% OFF</span>
+            </div>
+        </div>
+        
+        <h3 style="color: #3C3B6E; margin-top: 0.08in;">🎖 VETERAN COMMITMENT</h3>
+        <div style="font-size: 7pt; line-height: 1.3;">
+            As a veteran-owned business, we bring military precision and integrity to every job. We stand behind our work with the same honor and commitment we served our country with.
+        </div>
+        
+        <div style="text-align: center; background: #f0f9ff; padding: 0.05in; border-radius: 5px; margin-top: 0.06in; font-weight: bold; font-size: 8pt; color: #1e40af; border: 1px solid #3C3B6E; -webkit-print-color-adjust: exact; color-adjust: exact; print-color-adjust: exact;">
+            📞 FIXED PRICING<br>
+            No estimates needed - book online or call!
+        </div>
+    </div>
+    
+    <!-- Inside Panel 3 (Right when opened) - Contact & Booking -->
+    <div class="panel panel-inside-3">
+        <div class="header-strip">
+            <div style="font-size: 12pt; font-weight: bold; margin-bottom: 0.02in;">READY TO BOOK?</div>
+            <div style="font-size: 8pt;">Three easy ways to get started</div>
+        </div>
+        
+        <div style="text-align: center; margin-bottom: 0.08in;">
+            <div style="background: #f0f9ff; padding: 0.06in; border-radius: 8px; border: 2px solid #3C3B6E; margin-bottom: 0.05in; -webkit-print-color-adjust: exact; color-adjust: exact; print-color-adjust: exact;">
+                <div style="font-size: 10pt; font-weight: bold; color: #3C3B6E; margin-bottom: 0.02in;">🌐 BOOK ONLINE</div>
+                <div style="font-size: 11pt; font-weight: bold; color: #B22234;">WWW.DGSOFTWASH.COM</div>
+                <div style="font-size: 7pt; color: #666;">Fast, easy, instant scheduling</div>
+            </div>
+            
+            <div style="background: #fef3c7; padding: 0.06in; border-radius: 8px; border: 2px solid #B22234; margin-bottom: 0.05in; -webkit-print-color-adjust: exact; color-adjust: exact; print-color-adjust: exact;">
+                <div style="font-size: 10pt; font-weight: bold; color: #B22234; margin-bottom: 0.02in;">📞 CALL OR TEXT</div>
+                <div style="font-size: 14pt; font-weight: bold; color: #3C3B6E;">(804) 832-1953</div>
+                <div style="font-size: 7pt; color: #666;">Fixed pricing - book over the phone</div>
+            </div>
+            
+            <div style="background: #f0fdf4; padding: 0.06in; border-radius: 8px; border: 2px solid #22c55e; -webkit-print-color-adjust: exact; color-adjust: exact; print-color-adjust: exact;">
+                <div style="font-size: 10pt; font-weight: bold; color: #22c55e; margin-bottom: 0.02in;">✉️ EMAIL US</div>
+                <div style="font-size: 9pt; font-weight: bold; color: #3C3B6E;">service@dgsoftwash.com</div>
+                <div style="font-size: 7pt; color: #666;">Questions & custom quotes</div>
+            </div>
+        </div>
+        
+        <h2 style="color: #3C3B6E;">📍 SERVICE AREA</h2>
+        <div style="font-size: 7pt; line-height: 1.3; margin-bottom: 0.06in;">
+            <strong>Hampton Roads, Virginia:</strong><br>
+            • Virginia Beach • Norfolk • Chesapeake<br>
+            • Portsmouth • Suffolk • Newport News<br>
+            • Poquoson • Hampton • Smithfield<br>
+            • And surrounding communities
+        </div>
+        
+        <h3 style="color: #B22234;">⏰ BUSINESS HOURS</h3>
+        <div style="font-size: 7pt; margin-bottom: 0.06in;">
+            <strong>Monday - Friday:</strong> 8:00 AM - 6:00 PM<br>
+            <strong>Saturday:</strong> 8:00 AM - 4:00 PM<br>
+            <strong>Sunday:</strong> Emergency calls only<br>
+            <strong>Response Time:</strong> Same-day booking
+        </div>
+        
+        <h3 style="color: #3C3B6E;">🏆 OUR GUARANTEE</h3>
+        <div style="font-size: 7pt; line-height: 1.3; margin-bottom: 0.06in;">
+            We guarantee your complete satisfaction with every job. If you're not 100% happy with our work, we'll return to make it right at no additional charge.
+        </div>
+        
+        <div class="guarantee-box" style="margin-top: 0.05in;">
+            🇺🇸 PROUDLY VETERAN OWNED & OPERATED 🇺🇸<br>
+            <span style="font-size: 7pt;">Serving Hampton Roads with Military Precision</span>
+        </div>
+        
+        <div class="footer-strip">
+            D&G Soft Wash | (804) 832-1953 | WWW.DGSOFTWASH.COM<br>
+            Licensed • Insured • Veteran Owned • Hampton Roads, VA
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
