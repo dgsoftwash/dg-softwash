@@ -1389,4 +1389,29 @@ Emails `service@dgsoftwash.com` (→ text via email-to-text) when issues are det
 
 ---
 
-*Last updated: 2026-04-15*
+## 2026-05-04 — Edit/Delete for WO/Quotes/Bookings/Customers; DB Email Fix
+
+### Edit Capability Added (admin.js v51)
+- **Work Orders**: Click "Edit" button in WO modal to edit name, phone, email, date, address, service, price. Updates booking table if booking_id exists.
+- **Quotes**: Click "Edit Quote" button in quote view modal to edit all fields (name, phone, email, address, service, price, notes, valid until).
+- **Bookings**: Click "✎ Edit" button on any booking row to open edit modal with all fields.
+- **Customers**: Click "Edit Info" button in customer detail to edit name, phone, email, address.
+
+### New API Endpoints
+- `PATCH /api/admin/bookings/:id` — edit any booking field
+- `PATCH /api/admin/quotes/:id` — edit any quote field
+- `PATCH /api/admin/customers/:id` — now also accepts name, email, phone, address
+- `PATCH /api/admin/work-orders/:id` — now updates booking table fields (booking_date, booking_time, etc.) when booking_id exists
+
+### DB Email Fix (backup.sh)
+- Fixed `process.argv` index offset bug — credentials were offset by 1, causing "email failed" on every backup run
+- DB backups now email to dbemish82@yahoo.com successfully (SMTP verified OK)
+- Fixed `/tmp/backup-status.json` permission denied error on reboot (now creates fresh with correct perms)
+
+### SMS (Twilio) — Requires Credentials
+- Twilio credentials (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER) are NOT set in .env
+- Template entries added to .env with instructions — fill in from twilio.com/console, then `pm2 reload dg-softwash`
+
+---
+
+*Last updated: 2026-05-04*

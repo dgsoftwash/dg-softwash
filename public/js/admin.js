@@ -829,11 +829,15 @@ document.addEventListener('DOMContentLoaded', function() {
     var actionsHtml = '';
     var recipientEmail = wo.booking_email || wo.customer_email;
     var hasPhone = !!(wo.booking_phone || wo.customer_phone);
+    var phoneNumber = wo.booking_phone || wo.customer_phone || '';
     if (wo.status_paid && recipientEmail) {
       actionsHtml += '<button type="button" id="wo-review-btn" class="btn btn-secondary" style="padding:7px 16px; font-size:0.88em; margin-right:8px; margin-top:8px;">&#11088; Send Review Request</button>';
     }
-    if (wo.date && hasPhone) {
-      actionsHtml += '<button type="button" id="wo-sms-btn" class="btn btn-secondary" style="padding:7px 16px; font-size:0.88em; margin-top:8px;">&#128240; Send SMS Reminder</button>';
+    if (recipientEmail) {
+      actionsHtml += '<a href="mailto:' + escapeHtml(recipientEmail) + '" class="btn btn-secondary" style="padding:7px 16px; font-size:0.88em; margin-right:8px; margin-top:8px; text-decoration:none; display:inline-block;">&#128231; Email Customer</a>';
+    }
+    if (hasPhone) {
+      actionsHtml += '<a href="tel:' + escapeHtml(phoneNumber) + '" class="btn btn-secondary" style="padding:7px 16px; font-size:0.88em; margin-top:8px; text-decoration:none; display:inline-block;">&#128222; Call Customer</a>';
     }
     if (actionsHtml) {
       actionsHtml = '<div style="margin-top:16px; padding-top:16px; border-top:1px solid #e5e7eb;">' +
@@ -1142,33 +1146,6 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     }
 
-    var smsBtn = document.getElementById('wo-sms-btn');
-    if (smsBtn) {
-      smsBtn.addEventListener('click', async function() {
-        var statusEl = document.getElementById('wo-action-status');
-        smsBtn.disabled = true;
-        statusEl.textContent = 'Sending SMS...';
-        statusEl.style.color = '#666';
-        try {
-          var res = await fetch('/api/admin/work-orders/' + wo.id + '/sms-reminder', {
-            method: 'POST',
-            headers: { 'x-admin-token': adminToken }
-          });
-          var data = await res.json();
-          if (data.success) {
-            statusEl.textContent = 'SMS reminder sent!';
-            statusEl.style.color = '#2d6a4f';
-          } else {
-            statusEl.textContent = data.error || 'Failed to send SMS.';
-            statusEl.style.color = '#dc2626';
-          }
-        } catch(e) {
-          statusEl.textContent = 'Error. Please try again.';
-          statusEl.style.color = '#dc2626';
-        }
-        smsBtn.disabled = false;
-      });
-    }
 
     if (woPrintBtn) {
       woPrintBtn.onclick = function() { printWorkOrder(wo); };
