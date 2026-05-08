@@ -5,6 +5,113 @@ All commands are run from the project directory on the **Mac Mini**:
 cd /Volumes/1TB\ SSD/dg-softwash
 ```
 
+> **Full How-To Guide:** See `WORKPLACE-GUIDE.md` for the Workplace Dashboard user guide.
+
+---
+
+## WORKPLACE DASHBOARD — Quick Reference
+
+| What | Detail |
+|------|--------|
+| **App** | `/Applications/DG Workplace Dashboard.app` |
+| **URL** | `http://localhost:3000/workplace` |
+| **Password** | `bemish2026` |
+| **Auto-start** | LaunchAgent `com.dgsoftwash.workplace` — starts at login, KeepAlive restarts on crash |
+| **Swift source** | `/tmp/workplace-build/main.swift` |
+| **HTML source** | `/Volumes/1TB SSD/server-widget/WorkplaceDashboard.html` |
+| **Crash log** | `/tmp/workplace-dashboard-error.log` |
+
+### Workplace Dashboard — Key Commands
+```bash
+# Check if running
+pgrep -l DGWorkplace
+
+# Force restart via launchd
+launchctl kickstart -k gui/$(id -u)/com.dgsoftwash.workplace
+
+# Stop
+launchctl unload ~/Library/LaunchAgents/com.dgsoftwash.workplace.plist
+
+# Start
+launchctl load ~/Library/LaunchAgents/com.dgsoftwash.workplace.plist
+
+# Recompile Swift app after source changes
+cd /tmp/workplace-build
+swiftc -framework Cocoa -framework WebKit main.swift -o DGWorkplace
+cp DGWorkplace "/Applications/DG Workplace Dashboard.app/Contents/MacOS/DGWorkplace"
+```
+
+### Workplace Dashboard — API Endpoints (all require admin token)
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /workplace` | Serves WorkplaceDashboard.html |
+| `POST /api/dispatch/chat` | Agentic Claude chat (bash, read_file, write_file, edit_file tools) |
+| `GET /api/telegram/updates` | Reads OpenClaw session files, returns `{ok, messages}` |
+| `POST /api/telegram/send` | Runs `openclaw agent --message ... --deliver --channel telegram --session-id <latest>` |
+| `POST /api/open-terminal` | osascript: opens Terminal.app positioned at `{x,y,w,h}` |
+
+### node-pty spawn-helper (IMPORTANT — re-apply after npm install node-pty)
+```bash
+chmod +x "/Volumes/1TB SSD/dg-softwash/node_modules/node-pty/prebuilds/darwin-arm64/spawn-helper"
+```
+
+## WORKPLACE DASHBOARD — 2026-05-07 Changes
+
+### Button feedback pattern (all buttons)
+- All quick-launch and PM2 buttons use `runCmd(action, this)` or equivalent inline onclick
+- One tap → runs immediately, button shows `⟳` → `✓` or `✗`, resets after 2.5s
+- No confirm dialogs (WKWebView blocks them), no toast dependency
+
+### PM2 Reload/Restart/Stop (fixed)
+- Rebuilt from scratch — single tap executes immediately with inline button feedback
+- Status text appears below buttons showing result in color
+
+### Quick-launch bar (full button list as of 2026-05-07)
+| Button | Action |
+|--------|--------|
+| Admin Panel | Chrome: localhost:3000/admin |
+| DG Website | Chrome: dgsoftwash.com |
+| Zoho Mail | Chrome: mail.zoho.com |
+| PM2 Reload | `pm2 reload dg-softwash` |
+| CF Reload | `launchctl kickstart -k system/com.cloudflare.cloudflared` |
+| OpenClaw | `pkill openclaw-gateway; sleep 2; nohup openclaw gateway...` |
+| DB Backup | `bash backup.sh database` |
+| Time Machine | `tmutil startbackup` |
+| iCloud Bak | `bash backup.sh photos,documents,desktop` |
+| Backblaze | `launchctl kickstart -k system/com.backblaze.bzserv` |
+| RAM Clean | `sudo purge; sync` |
+| Disk Clean | `rm temp files; periodic daily; purge` |
+| Telegram ↺ | Client-side: clears tg-messages, reloads |
+| Health Widget | Chrome: localhost:3000/widget |
+| ↻ Refresh | Client-side: calls refresh() immediately |
+
+### Opening URLs from PM2 daemon
+- Default browser is **Google Chrome** (`/Applications/Google Chrome.app`)
+- `open`, `open location`, and `NSWorkspace.shared.open()` do NOT work from PM2
+- Must use `execFile('osascript', ['tell application "Google Chrome"', 'open location "..."', 'activate'])` 
+- Endpoint: `POST /api/open-url` (requireAdmin) — auto-detects Chrome vs Safari
+
+### New server endpoints (2026-05-07)
+- `GET /api/admin/app-logs?lines=N` — reads actual PM2 out+error logs (replaces useless health-only log)
+- `POST /api/open-url` — opens URL in Chrome via osascript execFile
+
+### Backblaze moved to Backup Services section
+- Removed from Services row; now in Backup Services with Time Machine and iCloud
+- Shows green (active/idle), blue (transmitting), red (expired)
+
+### App Logs (PM2 / App Logs panel)
+- Now shows real PM2 stdout + stderr (last 150 lines)
+- Error/warn lines highlighted red, success lines green
+- Previously only showed service-level health alerts
+
+### Visual effects added
+- Animated top + bottom light bars (blue → purple → green sweep)
+- Canvas-based shooting lines (glowing streaks, random position/speed/color)
+- Pulsing glow on status dots (green/blue/red)
+- Aurora color wash on header and quick-bar
+- Accent border colors on panels (blue left, purple center, green right)
+- Purple text theme: --text3 #7b6aa8, --text4 #5a3f82 (was grey)
+
 ---
 
 ## GIT / GITHUB
@@ -1414,4 +1521,188 @@ Emails `service@dgsoftwash.com` (→ text via email-to-text) when issues are det
 
 ---
 
-*Last updated: 2026-05-04*
+## 2026-05-04 (cont.) — Pricing Page & Email Button Fixes (admin.js v54)
+
+### Pricing Page Button Text
+- Changed "Call or Text to Book: (804) 832-1953" → "Call: (804) 832-1953" (`views/pricing.html` line 134)
+
+### Email Customer Button Fix (WO modal)
+- "Email Customer" button in WO Actions section was a `mailto:` link → opened a blank page if no mail app configured
+- Changed to a proper button that calls `sendWoEmail()` — prompts for address then POSTs to `/api/admin/work-orders/:id/email` (Zoho SMTP)
+- Status message shown inline below Actions buttons after send
+- `admin.js` bumped to v54
+
+### mailto: Blank Page Fix (services.html)
+- `openCommercialEmail()` used `window.open(mailtoLink, '_blank')` → left a blank tab open every click
+- Changed to `window.location.href = mailtoLink` — browser handles mailto: cleanly, no blank tab
+- All other `mailto:` links across public pages (contact, index, pricing, gallery, reviews, booking-confirmation) are plain `<a href="mailto:">` links — those are correct and open default mail app directly
+
+---
+
+---
+
+## 2026-05-05 — Hidden Test Slot (12:00 AM / 00:00)
+
+### Problem
+Level 2 automated tests were failing with "Sorry, that time slot is no longer available" because the 09:00–15:00 slots were blocked by admin for days David is unavailable.
+
+### Fix
+Added a hidden test-only time slot `00:00` (12:00 AM midnight) to `server.js`:
+- `TEST_SLOT = '00:00'` constant defined alongside `VALID_SLOTS`
+- `parseTimeSlot()` recognizes `'00:00'` or `'12:00 AM'` and returns `TEST_SLOT`
+- Booking validation skips all availability/blocked checks when `isTestSlot === true`
+- Slot is **never** in `VALID_SLOTS` or `VALID_SLOTS_DISPLAY` — invisible to customers and calendar UI
+- Cannot be blocked by admin (it's not in the slots admin can select)
+
+### Test Files Updated
+- `test-full.sh` — booking test uses `appointmentTime: "00:00"` instead of `"09:00"`
+- `test-runner.js` — Level 2 booking test uses `"00:00"` instead of `"2:00 PM"`
+- `test-runner-improved.js` — same change
+
+---
+
+## 2026-05-06 — D&G Workplace Dashboard
+
+### New: Full-Screen Operator Dashboard
+Built a new `D&G Workplace Dashboard` — a full-screen macOS app that loads a unified HTML dashboard combining all operator tools in one place.
+
+### Files Added / Changed
+- **`/Volumes/1TB SSD/server-widget/WorkplaceDashboard.html`** — 1,091-line HTML dashboard (3-column layout: Server Health | Testing+Backups | PM2+Logs); dark theme, IBM Plex Mono, 5s/10s auto-refresh; auth via localStorage
+- **`server.js`** — Added `GET /workplace` route (after `/server-widget`) serving `WorkplaceDashboard.html` with `no-store` cache header
+- **`/Applications/DG Workplace Dashboard.app`** — Native macOS Swift+WKWebView app, loads `http://localhost:3000/workplace`; maximizes on first launch; remembers size/position (UserDefaults keys: wpX/wpY/wpW/wpH)
+- **Desktop alias** — `~/Desktop/DG Workplace Dashboard.app` → alias to the app
+
+### How to Open
+- Double-click **DG Workplace Dashboard** on the Desktop, OR
+- Run: `open "/Applications/DG Workplace Dashboard.app"`
+- Also accessible in browser at: `http://localhost:3000/workplace`
+
+### Source
+Swift source: `/tmp/workplace-build/main.swift` — recompile:
+```
+cd /tmp/workplace-build
+swiftc -framework Cocoa -framework WebKit main.swift -o DGWorkplace
+cp DGWorkplace "/Applications/DG Workplace Dashboard.app/Contents/MacOS/DGWorkplace"
+```
+
+### Notes
+- Original `ServerWidget.html` / `DG Softwash Monitor.app` unchanged — still available at `/widget`
+- Dashboard uses same admin token (stored in localStorage as `wp_token`) and `/api/admin/health`, `/api/testing/*`, `/api/admin/backup/*`, `/api/admin/server/action` endpoints
+
+---
+
+## 2026-05-06 (cont.) — Workplace Dashboard v2 (bug fixes + terminal panels)
+
+### Changes to WorkplaceDashboard.html
+- **Admin Panel button** — now opens in system browser (was navigating away from dashboard)
+- **Backblaze status** — fetches from `/api/backblaze-status` (separate unauthenticated endpoint); was always grey because health API has no backblaze key
+- **All 5 test levels** — now render status correctly with retry logic
+- **PM2 uptime** — displays human-readable (e.g. "2h 14m") instead of raw seconds
+- **Server errors** — formats `{component, message}` objects properly; was showing `[object Object]`
+- **System metrics** — fixed field names (`cpuPct`/`memPct`/`loadavg`)
+- **Removed** Quick Command bar and Terminal shortcut (bottom bar)
+- **Added** slim quick-launch button bar (36px) between header and main panels
+- **Added** 4 bottom panels (38% of screen height): Terminal 1, Terminal 2, Dispatch (claude.ai), Telegram (web.telegram.org)
+
+### Changes to server.js
+- Added WebSocket terminal server on `/terminal` path (attached to existing HTTP server)
+- Uses built-in `ws` package (`ws.Server`) — each WS connection spawns a `/bin/zsh --login` shell
+- Only accepts connections from localhost — no external exposure
+- Starting CWD: `/Volumes/1TB SSD/dg-softwash`
+- Log confirms: `WebSocket terminal server attached on /terminal`
+
+### Key: `ws` module
+- Already installed in `node_modules/ws` (v7.5.10) — no npm install needed
+- Accessed as `require('ws').Server` (not `WebSocketServer` — that's v8+ syntax)
+
+*Last updated: 2026-05-06*
+
+## 2026-05-07 — Workplace Dashboard v3 (terminal PTY fix + API key isolation)
+
+### Problem: Terminals crash-looping (`posix_spawnp failed`)
+- **Cause:** `node-pty`'s `spawn-helper` binary was installed without execute permission (`-rw-r--r--` instead of `-rwxr-xr-x`)
+- **Fix:** `chmod +x "/Volumes/1TB SSD/dg-softwash/node_modules/node-pty/prebuilds/darwin-arm64/spawn-helper"`
+- If ever reinstalled: re-apply this chmod after `npm install node-pty`
+
+### Problem: Claude CLI in terminal detected server API key (not Pro plan)
+- **Cause:** PTY shell inherited `ANTHROPIC_API_KEY` from `process.env` (loaded by dotenv for the server)
+- **Fix:** `server.js` WebSocket PTY handler now builds `shellEnv` from `process.env`, then `delete shellEnv.ANTHROPIC_API_KEY` before spawning the shell
+- Claude CLI in the terminal now uses the user's Pro plan / personal auth instead
+
+### Problem: Terminal prompt stuck at "dg-softwash $" even after `cd`
+- **Fix (server.js):** Changed `export PS1="dg-softwash $ "` to `export PS1='$(basename "$PWD") $ '` — prompt now shows current directory basename
+- **Fix (WorkplaceDashboard.html):** `termWrite()` now parses OSC 7 escape sequences (`\e]7;file://hostname/path`) that zsh automatically sends after each command; extracts the current directory and updates the visual prompt label (`<span id="term-prompt-N">`) dynamically
+- `appendCmd()` now uses `currentPrompt` variable instead of hardcoded `'dg-softwash $ '`
+
+## 2026-05-07 (cont.) — Native Terminal Windows in Workplace Dashboard
+
+### Change: Replaced HTML terminals with native Terminal.app launchers
+- The custom HTML/WebSocket terminal panels were unreliable (garbled output, echo issues)
+- **Terminal 1 and Terminal 2 panels now show "Open Terminal" buttons**
+- Clicking the button calls `POST /api/open-terminal` with the panel's screen coordinates
+- Server runs `osascript` to open Terminal.app, starts in `/Volumes/1TB SSD/dg-softwash`, and positions the window to cover the panel area exactly
+- Uses `window.screenX/Y + getBoundingClientRect()` to calculate absolute screen coords
+
+### New endpoint: `POST /api/open-terminal` (requireAdmin)
+- Body: `{ x, y, w, h }` — panel screen coordinates in pixels
+- Uses `execFile('osascript', [...])` with multiple `-e` flags to avoid shell escaping
+- `delay 0.4` before setting bounds so Terminal window exists before resize
+
+## 2026-05-07 (cont.) — Workplace Dashboard auto-start + crash recovery
+
+### LaunchAgent: `com.dgsoftwash.workplace`
+- File: `~/Library/LaunchAgents/com.dgsoftwash.workplace.plist`
+- Runs: `/Applications/DG Workplace Dashboard.app/Contents/MacOS/DGWorkplace`
+- `RunAtLoad: true` — launches at login automatically
+- `KeepAlive: true` — relaunches within 5s if it crashes (ThrottleInterval: 5)
+- `LimitLoadToSessionType: Aqua` — GUI session only (required for macOS apps)
+- Logs: `/tmp/workplace-dashboard.log` / `/tmp/workplace-dashboard-error.log`
+- Old `com.dgsoftwash.dashboard.plist` (AutoBootDashboard) has been unloaded — no longer needed
+
+### Manual control
+```bash
+launchctl unload ~/Library/LaunchAgents/com.dgsoftwash.workplace.plist   # stop + disable
+launchctl load   ~/Library/LaunchAgents/com.dgsoftwash.workplace.plist   # start + enable
+```
+
+### Dispatch / Telegram panels — no native windows needed
+- **Dispatch** panel calls `/api/dispatch/chat` → Anthropic API directly. No Claude.ai window needed.
+- **Telegram** panel calls `/api/telegram/updates` → reads OpenClaw session files. No Telegram desktop needed.
+- They appear as "mirrors" of native apps because they show the same conversation data, but are fully independent.
+
+## 2026-05-07 (cont.) — Fix Telegram send (Chappie wasn't responding)
+
+### Problem
+`/api/telegram/send` was using the Bot API `sendMessage` endpoint with the bot token.
+This made messages appear as FROM the bot (Chappie talking to itself) — OpenClaw
+ignored them because they weren't incoming user messages.
+
+### Fix
+Replaced with `openclaw agent --message <text> --deliver --channel telegram`.
+This injects the message directly into the agent pipeline so Chappie processes it
+and sends a real reply via Telegram.
+
+Server returns `{ok: true}` immediately (fire-and-forget); Chappie's reply arrives
+via Telegram and the dashboard's `loadTelegram()` 15-second poll picks it up.
+Extra polls at 8s and 20s after send for faster response display.
+
+## 2026-05-07 (cont.) — Dispatch upgraded to full agentic AI (Claude Code-level access)
+
+### What changed
+Dispatch panel now runs a full agentic loop — same capabilities as Claude Code:
+
+**Tools available:**
+- `bash` — any shell command (pm2, psql, git, cat, ls, etc.), 60s timeout, 2MB buffer
+- `read_file` — read any file with optional offset/limit
+- `write_file` — write/overwrite any file
+- `edit_file` — exact-string replace within a file (fails if string not found or matches multiple)
+
+**How it works:**
+- Server runs agentic loop (up to 15 iterations) until Claude returns `end_turn`
+- Each tool call is logged to PM2 stdout: `[dispatch] tool: bash: {"command":"..."}`
+- Dashboard shows tool summary badge: `⚙ 3 tools used: bash, read_file, edit_file`
+- Replies preserve whitespace (`white-space: pre-wrap`) for code blocks and tables
+
+**System prompt:** Dispatch knows the full server context — paths, DB URL, PM2 commands, key files, etc.
+
+*Last updated: 2026-05-07*

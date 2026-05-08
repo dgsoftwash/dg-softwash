@@ -24,7 +24,7 @@ head() { echo -e "\n${YELLOW}==> $1${NC}"; }
 head "AUTH"
 LOGIN=$(curl -sf -X POST "$BASE/api/admin/login" \
   -H "Content-Type: application/json" \
-  -d '{"password":"dgsoftwash2025"}' 2>/dev/null)
+  -d '{"password":"bemish2026"}' 2>/dev/null)
 TOKEN=$(echo "$LOGIN" | node -e "try{const d=require('fs').readFileSync('/dev/stdin','utf8');console.log(JSON.parse(d).token||'')}catch(e){console.log('')}" 2>/dev/null)
 
 if [ -n "$TOKEN" ]; then
@@ -186,6 +186,93 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# 7. Workplace Dashboard routes & APIs
+# ---------------------------------------------------------------------------
+head "WORKPLACE DASHBOARD"
+
+# /workplace page loads
+STATUS=$(curl -so /dev/null -w "%{http_code}" $AUTH "$BASE/workplace" 2>/dev/null)
+if [ "$STATUS" = "200" ]; then
+  ok "GET /workplace → 200"
+else
+  fail "GET /workplace → $STATUS (expected 200)"
+fi
+
+# /widget page loads
+STATUS=$(curl -so /dev/null -w "%{http_code}" $AUTH "$BASE/widget" 2>/dev/null)
+if [ "$STATUS" = "200" ]; then
+  ok "GET /widget → 200"
+else
+  fail "GET /widget → $STATUS (expected 200)"
+fi
+
+# Health API (used by both widget and workplace dashboard)
+HEALTH=$(curl -sf $AUTH "$BASE/api/admin/health" 2>/dev/null)
+if echo "$HEALTH" | grep -q '"app"'; then
+  ok "GET /api/admin/health → returns app status"
+else
+  fail "GET /api/admin/health → unexpected response"
+fi
+
+# Telegram updates endpoint (read-only)
+TG=$(curl -sf $AUTH "$BASE/api/telegram/updates?limit=5" 2>/dev/null)
+if echo "$TG" | grep -q '"ok":true'; then
+  ok "GET /api/telegram/updates → ok:true"
+else
+  fail "GET /api/telegram/updates → unexpected response: $(echo $TG | head -c 100)"
+fi
+
+# Backblaze status (unauthenticated)
+BB=$(curl -sf "$BASE/api/backblaze-status" 2>/dev/null)
+if echo "$BB" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');try{JSON.parse(d);process.exit(0)}catch(e){process.exit(1)}" 2>/dev/null; then
+  ok "GET /api/backblaze-status → valid JSON"
+else
+  fail "GET /api/backblaze-status → invalid response"
+fi
+
+# Dispatch chat (tests agentic loop with a simple no-tool query)
+DISPATCH=$(curl -sf -X POST $AUTH "$BASE/api/dispatch/chat" \
+  -H "Content-Type: application/json" \
+  -d '{"messages":[{"role":"user","content":"Reply with exactly: OK"}]}' 2>/dev/null)
+if echo "$DISPATCH" | grep -q '"reply"'; then
+  ok "POST /api/dispatch/chat → returns reply"
+else
+  fail "POST /api/dispatch/chat → unexpected response: $(echo $DISPATCH | head -c 100)"
+fi
+
+
+# App logs endpoint (new 2026-05-07)
+LOGS=$(curl -sf $AUTH "$BASE/api/admin/app-logs?lines=10" 2>/dev/null)
+if echo "$LOGS" | grep -q '"lines"'; then
+  ok "GET /api/admin/app-logs → returns lines array"
+else
+  fail "GET /api/admin/app-logs → unexpected response: $(echo $LOGS | head -c 100)"
+fi
+
+# Open-URL endpoint (new 2026-05-07) — just verify it accepts valid URLs
+OPENURL=$(curl -sf -X POST $AUTH "$BASE/api/open-url" \
+  -H "Content-Type: application/json" \
+  -d '{"url":"http://localhost:3000/workplace"}' 2>/dev/null)
+if echo "$OPENURL" | grep -q '"ok"'; then
+  ok "POST /api/open-url → responds with ok field"
+else
+  fail "POST /api/open-url → unexpected response: $(echo $OPENURL | head -c 100)"
+fi
+
+# Server action — verify new actions exist (backup-database, cf-tunnel-reload, ram-cleanup)
+for ACTION in backup-database cf-tunnel-reload ram-cleanup openclaw-reload; do
+  # We just check the server doesn't return 'Unknown action' for these
+  R=$(curl -sf -X POST $AUTH "$BASE/api/admin/server/action" \
+    -H "Content-Type: application/json" \
+    -d "{\"action\":\"$ACTION\"}" 2>/dev/null)
+  if echo "$R" | grep -qv '"Unknown action"'; then
+    ok "POST /api/admin/server/action $ACTION → recognized"
+  else
+    fail "POST /api/admin/server/action $ACTION → unknown action"
+  fi
+done
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 TOTAL=$((PASS + FAIL))
@@ -200,3 +287,4 @@ else
 fi
 echo ""
 exit $FAIL
+

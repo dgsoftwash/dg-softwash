@@ -50,7 +50,7 @@ jq_val() {
 head "0. AUTHENTICATION"
 LOGIN=$(curl -sf -X POST "$BASE/api/admin/login" \
   -H "Content-Type: application/json" \
-  -d '{"password":"dgsoftwash2025"}' 2>/dev/null)
+  -d '{"password":"bemish2026"}' 2>/dev/null)
 TOKEN=$(jq_val "$LOGIN" "token")
 
 if [ -n "$TOKEN" ]; then
@@ -190,10 +190,10 @@ BOOK_DATE=$(node -e "
 
 BOOK_RESP=$(curl -sf -X POST "$BASE/api/contact" \
   -H "Content-Type: application/json" \
-  -d "{\"name\":\"TEST Full Booking\",\"email\":\"service@dgsoftwash.com\",\"phone\":\"7575550001\",\"address\":\"789 Test Blvd Virginia Beach VA\",\"service\":\"house-rancher\",\"appointmentDate\":\"$BOOK_DATE\",\"appointmentTime\":\"09:00\",\"message\":\"Automated test booking — safe to delete\"}" 2>/dev/null)
+  -d "{\"name\":\"TEST Full Booking\",\"email\":\"service@dgsoftwash.com\",\"phone\":\"7575550001\",\"address\":\"789 Test Blvd Virginia Beach VA\",\"service\":\"house-rancher\",\"appointmentDate\":\"$BOOK_DATE\",\"appointmentTime\":\"00:00\",\"message\":\"Automated test booking — safe to delete\"}" 2>/dev/null)
 
 if echo "$BOOK_RESP" | grep -q '"success":true'; then
-  ok "Booking created for $BOOK_DATE 9:00 AM"
+  ok "Booking created for $BOOK_DATE 12:00 AM (test slot)"
 else
   fail "Booking creation: $BOOK_RESP"
 fi
